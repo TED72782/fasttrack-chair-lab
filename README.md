@@ -5,8 +5,8 @@ An interactive simulator for the Mary Bridge Children's emergency department fas
 **→ [Open the lab](https://ted72782.github.io/fasttrack-chair-lab/)**
 
 Build a lane, run the evening, put it on the board. Every change re-simulates 1,200 evenings in
-your browser. There is no official right answer — **draw your own line for an acceptable wait**
-and find the shape that beats it.
+your browser. There is no pass mark — the page reports **how long people wait and how many get
+turned away**, and what counts as acceptable is yours to argue about.
 
 ## The leaderboard
 
@@ -90,7 +90,8 @@ that turns people away looks better on it than it is.
   test is ordered. Nothing in the record times it, so it assumes 25 minutes. It moves the
   divided layouts and does not touch the pooled one — you can see that by switching between them.
 - **Waits are averages.** Most patients wait nothing. Half an evening's total delay can land in
-  one hour, which is why the target here is the worst hour rather than the average.
+  one hour, which is why the worst hour is reported separately from the average. Two layouts a
+  minute or two apart are not reliably in that order — rerun them and they can swap.
 - **It cannot see the floor.** Who is watching a patient waiting on a result, whether an open
   chair suits a particular child, and what happens to people still in chairs at 23:00 are all
   real considerations and none of them are in the model. If pooling wins on this screen and
