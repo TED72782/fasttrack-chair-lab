@@ -34,6 +34,18 @@ ported to JavaScript and checked against it line by line:
 | 8 rooms + 10 chairs | 1.23 min | 1.27 min |
 | 10 chairs pooled | 2.50 min | 2.64 min |
 
+## The lane closes at 23:00
+
+Anyone still waiting for a space when the lane shuts goes to the main department, and the page
+reports that count beside the wait. This matters more than it sounds. Without a close rule the
+simulation quietly served its backlog in overtime: a six-space lane ran until **09:04 the next
+morning** and spent 45% of its work outside its own hours. That inflated every wait and pinned
+every layout's worst hour at 22:00 — which reads like a demand peak and is nothing of the kind,
+since arrivals actually peak at 19:00. It was the overtime bucket.
+
+Read the two numbers together. The wait only counts patients the lane actually saw, so a layout
+that turns people away looks better on it than it is.
+
 ## What it does not know
 
 - **One assumption, and it is visible.** How long someone keeps the assessment space after their
