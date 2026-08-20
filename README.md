@@ -4,9 +4,21 @@ An interactive simulator for the Mary Bridge Children's emergency department fas
 
 **→ [Open the lab](https://ted72782.github.io/fasttrack-chair-lab/)**
 
-Set the lane up however you like — how the spaces are arranged, how many there are, how long
-each one is tied up — and see what the evening does. Every change re-simulates 2,400 evenings
-in your browser. One rule: **no hour over 15 minutes at the door.**
+Build a lane, run the evening, put it on the board. Every change re-simulates 1,200 evenings in
+your browser. There is no official right answer — **draw your own line for an acceptable wait**
+and find the shape that beats it.
+
+## The leaderboard
+
+Ranked on **minutes of delay per arriving patient**, and that denominator is the whole point. A
+"shortest wait" board scored on the patients a lane actually saw rewards turning people away: a
+4-space lane posts a lovely 99-minute average among those it sees, while charging 122 minutes to
+every patient who walked in and sending 14 of 26 to the main department. Diverted patients carry
+the time they waited before being sent away, so shrinking the lane cannot buy you a better score.
+
+The board is saved in your own browser, so it is per-device rather than shared across the group.
+Use **Copy link to this setup** to paste a configuration to someone else — the whole lane is in
+the URL.
 
 ## The three layouts
 
