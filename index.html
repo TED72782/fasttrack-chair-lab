@@ -139,6 +139,21 @@ input[type=range]:focus-visible{outline:2px solid var(--hold);outline-offset:3px
 .mini:focus-visible{outline:2px solid var(--hold);outline-offset:2px}
 .board-f{display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;
   padding:12px 16px;border-top:1px solid var(--line-soft);font-size:12px;color:var(--ink-3)}
+.board-actions{display:flex;gap:12px;align-items:center}
+.link{color:var(--ink-2);font-size:12px;text-decoration:underline;text-underline-offset:2px}
+.link:hover{color:var(--ink)}
+.link:focus-visible{outline:2px solid var(--hold);outline-offset:2px}
+.setup-row{margin-top:12px;padding:14px 16px;background:var(--surface);border:1px solid var(--hold);
+  border-radius:10px;display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:center}
+.setup-row label{font-size:12.5px;color:var(--ink-2);white-space:nowrap}
+.setup-row input{font:inherit;font-size:13px;padding:8px 10px;border:1px solid var(--line);
+  border-radius:7px;background:var(--surface-2);color:var(--ink);width:100%}
+.setup-row input:focus-visible{outline:2px solid var(--hold);outline-offset:1px}
+.setup-row button{all:unset;cursor:pointer;font-size:12.5px;padding:8px 14px;border-radius:7px;
+  background:var(--hold);color:#fff;font-weight:600}
+.setup-row button:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.setup-row p{grid-column:1/-1;margin:0;font-size:12px;color:var(--ink-3)}
+@media (max-width:680px){.setup-row{grid-template-columns:1fr}}
 .note{margin-top:22px;padding:16px 18px;background:var(--surface-2);border:1px solid var(--line-soft);
   border-radius:10px;font-size:13.5px;color:var(--ink-2)}
 .note h3{font-size:14px;margin-bottom:8px;color:var(--ink)}
@@ -225,9 +240,22 @@ footer{margin-top:26px;font-size:12.5px;color:var(--ink-3);border-top:1px solid 
       <div class="board-f">
         <span>Ranked on <b>minutes of delay per arriving patient</b> — the one wait figure that
           cannot be improved by turning people away. <span id="sharedTag"></span></span>
-        <button type="button" id="clearBoard" class="mini">Clear board</button>
+        <span class="board-actions">
+          <a href="#" id="boardSetup" class="link">Shared board</a>
+          <button type="button" id="clearBoard" class="mini">Clear board</button>
+        </span>
       </div>
     </section>
+
+    <div class="setup-row" id="setupRow" hidden>
+      <label for="apiUrl">Shared board endpoint</label>
+      <input id="apiUrl" type="url" placeholder="https://script.google.com/…/exec"
+             aria-label="shared board endpoint">
+      <button type="button" id="apiSave" class="primary">Save</button>
+      <p>Paste the web-app URL from SETUP-SHARED-BOARD.md. Only one person needs to do this —
+         once it is set, <b>Copy link to this setup</b> produces a link that joins everyone else
+         to the same board automatically. Leave it empty to go back to a board saved only here.</p>
+    </div>
 
     <div class="note">
       <h3>What this does and does not know</h3>
@@ -553,32 +581,68 @@ function drawTarget(){
    everyone in the room sees one list. Otherwise it falls back to this browser's own storage,
    so the GitHub Pages copy still works exactly as before. The page never blocks on the
    network: a shared board that stops answering degrades to the local one rather than hanging. */
-const LB_KEY = "chairlab.board.v1";
-let SHARED = false, cache = [];
-const localBoard = () => { try{ return JSON.parse(localStorage.getItem(LB_KEY)||"[]") }catch(e){ return [] } };
-const saveLocal = b => { try{ localStorage.setItem(LB_KEY, JSON.stringify(b.slice(-40))) }catch(e){} };
-const board = () => SHARED ? cache : localBoard();
-const saveBoard = b => { if(!SHARED) saveLocal(b); };
+const LB_KEY  = "chairlab.board.v1";
+const API_KEY = "chairlab.endpoint.v1";
+let SHARED = false, cache = [], API = null;
 
-async function probeShared(){
-  if(!/^https?:$/.test(location.protocol) || location.protocol==="https:") return;  // https page cannot call http
+const localBoard = () => { try{ return JSON.parse(localStorage.getItem(LB_KEY)||"[]") }catch(e){ return [] } };
+const saveLocal  = b => { try{ localStorage.setItem(LB_KEY, JSON.stringify(b.slice(-40))) }catch(e){} };
+const board      = () => SHARED ? cache : localBoard();
+
+// The endpoint can arrive three ways, in this order: a ?board= link (so only ONE person ever
+// sets it up and everyone else just follows their link), whatever was saved here before, or a
+// same-origin /board when the page is being served by serve_board.py on the local network.
+function endpointFromEnv(){
+  const q = new URLSearchParams(location.search).get("board");
+  if(q){ try{ localStorage.setItem(API_KEY, q) }catch(e){} return q }
+  try{ const s = localStorage.getItem(API_KEY); if(s) return s }catch(e){}
+  return location.protocol === "https:" ? null : "board";
+}
+
+async function probeShared(explicit){
+  API = explicit === undefined ? endpointFromEnv() : (explicit || null);
+  if(!API) return markShared();
   try{
-    const r = await fetch("board", {cache:"no-store"});
-    if(!r.ok) return;
-    cache = await r.json(); SHARED = true; drawBoard(); markShared();
-  }catch(e){ /* no shared board here — the local one is already in use */ }
+    const r = await fetch(API, {cache:"no-store", redirect:"follow"});
+    if(!r.ok) throw 0;
+    const d = await r.json();
+    if(!Array.isArray(d)) throw 0;
+    cache = d; SHARED = true; drawBoard();
+  }catch(e){ SHARED = false; }
+  markShared();
 }
+
 function markShared(){
-  const n=$("sharedTag"); if(n) n.textContent = SHARED ? "shared board — everyone here sees this list"
-                                                      : "saved in this browser only";
+  const n=$("sharedTag"); if(!n) return;
+  n.textContent = SHARED ? "shared board — everyone using this link sees the same list"
+                : API ? "shared board unreachable — using this browser only"
+                      : "saved in this browser only";
 }
+
 async function pushShared(entry){
   try{
-    const r = await fetch("board", {method:"POST", headers:{"Content-Type":"application/json"},
-                                    body: JSON.stringify(entry)});
-    if(r.ok){ cache = await r.json(); return true }
-  }catch(e){}
-  return false;
+    // text/plain deliberately: a JSON content-type makes the browser send a CORS preflight,
+    // which an Apps Script web app cannot answer, and the POST would fail before arriving.
+    const r = await fetch(API, {method:"POST", headers:{"Content-Type":"text/plain;charset=utf-8"},
+                                body: JSON.stringify(entry), redirect:"follow"});
+    if(!r.ok) return false;
+    const d = await r.json();
+    if(!Array.isArray(d)) return false;
+    cache = d; return true;
+  }catch(e){ return false }
+}
+
+function setEndpoint(url){
+  url = (url||"").trim();
+  try{ url ? localStorage.setItem(API_KEY, url) : localStorage.removeItem(API_KEY) }catch(e){}
+  // Drop ?board= from the address bar too. Without this, clearing the endpoint looks broken:
+  // the next probe reads the parameter still sitting in the URL and rejoins the board.
+  if(!url && new URLSearchParams(location.search).has("board")){
+    const u = new URL(location.href); u.searchParams.delete("board");
+    history.replaceState(null, "", u.pathname + u.search + u.hash);
+  }
+  SHARED = false; cache = []; probeShared(url);
+  drawBoard();
 }
 
 function scoreOf(cfg, pts){
@@ -632,7 +696,9 @@ function drawBoard(){
 /* ── shareable setup ─────────────────────────────────────────────────────── */
 function toHash(){
   const c = [S.mode,S.A,S.R,S.cyc,S.assess,S.fastDischarge?1:0,S.target,S.level].join(",");
-  return location.origin + location.pathname + "#" + encodeURIComponent(c);
+  // carry the shared board along, so a colleague opening this link is joined to it automatically
+  const q = API && API!=="board" ? "?board="+encodeURIComponent(API) : "";
+  return location.origin + location.pathname + q + "#" + encodeURIComponent(c);
 }
 function fromHash(){
   const h = decodeURIComponent(location.hash.slice(1)); if(!h) return;
@@ -698,7 +764,10 @@ function run(){
   if(held && (!best[key] || S.A+(m.hasR?S.R:0) < best[key])) best[key] = S.A+(m.hasR?S.R:0);
   const tgo=$("tgOut"); if(tgo) tgo.textContent = S.target+" min";
   drawLevels(o); drawBoard();
-  history.replaceState(null,"","#"+encodeURIComponent([S.mode,S.A,S.R,S.cyc,S.assess,S.fastDischarge?1:0,S.target,S.level].join(",")));
+  // keep the query string — it carries ?board=, and replacing the URL with a bare hash would
+  // drop the shared board from the address bar on the first render
+  history.replaceState(null, "", location.pathname + location.search + "#" +
+    encodeURIComponent([S.mode,S.A,S.R,S.cyc,S.assess,S.fastDischarge?1:0,S.target,S.level].join(",")));
 }
 
 function drawLevels(cur){
@@ -731,4 +800,7 @@ $("clearBoard").onclick = () => {
   if(confirm("Clear the board in this browser?")){ saveLocal([]); drawBoard() }
 };
 markShared(); probeShared();
+$("boardSetup").onclick = e => { e.preventDefault(); const d=$("setupRow"); d.hidden = !d.hidden;
+  if(!d.hidden) $("apiUrl").value = (API && API!=="board") ? API : ""; };
+$("apiSave").onclick = () => { setEndpoint($("apiUrl").value); $("setupRow").hidden = true; };
 </script>

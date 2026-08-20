@@ -19,6 +19,16 @@ the time they waited before being sent away, so shrinking the lane cannot buy yo
 By default the board is saved in your own browser, so it is per-device. Use **Copy link to this
 setup** to paste a configuration to someone else — the whole lane is in the URL.
 
+### One shared board, from anywhere
+
+Deploy `shared-board.gs` as a Google Apps Script web app — six steps in
+[SETUP-SHARED-BOARD.md](SETUP-SHARED-BOARD.md), about three minutes, one person only. Paste the
+URL it gives you into **Shared board** at the foot of the leaderboard.
+
+After that, **Copy link to this setup** produces a link that carries the board with it. Send that
+link round and everyone else is joined automatically with nothing to configure. The board is a
+Google Sheet, one row per lane, so you can sort it or paste it into a slide.
+
 ### One shared board, for a meeting
 
 Run `python3 serve_board.py` on one machine and share the address it prints. Everyone on the
