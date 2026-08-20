@@ -318,9 +318,12 @@ const MODES = [
 ];
 // Named layouts the group has put forward. Each is a full setting, not a hint.
 const PRESETS = [
-  {id:"mikelong", n:"The Mike Long Play", by:"Mike Long",
+  {id:"mikelong", n:"The Mike Long Play",
    set:{mode:"zone", A:2, R:8, assess:44, fastDischarge:true},
-   d:"2 assessment chairs; the other 8 are one combined fast-track waiting and results-pending zone."}
+   d:"2 assessment chairs; the other 8 are one combined fast-track waiting and results-pending zone."},
+  {id:"park", n:"The Park Attack",
+   set:{mode:"split", A:3, R:2, budget:5},
+   d:"5 spaces in total, split between assessment and results-pending however you like — move one and the other follows."}
 ];
 const LEVELS = [
   {n:"A typical evening", pts:26, d:"half of evenings are quieter"},
@@ -328,7 +331,7 @@ const LEVELS = [
   {n:"Busiest in ten",    pts:36, d:"1 evening in 10 is busier"},
   {n:"The bad one",       pts:40, d:"about 1 evening in 25"}
 ];
-const S = {mode:"split", A:6, R:4, cyc:Math.round(D.T_A), assess:44, fastDischarge:false, level:1};
+const S = {mode:"split", A:6, R:4, budget:0, cyc:Math.round(D.T_A), assess:44, fastDischarge:false, level:1};
 // Measured: mean time from being roomed to the first test being ordered is 44 min. In the
 // combined-zone layouts the patient leaves the assessment chair at that point instead of
 // keeping it, so this is the natural starting value — and it is the number that decides
@@ -345,7 +348,7 @@ function drawModes(){
     `<button type="button" data-m="${m.id}" aria-pressed="${m.id===S.mode}">
        <span class="t">${m.t}</span><br><span class="s">${m.s}</span></button>`).join("");
   $("modes").querySelectorAll("button").forEach(b=>b.onclick=()=>{
-    S.mode=b.dataset.m; const m=modeOf();
+    S.mode=b.dataset.m; S.budget=0; const m=modeOf();
     if(m.id==="rooms"){S.A=8;S.R=Math.max(1,S.R)}
     if(m.id==="pooled"){S.A=Math.min(12,S.A+S.R)}
     if((m.id==="split"||m.id==="zone") && S.A+S.R>16){S.A=6;S.R=4}
@@ -360,11 +363,23 @@ function drawSpaces(){
   if(m.hasR) rows.push(ctl("R", m.zone?"Chairs in the combined zone":"Results-waiting chairs",
                            S.R, 1, 14, false));
   const tot = S.A + (m.hasR?S.R:0);
-  rows.push(`<div class="total"><span>Spaces in use</span><b class="num">${tot}</b></div>`);
+  rows.push(`<div class="total"><span>Spaces in use</span><b class="num">${tot}${S.budget?" of "+S.budget:""}</b></div>`);
   $("spaceCtl").innerHTML = rows.join("");
   $("spaceCtl").querySelectorAll("input").forEach(i=>{
-    i.oninput=()=>{S[i.dataset.k]=+i.value;drawSpaces();run()};
+    i.oninput=()=>{
+      const k=i.dataset.k, v=+i.value;
+      if(S.budget && m.hasR){                       // spend from a fixed pot: one goes up, the other down
+        const other = k==="A" ? "R" : "A";
+        S[k] = Math.min(v, S.budget-1);
+        S[other] = S.budget - S[k];
+      } else S[k]=v;
+      drawSpaces(); run();
+    };
   });
+  if(S.budget) $("spaceCtl").insertAdjacentHTML("beforeend",
+    `<div class="hint" style="margin-top:8px">Fixed at ${S.budget} spaces — moving one takes from the
+     other. <a href="#" id="unlock">Unlock the total</a> to add more.</div>`);
+  const un=$("unlock"); if(un) un.onclick=e=>{e.preventDefault();S.budget=0;drawSpaces();run()};
   function ctl(k,label,val,min,max,dis){
     return `<div class="ctl"><div class="ctl-top"><label for="s${k}">${label}</label>
       <output class="num" id="o${k}">${val}</output></div>
@@ -412,7 +427,7 @@ function drawPresets(){
        <span class="s">${p.d}</span></button>`).join("");
   $("presets").querySelectorAll("button").forEach(btn=>btn.onclick=()=>{
     const p=PRESETS.find(x=>x.id===btn.dataset.p);
-    Object.assign(S,p.set); drawModes(); drawSpaces(); run();
+    S.budget=0; Object.assign(S,p.set); drawModes(); drawSpaces(); run();
   });
 }
 
@@ -427,21 +442,30 @@ function run(){
                  lam:lamFor(lvl.pts), asw:scale(D.asw,f), now:scale(D.now,f), res:D.res});
   drawSpeed(m);
 
-  // Offered load on the assessment chairs. At 1.0 or above the queue never clears, and no
-  // amount of anything downstream rescues it — better said outright than shown as a huge wait.
-  const holdPer = m.zone ? (S.fastDischarge ? S.assess : D.shr*S.assess + (1-D.shr)*D.mean_now)
-                : m.id==="pooled" ? D.hold_all : S.cyc;
-  const canCarry = S.A * 8 * 60 / holdPer;
-  const rho = lvl.pts / canCarry;
+  // ── Can the spaces carry the evening at all, before any queueing?
+  //
+  // Checked on BOTH sides and on the total. The Park Attack (5 spaces) is what forced this:
+  // its assessment side looks survivable at a fast cycle while the RESULTS side is already
+  // over — only ~half the patients need a test, but each one holds a results chair ~79 min.
+  // A banner that only watched the assessment chairs called that layout workable when the
+  // arithmetic says it cannot be.
+  const perAssess = m.zone ? (S.fastDischarge ? S.assess : D.shr*S.assess + (1-D.shr)*D.mean_now)
+                  : m.id==="pooled" ? D.hold_all : S.cyc;
+  const mins = 8*60;
+  const sides = [{n:"assessment", load: lvl.pts*perAssess/(S.A*mins), cap: S.A*mins/perAssess}];
+  if(m.hasR) sides.push({n:"results", load: lvl.pts*D.shr*D.mean_res/(S.R*mins),
+                         cap: S.R*mins/(D.shr*D.mean_res)});
+  const bind = sides.reduce((a,b)=>b.load>a.load?b:a);
+  const rho = bind.load;
   $("load").className = "load" + (rho>=1 ? " bad" : rho>0.85 ? " warn" : "");
   $("load").innerHTML = rho >= 1
-    ? `<b>Over capacity.</b> ${S.A} assessment ${S.A===1?"chair":"chairs"} at this speed can carry about
-       <b class="num">${canCarry.toFixed(0)}</b> patients an evening, and <b class="num">${lvl.pts}</b>
-       are arriving. The queue never clears, so the wait below is not a number to plan around — it
-       just keeps growing.`
-    : `Assessment ${S.A===1?"chair":"chairs"} <b class="num">${(100*rho).toFixed(0)}%</b> loaded before any
-       queueing — about <b class="num">${canCarry.toFixed(0)}</b> patients an evening of capacity against
-       <b class="num">${lvl.pts}</b> arriving.`;
+    ? `<b>Over capacity on the ${bind.n} side.</b> It can carry about
+       <b class="num">${bind.cap.toFixed(0)}</b> patients an evening and <b class="num">${lvl.pts}</b>
+       are arriving. The queue never clears, so the wait below is not a number to plan around —
+       it grows with however long you run it.`
+    : `Busiest side is <b>${bind.n}</b>, <b class="num">${(100*rho).toFixed(0)}%</b> loaded before any
+       queueing — about <b class="num">${bind.cap.toFixed(0)}</b> patients an evening of capacity
+       against <b class="num">${lvl.pts}</b> arriving.`;
   const held = o.over===0;
   $("hero").innerHTML = [
     [`${o.worst.toFixed(0)}`, `worst hour — at ${o.worstHour}:00`, held?"is-hold":"is-breach"],
