@@ -46,11 +46,17 @@ Busy evening (31 arrivals), scored against today's arrangement:
 
 | lane | takes | wait among those it accepts | score |
 |---|---|---|---|
-| 10 spaces, 6+4, everyone | 31 of 31 | 18.3 | **23.6** |
+| 9 chairs pooled, everyone | 31 of 31 | 17.7 | **20.9** |
+| 10 spaces, 6+4, everyone | 31 of 31 | 26.3 | **31.2** |
+| 10 spaces, 6+4, low-test complaints only | 6 of 31 | 8.0 | 48.2 |
+| 6 spaces, 4+2, low-test complaints only | 6 of 31 | 8.5 | 48.3 |
 | *today's arrangement* | — | — | *58.1* |
-| 10 spaces, 6+4, low-test complaints only | 6 of 31 | 0.0 | 46.6 |
-| 6 spaces, 4+2, low-test complaints only | 6 of 31 | 0.5 | 46.7 |
-| 6 spaces, 4+2, everyone | 31 of 31 | 79.3 | **105.3** |
+| 6 spaces, 4+2, everyone | 31 of 31 | 87.3 | **110.8** |
+
+Every wait here starts at the door. A patient cannot be put anywhere until they are registered
+and triaged, which takes 8.0 minutes on average and barely moves across the evening, so a lane
+with a chair standing free still reports 8 — not zero. The figure it is compared against contains
+the same 8 minutes.
 
 **Whether narrowing helps depends on the footprint, not on a rule.** At ten spaces, taking
 everyone beats taking only the easy complaints — the patients you turn down still wait. At six
