@@ -8,13 +8,35 @@ Build a lane, run the evening, put it on the board. Every change re-simulates 1,
 your browser. There is no pass mark — the page reports **how long people wait and how many get
 turned away**, and what counts as acceptable is yours to argue about.
 
-## The leaderboard
+## The score
 
-Ranked on **minutes of delay per arriving patient**, and that denominator is the whole point. A
-"shortest wait" board scored on the patients a lane actually saw rewards turning people away: a
-4-space lane posts a lovely 99-minute average among those it sees, while charging 122 minutes to
-every patient who walked in and sending 14 of 26 to the main department. Diverted patients carry
-the time they waited before being sent away, so shrinking the lane cannot buy you a better score.
+**Minutes of delay per ESI 4/5 patient arriving in the window — whoever ends up treating them.**
+
+Every other number improves if the lane takes fewer patients. Narrow the criteria, or let the
+queue spill past closing, and the average among those you served looks better while the evening
+is unchanged. So the score charges the patients a lane does *not* serve what they actually get
+instead: today's wait for a room in the main department, by hour — 31 minutes at 15:00 rising to
+101 at 22:00.
+
+**54.6 minutes is the number to beat** — what these patients wait today, averaged over the
+evening. Accept nobody and you score exactly that. There is no way to win by shrinking:
+
+| lane | takes | wait among those it accepts | score |
+|---|---|---|---|
+| 9 chairs pooled | 31 of 31 | 9.7 | **12.9** |
+| 10 spaces, 6+4 | 31 of 31 | 18.3 | **23.3** |
+| 10 spaces, 6+4, rarely-test complaints only | 6 of 31 | 0.0 | 43.8 |
+| 6 spaces, 4+2, test rate ≤ 50% | 8 of 31 | 1.7 | 40.3 |
+| 6 spaces, 4+2, everyone | 31 of 31 | 79.3 | **103.6** |
+| no lane at all | — | — | 54.6 |
+
+Two rows there are worth sitting with. A lane taking only the easy complaints scores *worse*
+than one taking everybody, because the patients it turns down still wait. And six spaces taking
+all comers scores worse than having no lane, because its own queue is longer than the main
+department's.
+
+It assumes the main department's wait is unaffected by the lane. Taking work out of it should
+make that wait shorter, so if anything this understates what excluding patients costs.
 
 By default the board is saved in your own browser, so it is per-device. Use **Copy link to this
 setup** to paste a configuration to someone else — the whole lane is in the URL.
