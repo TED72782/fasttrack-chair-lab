@@ -1,0 +1,96 @@
+#!/usr/bin/env python3
+"""Local shared leaderboard for the Fast Track Chair Lab.
+
+Serves index.html AND a tiny shared board from this machine, so everyone in the room sees the
+same list. Local network only — it binds to your LAN address, not the internet.
+
+    python3 serve_board.py            # then share the http://... line it prints
+
+⚠ WHY THIS SERVES THE PAGE TOO, rather than just the board: the GitHub Pages copy is HTTPS, and
+a browser will not let an HTTPS page call an http:// endpoint. Serving both from here keeps them
+on the same origin, which sidesteps that without any tunnel — and without exposing this machine
+to the internet, which matters on a laptop that holds clinical data.
+
+The board lives in board.json next to this file. Delete it to reset.
+"""
+import json, socket, sys
+from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
+
+HERE = Path(__file__).parent
+BOARD = HERE / "board.json"
+PORT = int(sys.argv[1]) if len(sys.argv) > 1 else 8000
+MAX_ENTRIES = 500
+
+
+def read():
+    try:
+        return json.loads(BOARD.read_text())
+    except Exception:
+        return []
+
+
+class Handler(SimpleHTTPRequestHandler):
+    def __init__(self, *a, **kw):
+        super().__init__(*a, directory=str(HERE), **kw)
+
+    def _json(self, obj, code=200):
+        body = json.dumps(obj).encode()
+        self.send_response(code)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        self.wfile.write(body)
+
+    def do_GET(self):
+        if self.path.split("?")[0] == "/board":
+            return self._json(read())
+        return super().do_GET()
+
+    def do_POST(self):
+        if self.path.split("?")[0] != "/board":
+            return self.send_error(404)
+        try:
+            n = int(self.headers.get("Content-Length", 0))
+            if n > 4096:                                   # a lane is ~100 bytes
+                return self.send_error(413)
+            e = json.loads(self.rfile.read(n))
+            # Accept only the shape the page sends. Anything else is ignored rather than stored —
+            # this is on a shared network, and the board should not become an echo of whatever
+            # gets posted at it.
+            entry = {"who": str(e.get("who", ""))[:28],
+                     "cfg": {k: e.get("cfg", {}).get(k) for k in
+                             ("mode", "A", "R", "cyc", "assess", "fastDischarge")},
+                     "at": int(e.get("at", 0))}
+            if not entry["who"] or entry["cfg"]["mode"] not in ("split", "pooled", "rooms", "zone"):
+                return self.send_error(400)
+            board = [x for x in read()
+                     if not (x.get("who") == entry["who"] and x.get("cfg") == entry["cfg"])]
+            board.append(entry)
+            BOARD.write_text(json.dumps(board[-MAX_ENTRIES:], indent=1))
+            return self._json(board)
+        except Exception:
+            return self.send_error(400)
+
+    def log_message(self, *a):
+        pass                                                # keep the console readable
+
+
+def lan_ip():
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        s.connect(("8.8.8.8", 80))                          # no packet is sent; picks the route
+        return s.getsockname()[0]
+    finally:
+        s.close()
+
+
+if __name__ == "__main__":
+    ip = lan_ip()
+    print(f"\n  Fast Track Chair Lab — shared board is up.\n")
+    print(f"    On this machine   http://localhost:{PORT}/")
+    print(f"    Share in the room http://{ip}:{PORT}/\n")
+    print(f"  Board file: {BOARD}")
+    print(f"  Local network only. Ctrl-C to stop.\n")
+    ThreadingHTTPServer(("0.0.0.0", PORT), Handler).serve_forever()

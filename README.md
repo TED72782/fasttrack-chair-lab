@@ -16,9 +16,25 @@ Ranked on **minutes of delay per arriving patient**, and that denominator is the
 every patient who walked in and sending 14 of 26 to the main department. Diverted patients carry
 the time they waited before being sent away, so shrinking the lane cannot buy you a better score.
 
-The board is saved in your own browser, so it is per-device rather than shared across the group.
-Use **Copy link to this setup** to paste a configuration to someone else — the whole lane is in
-the URL.
+By default the board is saved in your own browser, so it is per-device. Use **Copy link to this
+setup** to paste a configuration to someone else — the whole lane is in the URL.
+
+### One shared board, for a meeting
+
+Run `python3 serve_board.py` on one machine and share the address it prints. Everyone on the
+same network opens that instead of the GitHub link, and all entries land on one list.
+
+    python3 serve_board.py            # prints http://<your-ip>:8000/
+
+It serves the page **and** the board from the same place, and that is deliberate: this site is
+HTTPS, and a browser will not let an HTTPS page call an `http://` endpoint on a laptop. Same
+origin sidesteps that with no tunnel and nothing exposed to the internet — it listens on the
+local network only, and stops when you stop it. The board lives in `board.json` beside the
+script; delete it to reset.
+
+The page detects the shared board automatically and says so under the table. If the machine
+running it goes away mid-session, the page quietly falls back to per-browser storage rather
+than breaking.
 
 ## The three layouts
 

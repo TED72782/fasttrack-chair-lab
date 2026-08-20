@@ -224,7 +224,7 @@ footer{margin-top:26px;font-size:12.5px;color:var(--ink-3);border-top:1px solid 
       </div>
       <div class="board-f">
         <span>Ranked on <b>minutes of delay per arriving patient</b> — the one wait figure that
-          cannot be improved by turning people away. Saved in this browser only.</span>
+          cannot be improved by turning people away. <span id="sharedTag"></span></span>
         <button type="button" id="clearBoard" class="mini">Clear board</button>
       </div>
     </section>
@@ -547,10 +547,39 @@ function drawTarget(){
   $("tg").oninput = e => { S.target = +e.target.value; run() };
 }
 
-/* ── leaderboard ─────────────────────────────────────────────────────────── */
+/* ── leaderboard ─────────────────────────────────────────────────────────────
+   Two stores, same interface. If a shared board answers at /board on this origin — i.e. the
+   page is being served by serve_board.py on someone's machine — every entry goes there and
+   everyone in the room sees one list. Otherwise it falls back to this browser's own storage,
+   so the GitHub Pages copy still works exactly as before. The page never blocks on the
+   network: a shared board that stops answering degrades to the local one rather than hanging. */
 const LB_KEY = "chairlab.board.v1";
-const board = () => { try{ return JSON.parse(localStorage.getItem(LB_KEY)||"[]") }catch(e){ return [] } };
-const saveBoard = b => { try{ localStorage.setItem(LB_KEY, JSON.stringify(b.slice(0,40))) }catch(e){} };
+let SHARED = false, cache = [];
+const localBoard = () => { try{ return JSON.parse(localStorage.getItem(LB_KEY)||"[]") }catch(e){ return [] } };
+const saveLocal = b => { try{ localStorage.setItem(LB_KEY, JSON.stringify(b.slice(-40))) }catch(e){} };
+const board = () => SHARED ? cache : localBoard();
+const saveBoard = b => { if(!SHARED) saveLocal(b); };
+
+async function probeShared(){
+  if(!/^https?:$/.test(location.protocol) || location.protocol==="https:") return;  // https page cannot call http
+  try{
+    const r = await fetch("board", {cache:"no-store"});
+    if(!r.ok) return;
+    cache = await r.json(); SHARED = true; drawBoard(); markShared();
+  }catch(e){ /* no shared board here — the local one is already in use */ }
+}
+function markShared(){
+  const n=$("sharedTag"); if(n) n.textContent = SHARED ? "shared board — everyone here sees this list"
+                                                      : "saved in this browser only";
+}
+async function pushShared(entry){
+  try{
+    const r = await fetch("board", {method:"POST", headers:{"Content-Type":"application/json"},
+                                    body: JSON.stringify(entry)});
+    if(r.ok){ cache = await r.json(); return true }
+  }catch(e){}
+  return false;
+}
 
 function scoreOf(cfg, pts){
   const m = MODES.find(x=>x.id===cfg.mode) || MODES[2], f = cfg.cyc/D.T_A;
@@ -561,13 +590,20 @@ function scoreOf(cfg, pts){
           spaces: cfg.A + (m.hasR?cfg.R:0)};
 }
 
-function addEntry(){
+async function addEntry(){
   const who = ($("who").value||"").trim().slice(0,28);
   if(!who){ $("who").focus(); return }
   const cfg = {mode:S.mode, A:S.A, R:S.R, cyc:S.cyc, assess:S.assess, fastDischarge:S.fastDischarge};
-  const b = board().filter(e => !(e.who===who && JSON.stringify(e.cfg)===JSON.stringify(cfg)));
-  b.push({who, cfg, at: Date.now()});
-  saveBoard(b); $("who").value=""; drawBoard();
+  const entry = {who, cfg, at: Date.now()};
+  if(SHARED){
+    const ok = await pushShared(entry);
+    if(!ok){ SHARED=false; markShared(); }        // shared board went away — keep playing locally
+  }
+  if(!SHARED){
+    const b = localBoard().filter(e => !(e.who===who && JSON.stringify(e.cfg)===JSON.stringify(cfg)));
+    b.push(entry); saveLocal(b);
+  }
+  $("who").value=""; drawBoard();
 }
 
 function drawBoard(){
@@ -690,5 +726,9 @@ $("share").onclick = () => {
     ()=>{ $("share").textContent="Link copied"; setTimeout(()=>$("share").textContent="Copy link to this setup",1600) },
     ()=>{ $("share").textContent="Copy failed — the link is in the address bar"; });
 };
-$("clearBoard").onclick = () => { if(confirm("Clear the whole board on this device?")){ saveBoard([]); drawBoard() } };
+$("clearBoard").onclick = () => {
+  if(SHARED){ alert("This is the shared board. Delete board.json next to serve_board.py to reset it."); return }
+  if(confirm("Clear the board in this browser?")){ saveLocal([]); drawBoard() }
+};
+markShared(); probeShared();
 </script>
