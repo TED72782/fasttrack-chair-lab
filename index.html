@@ -53,6 +53,8 @@ header p{margin:0;color:var(--ink-2);max-width:64ch}
 .opt button[aria-pressed="true"]{border-color:var(--hold);background:var(--hold-wash)}
 .opt .t{font-weight:600;font-size:14px}
 .opt .s{font-size:12.5px;color:var(--ink-2)}
+#presets button{background:var(--surface)}
+#presets .t{color:var(--ink)}
 
 .ctl{margin-top:16px}
 .ctl-top{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
@@ -72,6 +74,15 @@ input[type=range]{width:100%;margin:8px 0 0;accent-color:var(--hold)}
 .stat .k{font-size:12px;color:var(--ink-3);margin-top:3px}
 .stat.is-hold .v{color:var(--hold)} .stat.is-breach .v{color:var(--breach)}
 
+.load{margin:-6px 0 16px;padding:10px 14px;border-radius:8px;font-size:13px;
+  background:var(--surface-2);border:1px solid var(--line-soft);color:var(--ink-2)}
+.load.warn{background:var(--breach-wash);border-color:var(--breach)}
+.load.bad{background:var(--breach-wash);border-color:var(--breach);color:var(--ink)}
+.seg{display:flex;gap:6px;margin-top:8px}
+.seg button{all:unset;cursor:pointer;flex:1;text-align:center;font-size:12px;padding:7px 6px;
+  border:1px solid var(--line);border-radius:7px;background:var(--surface-2);color:var(--ink-2)}
+.seg button[aria-pressed="true"]{border-color:var(--hold);background:var(--hold-wash);color:var(--ink);font-weight:600}
+.seg button:focus-visible{outline:2px solid var(--hold);outline-offset:2px}
 .chart{padding:16px 16px 10px}
 .bars{display:grid;grid-template-columns:repeat(8,1fr);gap:6px;align-items:end;
   height:230px;position:relative;margin-top:26px}
@@ -121,6 +132,11 @@ footer{margin-top:26px;font-size:12.5px;color:var(--ink-3);border-top:1px solid 
   <!-- ── controls ─────────────────────────────────────────── -->
   <div>
     <section class="panel">
+      <div class="panel-h"><div class="eyebrow">Named layouts</div></div>
+      <div class="panel-b"><div class="opt" id="presets"></div></div>
+    </section>
+
+    <section class="panel" style="margin-top:14px">
       <div class="panel-h"><div class="eyebrow">1 · Layout</div></div>
       <div class="panel-b">
         <div class="opt" id="modes"></div>
@@ -135,12 +151,7 @@ footer{margin-top:26px;font-size:12.5px;color:var(--ink-3);border-top:1px solid 
     <section class="panel" style="margin-top:14px">
       <div class="panel-h"><div class="eyebrow">3 · How fast the lane runs</div></div>
       <div class="panel-b">
-        <div class="ctl">
-          <div class="ctl-top"><label for="cyc">Time a space is tied up</label>
-            <output class="num" id="cycOut"></output></div>
-          <input type="range" id="cyc" min="55" max="115" step="1">
-          <div class="hint" id="cycHint"></div>
-        </div>
+        <div id="speedCtl"></div>
       </div>
     </section>
   </div>
@@ -148,6 +159,7 @@ footer{margin-top:26px;font-size:12.5px;color:var(--ink-3);border-top:1px solid 
   <!-- ── results ──────────────────────────────────────────── -->
   <div>
     <div class="hero" id="hero"></div>
+    <div class="load" id="load"></div>
 
     <section class="panel">
       <div class="chart">
@@ -166,12 +178,18 @@ footer{margin-top:26px;font-size:12.5px;color:var(--ink-3);border-top:1px solid 
         <li><b>Where the numbers come from.</b> Arrival pattern, how long people occupy a space,
             and the half who need a test are all measured from Mary Bridge ESI 4/5 patients,
             2025 onward. Nothing here is invented except the one item below.</li>
-        <li><b>One assumption.</b> How long someone keeps the assessment space after their test is
-            ordered. Nothing in the record times it, so we assume 25 minutes. It matters when the
-            spaces are divided and not at all when they are pooled — you can see that yourself by
-            switching layouts.</li>
-        <li><b>Waits are averages.</b> Most patients wait nothing at all. Half the evening's total
-            can land on one bad hour, which is why the target is the worst hour and not the average.</li>
+        <li><b>Two assumptions, and both are controls rather than constants.</b> How long someone
+            keeps the assessment space after their test is ordered (we assume 25 minutes — it moves
+            the divided layouts and does not touch the pooled one), and, in the combined-zone
+            layouts, what happens to the half of patients who need no test at all. Nothing measures
+            the second and it decides whether two assessment chairs can work. Try it both ways.</li>
+        <li><b>When a layout is over capacity, the wait is not a real number.</b> If the assessment
+            chairs cannot carry the evening, the queue never clears and the wait just grows with the
+            length of the run. The banner above says so instead of showing you a large figure.</li>
+        <li><b>Waits are averages, and close calls are coin flips.</b> Most patients wait nothing at
+            all. Half an evening's total delay can land in one hour, which is why the target here is
+            the worst hour. But a layout landing within a minute or two of 15 is not reliably a pass
+            — rerun it and it can land the other side.</li>
         <li><b>It cannot see the ward.</b> Who is watching a patient waiting on a result, whether an
             open chair is right for a given child, and what happens at 23:00 are all real and none
             of them are in here. If pooling wins on this screen and loses on the floor, the floor
@@ -197,44 +215,91 @@ Heap.prototype.pop=function(){const a=this.a,top=a[0],last=a.pop();if(a.length){
   if(l<a.length&&cmp(a[l],a[m])<0)m=l; if(rr<a.length&&cmp(a[rr],a[m])<0)m=rr; if(m===i)break; const t=a[i];a[i]=a[m];a[m]=t;i=m}}return top};
 
 function sim(cfg){
-  const {A,R,lam,asw,now,res,pooled,days=600,seeds=[11,12,13,14]}=cfg, H=lam.length;
-  let wa=0,waN=0,wr=0,wrN=0,blocked=0,nw=0,seen=0;
+  const {A,R,lam,asw,now,res,pooled,zone,assessMin,fastDischarge,days=600,seeds=[11,12,13,14]}=cfg, H=lam.length;
+  let wa=0,waN=0,wr=0,wrN=0,blocked=0,nw=0,seen=0,arrN=0;
   const hs=new Float64Array(H), hn=new Float64Array(H);
   for(const sd of seeds){const r=mulberry32(sd);
     for(let d=0;d<days;d++){
       const arr=[];
       for(let h=0;h<H;h++){let t=h*60;for(;;){t+=expo(r,lam[h]/60);if(t>=(h+1)*60)break;arr.push(t)}}
-      arr.sort((x,y)=>x-y);
+      arr.sort((x,y)=>x-y); arrN+=arr.length;
       const ev=new Heap(); for(let i=0;i<arr.length;i++)ev.push([arr[i],0,i]);
+      const zdur=new Float64Array(arr.length);
       const qa=[],qr=[],need=new Uint8Array(arr.length); let ab=0,rb=0;
+      const seated=new Uint8Array(arr.length);   // combined zone: is this waiter using a chair?
       const hb=t=>Math.min(H-1,(t/60)|0);
       const rec=(tag,w)=>{wa+=w;waN++;hs[hb(arr[tag])]+=w;hn[hb(arr[tag])]++};
-      const startA=(t,tag)=>{ab++;const w=r()<D.shr;need[tag]=w?1:0;
-        const dur=pooled?(w?pick(r,asw)+pick(r,res):pick(r,now)):(w?pick(r,asw):pick(r,now));
-        ev.push([t+dur,1,tag])};
-      const startR=(t,tag)=>{rb++;ev.push([t+pick(r,res),2,tag])};
-      while(ev.a.length){
-        const e=ev.pop(), t=e[0], kind=e[1], tag=e[2];
-        if(kind===0){ if(ab<A){rec(tag,0);startA(t,tag)} else qa.push([t,tag]) }
-        else if(kind===1){
-          seen++;
-          if(pooled||!need[tag]){ab--}
-          else{ nw++;
-            if(rb<R){ab--;wrN++;startR(t,tag)} else {qr.push([t,tag]);blocked++;continue} }
-          if(qa.length){const q=qa.shift();rec(q[1],t-q[0]);startA(t,q[1])}
-        } else {
-          rb--;
-          if(qr.length){const q=qr.shift();wr+=t-q[0];wrN++;ab--;startR(t,q[1]);
-            if(qa.length){const p=qa.shift();rec(p[1],t-p[0]);startA(t,p[1])}}
+
+      if(zone){
+        // ── Combined fast-track waiting + results-pending zone.
+        //
+        // ⚠ THIRD version of this branch. The first hard-blocked the zone against BOTH queues —
+        // waiters sat in it too — which deadlocks by construction: a patient queueing for an
+        // assessment chair could occupy the very seat a finishing patient needed to vacate one.
+        // The second "fixed" that by making the zone soft (nobody ever blocked). That was worse
+        // and it took a crosscheck to see why: with a soft zone the number of zone chairs has
+        // NO effect at all — R=0 and R=1000 return bit-identical waits — so it scored "2
+        // assessment chairs with unlimited overflow" while the rival layouts had every chair
+        // binding. Eight of the ten spaces in the proposal were inert.
+        //
+        // This version removes the circular wait the honest way: people waiting to be SEEN queue
+        // in the main waiting room, not in the zone, so they cannot hold the resource a finishing
+        // patient needs. The zone hard-caps results-pending patients only, and blocks exactly the
+        // way the divided layout's results chairs do — which is what makes the two comparable.
+        const startA=(t,tag)=>{ab++;
+          const w = r()<D.shr; need[tag]=w?1:0;
+          if(!w && !fastDischarge){ ev.push([t+pick(r,now),1,tag]); zdur[tag]=0; return }
+          const total = w ? pick(r,asw)+pick(r,res) : pick(r,now);
+          const a = Math.min(assessMin, total-1);
+          ev.push([t+a,1,tag]); zdur[tag]=w?Math.max(1,total-a):0};
+        const startZ=(t,tag)=>{rb++;ev.push([t+zdur[tag],2,tag])};
+        const takeNext=t=>{ if(!qa.length||ab>=A)return;
+          const q=qa.shift(); rec(q[1],t-q[0]); startA(t,q[1]) };
+        while(ev.a.length){
+          const e=ev.pop(), t=e[0], kind=e[1], tag=e[2];
+          if(kind===0){ if(ab<A){rec(tag,0);startA(t,tag)} else qa.push([t,tag]) }
+          else if(kind===1){
+            seen++;
+            if(!need[tag]){ ab--; takeNext(t); continue }   // no test — assessed and gone
+            nw++;
+            if(rb<R){ ab--; wrN++; startZ(t,tag); takeNext(t) }
+            else { qr.push([t,tag]); blocked++; }           // holds the assessment chair
+          } else {
+            rb--;
+            if(qr.length){const q=qr.shift(); wr+=t-q[0]; wrN++; ab--; startZ(t,q[1]); takeNext(t)}
+            else takeNext(t);
+          }
+        }
+      } else {
+        const startA=(t,tag)=>{ab++;const w=r()<D.shr;need[tag]=w?1:0;
+          const dur=pooled?(w?pick(r,asw)+pick(r,res):pick(r,now)):(w?pick(r,asw):pick(r,now));
+          ev.push([t+dur,1,tag])};
+        const startR=(t,tag)=>{rb++;ev.push([t+pick(r,res),2,tag])};
+        while(ev.a.length){
+          const e=ev.pop(), t=e[0], kind=e[1], tag=e[2];
+          if(kind===0){ if(ab<A){rec(tag,0);startA(t,tag)} else qa.push([t,tag]) }
+          else if(kind===1){
+            seen++;
+            if(pooled||!need[tag]){ab--}
+            else{ nw++;
+              if(rb<R){ab--;wrN++;startR(t,tag)} else {qr.push([t,tag]);blocked++;continue} }
+            if(qa.length){const q=qa.shift();rec(q[1],t-q[0]);startA(t,q[1])}
+          } else {
+            rb--;
+            if(qr.length){const q=qr.shift();wr+=t-q[0];wrN++;ab--;startR(t,q[1]);
+              if(qa.length){const p=qa.shift();rec(p[1],t-p[0]);startA(t,p[1])}}
+          }
         }
       }
     }
   }
   const byHour=[]; for(let h=0;h<H;h++)byHour.push(hn[h]?hs[h]/hn[h]:0);
   const worst=Math.max.apply(null,byHour);
+  const runs=days*seeds.length;
   return {wa:wa/waN, wr:nw?wr/nw:0, stuck:nw?100*blocked/nw:0, byHour, worst,
           worstHour:15+byHour.indexOf(worst), over:byHour.filter(v=>v>15).length,
-          seen:seen/(days*seeds.length)};
+          seen:seen/runs, arrived:arrN/runs, saturated: seen/arrN < 0.97,
+          };
 }
 
 /* ── scaling helpers ─────────────────────────────────────────────────────── */
@@ -244,9 +309,18 @@ const scale  = (pool,f) => pool.map(x => x*f);
 
 /* ── state ───────────────────────────────────────────────────────────────── */
 const MODES = [
-  {id:"rooms",  t:"8 rooms + results chairs",  s:"Assessment in a room, then move to a chair to wait for results.", fixedA:8, hasR:true},
+  {id:"rooms",  t:"8 rooms + results chairs",  s:"Assessment in a room, then move to a chair to wait for results.", fixedA:true, hasR:true},
   {id:"pooled", t:"Chairs, patient stays put", s:"One group of chairs. Status changes in place; nobody moves.",     hasR:false},
-  {id:"split",  t:"Chairs, divided",           s:"Some chairs for assessment, the rest for results-waiting.",       hasR:true}
+  {id:"split",  t:"Chairs, divided",           s:"Some chairs for assessment, the rest for results-waiting.",       hasR:true},
+  {id:"zone",   t:"Assessment chairs + one combined zone",
+                s:"A few chairs to be seen in; everyone else — waiting to be seen AND waiting on results — shares one zone.",
+                hasR:true, zone:true}
+];
+// Named layouts the group has put forward. Each is a full setting, not a hint.
+const PRESETS = [
+  {id:"mikelong", n:"The Mike Long Play", by:"Mike Long",
+   set:{mode:"zone", A:2, R:8, assess:44, fastDischarge:true},
+   d:"2 assessment chairs; the other 8 are one combined fast-track waiting and results-pending zone."}
 ];
 const LEVELS = [
   {n:"A typical evening", pts:26, d:"half of evenings are quieter"},
@@ -254,7 +328,11 @@ const LEVELS = [
   {n:"Busiest in ten",    pts:36, d:"1 evening in 10 is busier"},
   {n:"The bad one",       pts:40, d:"about 1 evening in 25"}
 ];
-const S = {mode:"split", A:6, R:4, cyc:Math.round(D.T_A), level:1};
+const S = {mode:"split", A:6, R:4, cyc:Math.round(D.T_A), assess:44, fastDischarge:false, level:1};
+// Measured: mean time from being roomed to the first test being ordered is 44 min. In the
+// combined-zone layouts the patient leaves the assessment chair at that point instead of
+// keeping it, so this is the natural starting value — and it is the number that decides
+// whether those layouts work, which is why it is a control and not a constant.
 const best = {};
 
 /* ── render ──────────────────────────────────────────────────────────────── */
@@ -270,16 +348,17 @@ function drawModes(){
     S.mode=b.dataset.m; const m=modeOf();
     if(m.id==="rooms"){S.A=8;S.R=Math.max(1,S.R)}
     if(m.id==="pooled"){S.A=Math.min(12,S.A+S.R)}
-    if(m.id==="split" && S.A+S.R>12){S.A=6;S.R=4}
+    if((m.id==="split"||m.id==="zone") && S.A+S.R>16){S.A=6;S.R=4}
     drawModes();drawSpaces();run();
   });
 }
 
 function drawSpaces(){
   const m=modeOf(), rows=[];
-  rows.push(ctl("A", m.id==="pooled"?"Chairs in the group":"Assessment spaces",
-                S.A, m.id==="rooms"?8:2, m.id==="rooms"?8:14, m.id==="rooms"));
-  if(m.hasR) rows.push(ctl("R","Results-waiting chairs",S.R,1,14,false));
+  rows.push(ctl("A", m.id==="pooled"?"Chairs in the group":"Assessment chairs",
+                S.A, m.id==="rooms"?8:1, m.id==="rooms"?8:14, m.id==="rooms"));
+  if(m.hasR) rows.push(ctl("R", m.zone?"Chairs in the combined zone":"Results-waiting chairs",
+                           S.R, 1, 14, false));
   const tot = S.A + (m.hasR?S.R:0);
   rows.push(`<div class="total"><span>Spaces in use</span><b class="num">${tot}</b></div>`);
   $("spaceCtl").innerHTML = rows.join("");
@@ -294,26 +373,84 @@ function drawSpaces(){
   }
 }
 
+function drawSpeed(m){
+  const host=$("speedCtl");
+  if(m.zone){
+    host.innerHTML = `<div class="ctl"><div class="ctl-top">
+        <label for="asx">Time in the assessment chair</label>
+        <output class="num">${S.assess} min</output></div>
+      <input type="range" id="asx" min="12" max="80" step="1" value="${S.assess}">
+      <div class="hint">How long a patient keeps an assessment chair before moving out. Measured
+        roomed-to-first-order is 44 min; below that you are assuming the lane turns those chairs
+        over faster than it does today.</div></div>
+      <div class="ctl"><div class="ctl-top"><label>A patient who needs no test</label></div>
+        <div class="seg" role="group">
+          <button type="button" data-fd="1" aria-pressed="${S.fastDischarge}">leaves at that point</button>
+          <button type="button" data-fd="0" aria-pressed="${!S.fastDischarge}">keeps the chair until they go</button>
+        </div>
+        <div class="hint">Half of these patients get no test at all, so there is no order to move
+          them on. Nothing measures what happens to them — and it decides the layout. Keeping the
+          chair is what the rest of our modelling assumes.</div></div>`;
+    $("asx").oninput = e => { S.assess = +e.target.value; run() };
+    host.querySelectorAll("[data-fd]").forEach(bt=>bt.onclick=()=>{
+      S.fastDischarge = bt.dataset.fd==="1"; run() });
+  } else {
+    host.innerHTML = `<div class="ctl"><div class="ctl-top">
+        <label for="cyc">Time a space is tied up</label>
+        <output class="num">${S.cyc} min</output></div>
+      <input type="range" id="cyc" min="55" max="115" step="1" value="${S.cyc}">
+      <div class="hint">${S.cyc===Math.round(D.T_A) ? "Today's measured figure."
+        : (S.cyc<D.T_A ? `${Math.round(100-100*S.cyc/D.T_A)}% faster than today (${Math.round(D.T_A)} min).`
+                       : `${Math.round(100*S.cyc/D.T_A-100)}% slower than today (${Math.round(D.T_A)} min).`)}</div></div>`;
+    $("cyc").oninput = e => { S.cyc = +e.target.value; run() };
+  }
+}
+
+function drawPresets(){
+  $("presets").innerHTML = PRESETS.map(p=>
+    `<button type="button" data-p="${p.id}"><span class="t">${p.n}</span><br>
+       <span class="s">${p.d}</span></button>`).join("");
+  $("presets").querySelectorAll("button").forEach(btn=>btn.onclick=()=>{
+    const p=PRESETS.find(x=>x.id===btn.dataset.p);
+    Object.assign(S,p.set); drawModes(); drawSpaces(); run();
+  });
+}
+
 function drawHours(){
   $("hours").innerHTML = D.lam.map((_,i)=>`<span>${15+i}</span>`).join("");
 }
 
 function run(){
   const m=modeOf(), f=S.cyc/D.T_A, lvl=LEVELS[S.level];
-  const o = sim({A:S.A, R:m.hasR?S.R:0, pooled:m.id==="pooled",
+  const o = sim({A:S.A, R:m.hasR?S.R:0, pooled:m.id==="pooled", zone:!!m.zone, assessMin:S.assess,
+                 fastDischarge:S.fastDischarge,
                  lam:lamFor(lvl.pts), asw:scale(D.asw,f), now:scale(D.now,f), res:D.res});
-  $("cycOut").textContent = S.cyc+" min";
-  $("cycHint").textContent = S.cyc===Math.round(D.T_A) ? "Today's measured figure."
-      : (S.cyc<D.T_A ? `${Math.round(100-100*S.cyc/D.T_A)}% faster than today (${Math.round(D.T_A)} min).`
-                     : `${Math.round(100*S.cyc/D.T_A-100)}% slower than today (${Math.round(D.T_A)} min).`);
+  drawSpeed(m);
 
+  // Offered load on the assessment chairs. At 1.0 or above the queue never clears, and no
+  // amount of anything downstream rescues it — better said outright than shown as a huge wait.
+  const holdPer = m.zone ? (S.fastDischarge ? S.assess : D.shr*S.assess + (1-D.shr)*D.mean_now)
+                : m.id==="pooled" ? D.hold_all : S.cyc;
+  const canCarry = S.A * 8 * 60 / holdPer;
+  const rho = lvl.pts / canCarry;
+  $("load").className = "load" + (rho>=1 ? " bad" : rho>0.85 ? " warn" : "");
+  $("load").innerHTML = rho >= 1
+    ? `<b>Over capacity.</b> ${S.A} assessment ${S.A===1?"chair":"chairs"} at this speed can carry about
+       <b class="num">${canCarry.toFixed(0)}</b> patients an evening, and <b class="num">${lvl.pts}</b>
+       are arriving. The queue never clears, so the wait below is not a number to plan around — it
+       just keeps growing.`
+    : `Assessment ${S.A===1?"chair":"chairs"} <b class="num">${(100*rho).toFixed(0)}%</b> loaded before any
+       queueing — about <b class="num">${canCarry.toFixed(0)}</b> patients an evening of capacity against
+       <b class="num">${lvl.pts}</b> arriving.`;
   const held = o.over===0;
   $("hero").innerHTML = [
     [`${o.worst.toFixed(0)}`, `worst hour — at ${o.worstHour}:00`, held?"is-hold":"is-breach"],
     [`${o.over}`, `hours over 15 min, of 8`, o.over?"is-breach":"is-hold"],
     [`${o.wa.toFixed(1)}`, "average wait, all evening", ""],
     [m.id==="pooled" ? "—" : `${o.stuck.toFixed(0)}%`,
-     m.id==="pooled" ? "nobody is ever moved" : "of test patients stuck waiting to move", ""]
+     m.id==="pooled" ? "nobody is ever moved"
+       : (m.zone ? "of test patients held in a chair, no seat free in the zone"
+                 : "of test patients stuck waiting to move"), ""]
   ].map(([v,k,c])=>`<div class="stat ${c}"><div class="v num">${v}</div><div class="k">${k}</div></div>`).join("");
 
   const top = Math.max(20, Math.ceil(o.worst*1.15));
@@ -343,7 +480,5 @@ function drawLevels(cur){
   });
 }
 
-$("cyc").value = S.cyc;
-$("cyc").oninput = e => { S.cyc = +e.target.value; run() };
-drawModes(); drawSpaces(); drawHours(); run();
+drawPresets(); drawModes(); drawSpaces(); drawHours(); run();
 </script>
