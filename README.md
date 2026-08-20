@@ -15,69 +15,54 @@ turned away**, and what counts as acceptable is yours to argue about.
 Every other number improves if the lane takes fewer patients. Narrow the criteria, or let the
 queue spill past closing, and the average among those you served looks better while the evening
 is unchanged. So the score charges the patients a lane does *not* serve what they actually get
-instead: today's wait for a room in the main department, by hour — 31 minutes at 15:00 rising to
-101 at 22:00.
+instead — today's wait for a room, by the hour they arrived in.
 
-**54.6 minutes is the number to beat** — what these patients wait today, averaged over the
-evening. Accept nobody and you score exactly that. There is no way to win by shrinking:
+Accept nobody and you score exactly the bar. There is no way to win by shrinking.
+
+### What the bar is, and why it is a control
+
+It is **today**, and today already has a fast track. The Orca pod takes 65–68% of these patients
+until 18:00, then 54% at 20:00, 15% at 21:00, 7% at 22:00 — and the entire hourly escalation in
+the pooled figure is that pod closing:
+
+| | 15:00 | 18:00 | 20:00 | 22:00 |
+|---|---|---|---|---|
+| Orca pod patients | 32 | 44 | 45 | 45 |
+| everyone else | 31 | 52 | 94 | 118 |
+
+So there are two defensible bars, and which is right depends on whether the proposed lane is
+*added* to today's pod or *replaces* it — a question no model settles:
+
+- **today's arrangement — 58.1 min**
+- **an evening with no fast track — 80.5 min**
+
+Both charge a patient who walked out the time they spent in the department before leaving.
+Dropping them instead would condition the bar on not having walked out, and they cluster at
+22:00 — 179 of 613 — exactly where it matters.
+
+### Where that leaves the layouts
+
+Busy evening (31 arrivals), scored against today's arrangement:
 
 | lane | takes | wait among those it accepts | score |
 |---|---|---|---|
-| 9 chairs pooled | 31 of 31 | 9.7 | **12.9** |
-| 10 spaces, 6+4 | 31 of 31 | 18.3 | **23.3** |
-| 10 spaces, 6+4, rarely-test complaints only | 6 of 31 | 0.0 | 43.8 |
-| 6 spaces, 4+2, test rate ≤ 50% | 8 of 31 | 1.7 | 40.3 |
-| 6 spaces, 4+2, everyone | 31 of 31 | 79.3 | **103.6** |
-| no lane at all | — | — | 54.6 |
+| 10 spaces, 6+4, everyone | 31 of 31 | 18.3 | **23.6** |
+| *today's arrangement* | — | — | *58.1* |
+| 10 spaces, 6+4, low-test complaints only | 6 of 31 | 0.0 | 46.6 |
+| 6 spaces, 4+2, low-test complaints only | 6 of 31 | 0.5 | 46.7 |
+| 6 spaces, 4+2, everyone | 31 of 31 | 79.3 | **105.3** |
 
-Two rows there are worth sitting with. A lane taking only the easy complaints scores *worse*
-than one taking everybody, because the patients it turns down still wait. And six spaces taking
-all comers scores worse than having no lane, because its own queue is longer than the main
-department's.
+**Whether narrowing helps depends on the footprint, not on a rule.** At ten spaces, taking
+everyone beats taking only the easy complaints — the patients you turn down still wait. At six
+it reverses, because six cannot absorb them. Neither result carries across.
+
+**Six spaces taking all comers scores worse than changing nothing**, because its own queue is
+longer than the department's. That holds under every partial-diversion assumption tested; it only
+reverses if the lane is shed the moment it backs up, so it is a statement about a queue allowed
+to build, not about six spaces as such.
 
 It assumes the main department's wait is unaffected by the lane. Taking work out of it should
-make that wait shorter, so if anything this understates what excluding patients costs.
-
-By default the board is saved in your own browser, so it is per-device. Use **Copy link to this
-setup** to paste a configuration to someone else — the whole lane is in the URL.
-
-### One shared board, from anywhere
-
-Deploy `shared-board.gs` as a Google Apps Script web app — six steps in
-[SETUP-SHARED-BOARD.md](SETUP-SHARED-BOARD.md), about three minutes, one person only. Paste the
-URL it gives you into **Shared board** at the foot of the leaderboard.
-
-After that, **Copy link to this setup** produces a link that carries the board with it. Send that
-link round and everyone else is joined automatically with nothing to configure. The board is a
-Google Sheet, one row per lane, so you can sort it or paste it into a slide.
-
-### One shared board, for a meeting
-
-Run `python3 serve_board.py` on one machine and share the address it prints. Everyone on the
-same network opens that instead of the GitHub link, and all entries land on one list.
-
-    python3 serve_board.py            # prints http://<your-ip>:8000/
-
-It serves the page **and** the board from the same place, and that is deliberate: this site is
-HTTPS, and a browser will not let an HTTPS page call an `http://` endpoint on a laptop. Same
-origin sidesteps that with no tunnel and nothing exposed to the internet — it listens on the
-local network only, and stops when you stop it. The board lives in `board.json` beside the
-script; delete it to reset.
-
-The page detects the shared board automatically and says so under the table. If the machine
-running it goes away mid-session, the page quietly falls back to per-browser storage rather
-than breaking.
-
-## The three layouts
-
-| | |
-|---|---|
-| **8 rooms + results chairs** | Assessment happens in a room, then the patient moves to a chair to wait for results. |
-| **Chairs, patient stays put** | One group of chairs. Status changes from assessment to results-waiting in place; nobody moves. |
-| **Chairs, divided** | Some chairs for assessment, the rest for results-waiting. |
-
-Four evenings to hold, all measured: a typical one (26 patients), a busy one (31), the busiest
-in ten (36), and a bad one (40).
+make that shorter, so if anything this understates what excluding patients costs.
 
 ## Choosing who the lane accepts
 
