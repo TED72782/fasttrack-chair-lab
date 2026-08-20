@@ -57,6 +57,26 @@ than breaking.
 Four evenings to hold, all measured: a typical one (26 patients), a busy one (31), the busiest
 in ten (36), and a bad one (40).
 
+## Choosing who the lane accepts
+
+The **Who the lane accepts** panel turns each chief complaint on or off. Selecting changes three
+things at once, and the third is the one people miss:
+
+1. **how many patients the lane sees** — the selected share of the evening
+2. **how often a test is needed** — Ear Problem 10%, Eye Problem 9%, Laceration 12% against
+   Ankle Injury 99%, Dysuria 98%, Finger Injury 83%
+3. **how long a space is held** — each complaint's own measured means
+
+Complaints come from triage as free text and are grouped by the repo's shared normaliser, so
+*Febrile* and *Fever* are one complaint rather than two. The 24 commonest are listed
+individually and the remaining 227 are aggregated into one bucket rather than dropped.
+
+**Narrowing the criteria is not free, and the score does not price it.** The score counts the
+patients the lane accepts, so taking only the complaints that never need a test looks superb —
+while the rest of the evening still arrives and goes to the main department. The board shows
+what share of the evening you took next to the score for exactly that reason. What happens to
+the patients you exclude is not modelled here.
+
 ## Where the numbers come from
 
 The arrival pattern across 15:00–23:00, how long patients occupy a space, and the ~50% who need
