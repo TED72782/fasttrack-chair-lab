@@ -950,12 +950,23 @@ function drawModes(){
   });
 }
 
+/* Text-only companion to drawSpaces, safe on every pointer move. */
+function syncSpaces(){
+  const m=modeOf();
+  const oa=$("oA"); if(oa) oa.textContent = S.A;
+  const or=$("oR"); if(or) or.textContent = S.R;
+  const sa=$("sA"); if(sa && +sa.value !== S.A) sa.value = S.A;
+  const sr=$("sR"); if(sr && +sr.value !== S.R) sr.value = S.R;
+  const tot=$("spaceTot");
+  if(tot) tot.innerHTML = `${S.A + (m.hasR?S.R:0)}${S.budget?" of "+S.budget:""}`;
+}
+
 function drawSpaces(){
   const m=modeOf(), rows=[];
   rows.push(ctl("A", m.id==="pooled" ? "Spaces in the group" : "Assessment spaces", S.A, 1, 14, false));
   if(m.hasR) rows.push(ctl("R", "Second area — results &amp; discharge pending", S.R, 1, 16, false));
   const tot = S.A + (m.hasR?S.R:0);
-  rows.push(`<div class="total"><span>Spaces in use</span><b class="num">${tot}${S.budget?" of "+S.budget:""}</b></div>`);
+  rows.push(`<div class="total"><span>Spaces in use</span><b class="num" id="spaceTot">${tot}${S.budget?" of "+S.budget:""}</b></div>`);
   $("spaceCtl").innerHTML = rows.join("");
   $("spaceCtl").querySelectorAll("input").forEach(i=>{
     i.oninput=()=>{
@@ -965,7 +976,11 @@ function drawSpaces(){
         S[k] = Math.min(v, S.budget-1);
         S[other] = S.budget - S[k];
       } else S[k]=v;
-      drawSpaces(); run();
+      /* ⚠ was drawSpaces() here — rebuilding the panel replaced the slider under the mouse and
+         ended the drag after one step. Update the readouts in place instead; the panel is only
+         rebuilt when the CONTROLS change (mode, preset, budget). */
+      syncSpaces();
+      requestRun();
     };
   });
   if(S.budget) $("spaceCtl").insertAdjacentHTML("beforeend",
@@ -999,12 +1014,20 @@ function fdControl(){
       are finished being assessed. Keeping the space is what we measure today — ${D.g.now.toFixed(0)}
       minutes, longer than the ${D.g.asw.toFixed(0)} a test patient holds it.</div></div>`
     + (S.fastDischarge ? `<div class="ctl"><div class="ctl-top">
-        <label for="asx2">They move on after</label><output class="num">${S.assess} min</output></div>
+        <label for="asx2">They move on after</label><output class="num" id="asx2Out"></output></div>
         <input type="range" id="asx2" min="12" max="86" step="1" value="${S.assess}"></div>` : "");
 }
 
+/* ⚠ BUILT ONCE PER SHAPE, THEN ONLY THE READOUTS CHANGE — same rule as drawWindow. run()
+   calls this on every input, and rebuilding innerHTML replaces the very <input> the user has
+   under the mouse, which ends the drag after one step. Rebuild only when the CONTROLS change
+   (mode, or the no-test toggle that adds a second slider), never on a value change. */
+let speedKey = null;
 function drawSpeed(m){
   const host = $("speedCtl");
+  const key = m.id + "|" + (S.fastDischarge ? 1 : 0);
+  if(key === speedKey) return syncSpeed(m);
+  speedKey = key;
   if(m.id==="pooled"){
 /* ⚠ This dial is a PACE, not a duration. It scales the measured service times by
        cyc/T_A; the space is actually held for the whole visit, which is ~D.hold_all at
@@ -1013,24 +1036,39 @@ function drawSpeed(m){
     const pct = Math.round(100 - 100*S.cyc/D.T_A);
     host.innerHTML = `<div class="ctl"><div class="ctl-top">
         <label for="cyc">How fast a space turns over</label>
-        <output class="num">${pct===0 ? "today's pace" : (pct>0 ? pct+"% faster" : (-pct)+"% slower")}</output></div>
+        <output class="num" id="cycOut"></output></div>
       <input type="range" id="cyc" min="55" max="115" step="1" value="${S.cyc}">
       <div class="hint">Nobody moves in this layout, so one space carries the whole visit &mdash;
         ${Math.round(D.hold_all)} min on average today. This dial runs that faster or slower; it is
         a pace, not a duration.</div></div>`;
-    $("cyc").oninput = e => { S.cyc = +e.target.value; run() };
-    return;
+    $("cyc").oninput = e => { S.cyc = +e.target.value; syncSpeed(m); requestRun() };
+    return syncSpeed(m);
   }
   host.innerHTML = `<div class="ctl"><div class="ctl-top">
       <label for="asx">Assessment, before they move</label>
-      <output class="num">${S.assess} min</output></div>
+      <output class="num" id="asxOut"></output></div>
     <input type="range" id="asx" min="10" max="90" step="1" value="${S.assess}">
     <div class="hint">How long a patient keeps an assessment space before moving to the second
       area. Measured today a test patient holds it ${D.g.asw.toFixed(0)} min — but that is the time
       to their first ORDER, not a decision anyone made, and it does not exist at all for the half
       who need no test. It is the number to argue about: the best split follows it.</div></div>`
     + fdControl();
-  $("asx").oninput = e => { S.assess = +e.target.value; run() };
+  $("asx").oninput = e => { S.assess = +e.target.value; syncSpeed(m); requestRun() };
+  syncSpeed(m);
+}
+
+/* The cheap half: text only, safe to call on every pointer move. */
+function syncSpeed(m){
+  if(m.id==="pooled"){
+    const pct = Math.round(100 - 100*S.cyc/D.T_A);
+    const o = $("cycOut");
+    if(o) o.textContent = pct===0 ? "today's pace" : (pct>0 ? pct+"% faster" : (-pct)+"% slower");
+    return;
+  }
+  const o = $("asxOut"); if(o) o.textContent = S.assess + " min";
+  const o2 = $("asx2Out"); if(o2) o2.textContent = S.assess + " min";
+  const s2 = $("asx2"); if(s2 && +s2.value !== S.assess) s2.value = S.assess;
+  const s1 = $("asx");  if(s1 && +s1.value !== S.assess) s1.value = S.assess;
 }
 
 function drawPresets(){
@@ -1224,8 +1262,8 @@ function drawWindow(){
         <output class="num" id="wlenOut"></output></div>
         <input type="range" id="wlen" min="2" max="24" step="1" value="${S.len}"></div>
     </div>`;
-  $("wstart").oninput = e => { S.start = +e.target.value; run() };
-  $("wlen").oninput   = e => { S.len   = +e.target.value; run() };
+  $("wstart").oninput = e => { S.start = +e.target.value; syncWindow(); requestRun() };
+  $("wlen").oninput   = e => { S.len   = +e.target.value; syncWindow(); requestRun() };
   winBuilt = true;
 }
 
@@ -1285,6 +1323,20 @@ function drawHours(){
   $("hours").innerHTML = D.lam.map((_,i)=>`<span>${15+i}</span>`).join("");
 }
 
+/* ⚠ One full recompute is ~16 ms of simulation plus a rebuild of the hero, the bars, the
+   criteria list and the chart. A dragged slider fires far faster than that, so the events pile
+   up and the handle stutters. Coalesce to at most one per animation frame: the readouts have
+   already updated synchronously, so the slider stays glued to the pointer either way. */
+let lastCritKey = null, lastBoardKey = null;
+let runQueued = false;
+function requestRun(){
+  if(runQueued) return;
+  runQueued = true;
+  const raf = typeof requestAnimationFrame === "function" ? requestAnimationFrame
+                                                          : (f => setTimeout(f, 16));
+  raf(() => { runQueued = false; run() });
+}
+
 function run(){
   const m=modeOf(), lvl=LEVELS[S.level];
   const cfg = {mode:S.mode, A:S.A, R:S.R, cyc:S.cyc, assess:S.assess, fastDischarge:S.fastDischarge,
@@ -1293,7 +1345,7 @@ function run(){
   drawSpeed(m); drawWindow(); syncWindow();
   $("speedCtl").querySelectorAll("[data-fd]").forEach(bt=>bt.onclick=()=>{
     S.fastDischarge = bt.dataset.fd==="1"; run() });
-  const _ax=$("asx2"); if(_ax) _ax.oninput = e => { S.assess = +e.target.value; run() };
+  const _ax=$("asx2"); if(_ax) _ax.oninput = e => { S.assess = +e.target.value; syncSpeed(m); requestRun() };
 
   const winArr = E.hours.reduce((a,h)=>a + D.lam24[h]*(lvl.pts/D.day_mean), 0);
   const mins = S.len*60;
@@ -1365,7 +1417,15 @@ function run(){
     criteria — is charged what they wait instead, by the hour they arrive:
     <b class="num">${_B.mean.toFixed(1)}</b> min across the day, best at ${_lo}:00
     (${_B.m24[_lo].toFixed(0)}) and worst at ${_hi}:00 (${_B.m24[_hi].toFixed(0)}).`;
-  drawLevels(E); drawCriteria(); drawBoard();
+  drawLevels(E);
+  /* ⚠ Neither of these depends on the slider being dragged. drawBoard RE-SIMULATES every saved
+     entry (900 evenings each) and only its day/bar can change the answer; drawCriteria rebuilds
+     25 buttons and only the hours and the day move its numbers. Redrawing both on every pointer
+     move was most of the stutter. Keyed, so they run when they can actually differ. */
+  const critKey = `${S.start}|${S.len}|${S.level}|${[...PICK].sort((x,y)=>x-y).join(".")}`;
+  if(critKey !== lastCritKey){ lastCritKey = critKey; drawCriteria() }
+  const boardKey = `${S.level}|${S.bar}`;
+  if(boardKey !== lastBoardKey){ lastBoardKey = boardKey; drawBoard() }
   // any change to the lane invalidates the recorded evening — a stage showing one layout while
   // the numbers describe another is worse than no stage
   if(PLAY.trace){ PLAY.trace = null; PLAY.runs = null; PLAY.pick = 0; playPause(false); PLAY.t = 0; }
