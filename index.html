@@ -1236,8 +1236,17 @@ function drawBoard(){
 }
 
 /* ── shareable setup ─────────────────────────────────────────────────────── */
+/* ⚠ THE CRITERIA TRAVEL TOO. The hash carried nine numbers and not PICK, so 'Copy link to
+   this setup' delivered a narrowed lane as an everyone-lane — same layout, different numbers —
+   and a plain refresh after narrowing quietly reset the criteria. Field 10 is the complaint ids
+   joined by '.', appended only when narrowed so untouched links keep their old shape. */
+function hashState(){
+  const c = [S.mode,S.A,S.R,S.cyc,S.assess,S.fastDischarge?1:0,S.level,S.start,S.len];
+  if(PICK.size < CC.length) c.push([...PICK].sort((x,y)=>x-y).join("."));
+  return c.join(",");
+}
 function toHash(){
-  const c = [S.mode,S.A,S.R,S.cyc,S.assess,S.fastDischarge?1:0,S.level,S.start,S.len].join(",");
+  const c = hashState();
   // carry the shared board along, so a colleague opening this link is joined to it automatically
   const q = API && API!=="board" ? "?board="+encodeURIComponent(API) : "";
   return location.origin + location.pathname + q + "#" + encodeURIComponent(c);
@@ -1250,6 +1259,7 @@ function fromHash(){
   Object.assign(S, {mode:p[0], A:+p[1], R:+p[2], cyc:+p[3], assess:+p[4],
                     fastDischarge:p[5]==="1", level:+p[6], budget:0,
                     start: p.length>=9 ? +p[7] : 15, len: p.length>=9 ? +p[8] : 8});
+  if(p.length>=10) PICK = new Set(p[9].split(".").filter(v=>v!=="").map(Number));
 }
 
 /* ⚠ BUILT ONCE, THEN ONLY THE READOUTS CHANGE. These sliders sit next to the chart they drive,
@@ -1459,7 +1469,7 @@ function run(){
   // keep the query string — it carries ?board=, and replacing the URL with a bare hash would
   // drop the shared board from the address bar on the first render
   history.replaceState(null, "", location.pathname + location.search + "#" +
-    encodeURIComponent([S.mode,S.A,S.R,S.cyc,S.assess,S.fastDischarge?1:0,S.level,S.start,S.len].join(",")));
+    encodeURIComponent(hashState()));
 }
 
 function drawLevels(E){
