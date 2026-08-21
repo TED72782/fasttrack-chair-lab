@@ -1,0 +1,1034 @@
+<script>
+const D = __DATA__;
+
+/* ── engine: a port of tandem()/pooled() from the deck builder ───────────── */
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+const pick=(r,p)=>p[(r()*p.length)|0];
+const expo=(r,rate)=>-Math.log(1-r())/rate;
+function cmp(x,y){return x[0]-y[0]||x[1]-y[1]||x[2]-y[2]}
+function Heap(){this.a=[]}
+Heap.prototype.push=function(v){const a=this.a;a.push(v);let i=a.length-1;while(i>0){const p=(i-1)>>1;if(cmp(a[i],a[p])<0){const t=a[i];a[i]=a[p];a[p]=t;i=p}else break}};
+Heap.prototype.pop=function(){const a=this.a,top=a[0],last=a.pop();if(a.length){a[0]=last;let i=0;for(;;){const l=2*i+1,rr=l+1;let m=i;
+  if(l<a.length&&cmp(a[l],a[m])<0)m=l; if(rr<a.length&&cmp(a[rr],a[m])<0)m=rr; if(m===i)break; const t=a[i];a[i]=a[m];a[m]=t;i=m}}return top};
+
+/* ── the lane, simulated ──────────────────────────────────────────────────────
+   Two shapes, and only two:
+
+     POOLED   one group of spaces; a patient takes one on arrival and keeps it until they leave.
+     MOVING   A assessment spaces + R in a second area. Everyone leaves the assessment space at
+              `assessMin` — the point a physician calls the assessment done — and spends the rest
+              of their measured visit in the second area, whether that is waiting on a result or
+              waiting to be discharged. The second area is hard-capped: a patient with nowhere to
+              go keeps the assessment space, which is the failure a split is meant to avoid and
+              the reason the second area's size matters.
+
+   `fastDischarge=false` is the exception the data forces us to offer. A patient who needs no test
+   has no order to time from, and may simply not be movable; then they hold the assessment space
+   for their whole visit — 86 min measured, LONGER than the 47 measured to a test patient's
+   first order (72 with the assumed 25 after it).
+
+   People waiting to be seen queue in the main waiting room, not in either area, so a queue can
+   never occupy the space a finishing patient needs to vacate one. The lane closes at CLOSE and
+   anyone still queueing goes to the main department. */
+function sim(cfg){
+  const {A, R, lam, asw, now, res, pooled, assessMin, fastDischarge, shr=D.shr,
+         floor=D.floor, days=600, seeds=[11,12,13,14], trace} = cfg;
+  // `trace` records one evening, patient by patient, so the animation plays the SAME run the
+  // numbers come from rather than a decorative loop of its own. Slots are tracked only here —
+  // the maths never needs to know which chair, only how many are free.
+  const T = trace ? [] : null;
+  const freeA = [], freeB = [];
+  if(T){ for(let i=A-1;i>=0;i--) freeA.push(i); for(let i=R-1;i>=0;i--) freeB.push(i) }
+  const H = lam.length, CLOSE = H*60;
+  let wa=0, waN=0, wr=0, wrN=0, blocked=0, nw=0, seen=0, arrN=0, divN=0, divWait=0, peakSum=0;
+  const hs=new Float64Array(H), hn=new Float64Array(H), divH=new Float64Array(H);
+
+  for(const sd of seeds){
+    const r = mulberry32(sd);
+    for(let d=0; d<days; d++){
+      const arr=[];
+      for(let h=0;h<H;h++){ let t=h*60; for(;;){ t+=expo(r,lam[h]/60); if(t>=(h+1)*60) break; arr.push(t) } }
+      arr.sort((x,y)=>x-y); arrN += arr.length;
+      const ev=new Heap(); for(let i=0;i<arr.length;i++) ev.push([arr[i],0,i]);
+      ev.push([CLOSE,-1,-1]);
+      const qa=[], qr=[], second=new Float64Array(arr.length);
+      const slotA = T ? new Int16Array(arr.length).fill(-1) : null;
+      const slotB = T ? new Int16Array(arr.length).fill(-1) : null;
+      let ab=0, rb=0, peak=0;
+      /* ab+rb is every patient occupying a space — including one stuck in assessment with
+         nowhere to move to. That total IS the physician's concurrent load. Capacity is A+R;
+         the peak is what the lane actually reached, which is the honest number to show. */
+      const hb = t => Math.min(H-1, (t/60)|0);
+      const rec = (tag,w,dv) => { const tt=w+floor; if(!dv){wa+=tt;waN++} hs[hb(arr[tag])]+=tt; hn[hb(arr[tag])]++ };
+
+      const startA = (t,tag) => { ab++;
+        if(T){ const s=freeA.pop(); slotA[tag]=s; T.push({t, id:tag, ev:"assess", slot:s}) }
+        const w = r()<shr;
+        if(T) for(let i=T.length-1;i>=0;i--) if(T[i].id===tag && T[i].ev==="arrive"){ T[i].test=w; break }
+        const total = w ? pick(r,asw)+pick(r,res) : pick(r,now);
+        if(pooled){ second[tag]=0; ev.push([t+total,1,tag]); return }
+        if(!w && !fastDischarge){ second[tag]=0; ev.push([t+total,1,tag]); return }
+        const a = Math.min(assessMin ?? D.g.asw, total-1);
+        second[tag] = Math.max(1, total-a);
+        ev.push([t+a,1,tag]) };
+      const startB = (t,tag) => { rb++;
+        if(T){ const s=freeB.pop(); slotB[tag]=s; T.push({t, id:tag, ev:"second", slot:s}) }
+        ev.push([t+second[tag],2,tag]) };
+      const takeNext = t => { if(!qa.length || ab>=A) return;
+        const q=qa.shift(); rec(q[1], t-q[0]); startA(t,q[1]) };
+
+      while(ev.a.length){
+        const e=ev.pop(), t=e[0], kind=e[1], tag=e[2];
+        if(kind===-1){ for(const q of qa){ divN++; divWait += CLOSE-q[0]+floor; divH[hb(arr[q[1]])]++;
+                                           rec(q[1], CLOSE-q[0], true);
+                                           if(T) T.push({t, id:q[1], ev:"divert"}) }
+                       qa.length=0; if(T) T.push({t, ev:"close"}); continue }
+        if(kind===0){ if(T) T.push({t, id:tag, ev:"arrive", test: null});
+                      if(ab<A){ rec(tag,0); startA(t,tag) } else qa.push([t,tag]) }
+        else if(kind===1){
+          seen++;
+          if(!second[tag]){ ab--;
+            if(T){ freeA.push(slotA[tag]); T.push({t, id:tag, ev:"leave"}) }
+            takeNext(t); continue }                                 // never moved on
+          nw++;
+          if(rb<R){ ab--; if(T) freeA.push(slotA[tag]);
+                    wrN++; startB(t,tag); takeNext(t) }
+          else { qr.push([t,tag]); blocked++;
+                 if(T) T.push({t, id:tag, ev:"stuck"}) }             // nowhere to move to
+        } else {
+          rb--;
+          if(T){ freeB.push(slotB[tag]); T.push({t, id:tag, ev:"leave"}) }
+          if(qr.length){ const q=qr.shift(); wr += t-q[0]; wrN++; ab--;
+                         if(T) freeA.push(slotA[q[1]]);
+                         startB(t,q[1]); takeNext(t) }
+          else takeNext(t);
+        }
+        if(ab+rb > peak) peak = ab+rb;
+      }
+      peakSum += peak;
+    }
+  }
+  if(T) return {trace:T, A, R};
+  const runs = days*seeds.length;
+  if(!arrN) return {wa:0, perArrival:0, wr:0, stuck:0, byHour:new Array(H).fill(0), worst:0,
+                    worstIdx:0, seen:0, arrived:0, diverted:0, divByHour:new Array(H).fill(0),
+                    divPct:0, saturated:false, idle:true, peak:0};
+  const byHour=[]; for(let h=0;h<H;h++) byHour.push(hn[h] ? hs[h]/hn[h] : 0);
+  const worst = Math.max.apply(null, byHour);
+  return {wa: wa/waN, perArrival: (wa+wr+divWait)/arrN, wr: nw?wr/nw:0, stuck: nw?100*blocked/nw:0,
+          byHour, worst, worstIdx: byHour.indexOf(worst),
+          seen: seen/runs, arrived: arrN/runs, diverted: divN/runs,
+          divByHour: [...divH].map(v=>v/runs),
+          divPct: 100*divN/arrN, saturated: divN/arrN > 0.02,
+          peak: peakSum/runs};
+}
+
+/* ── playing one evening ──────────────────────────────────────────────────────
+   The same simulation, one seed, one day, replayed on a clock. Nothing here is decorative: the
+   dots move when that patient actually moved in the run the numbers come from, and a space that
+   looks full IS full. Watching it is the fastest way to see why a layout fails — a jammed second
+   area shows up as assessment spaces that stop turning over, which no summary figure conveys. */
+const PLAY = {on:false, t:0, speed:60, raf:0, trace:null, A:0, R:0, last:0,
+              runs:null, pick:0, n:0, expect:0};
+
+/* ⚠ THE SEED IS CHOSEN, NOT HASHED. An arbitrary seed gives an arbitrary evening, and evenings
+   vary enormously: across 40 seeds at the default settings the arrival count runs 13 to 47 around
+   a mean of 26.5. The first hash tried here landed on 42 arrivals — the third busiest of forty —
+   so the very first thing anyone saw was a jam the headline numbers do not predict.
+
+   So: sample a handful of candidate evenings and play the one whose arrival count is closest to
+   what the settings imply, and say on screen how busy it was. "Another evening" steps through the
+   rest, because the spread is real and worth seeing — it just should not be what you meet first. */
+function buildTrace(){
+  const m = modeOf(), lvl = LEVELS[S.level], f = m.id==="pooled" ? S.cyc/D.T_A : 1, mx = mix();
+  const hours = winHours(), fac = lvl.pts/D.day_mean;
+  const lam = hours.map(h => D.lam24[h]*fac*mx.share);
+  const expect = lam.reduce((a,b)=>a+b, 0);
+  const base = {A:S.A, R:m.hasR?S.R:0, pooled:m.id==="pooled", assessMin:S.assess,
+                fastDischarge:S.fastDischarge, shr:mx.shr, lam,
+                asw:scale(D.asw, f*mx.fa), now:scale(D.now, f*mx.fo), res:scale(D.res, f*mx.fr),
+                days:1, trace:true};
+
+  const runs = [];
+  for(let i=0;i<9;i++){
+    const out = sim({...base, seeds:[41+i*13]});
+    runs.push({out, n: out.trace.filter(e=>e.ev==="arrive").length});
+  }
+  runs.sort((a,b)=>Math.abs(a.n-expect)-Math.abs(b.n-expect));   // typical first, then outwards
+  PLAY.runs = runs; PLAY.pick = PLAY.pick % runs.length;
+  const chosen = runs[PLAY.pick];
+  PLAY.trace = chosen.out.trace; PLAY.A = chosen.out.A; PLAY.R = chosen.out.R;
+  PLAY.n = chosen.n; PLAY.expect = expect; PLAY.t = 0;
+  drawStage();
+}
+
+function stageState(t){
+  const A = new Array(PLAY.A).fill(null), B = new Array(PLAY.R).fill(null);
+  const where = new Map(), test = new Map();
+  let waiting = 0, gone = 0, sent = 0, stuck = new Set();
+  for(const e of PLAY.trace){
+    if(e.t > t) break;
+    if(e.ev === "arrive"){ waiting++; test.set(e.id, e.test) }
+    else if(e.ev === "assess"){ waiting--; A[e.slot] = e.id; where.set(e.id, ["A", e.slot]); stuck.delete(e.id) }
+    else if(e.ev === "second"){ const w = where.get(e.id); if(w && w[0]==="A") A[w[1]] = null;
+                                B[e.slot] = e.id; where.set(e.id, ["B", e.slot]); stuck.delete(e.id) }
+    else if(e.ev === "stuck"){ stuck.add(e.id) }
+    else if(e.ev === "leave"){ const w = where.get(e.id);
+                               if(w) (w[0]==="A"?A:B)[w[1]] = null;
+                               where.delete(e.id); gone++ }
+    else if(e.ev === "divert"){ waiting--; sent++ }
+  }
+  return {A, B, waiting, gone, sent, stuck, test};
+}
+
+/* One patient. A head and shoulders reads as a person at 18px where a stick figure turns to mush;
+   the badge on the shoulder marks the half who need a test, so the distinction survives being
+   printed, projected, or seen by someone who cannot separate the two colours. */
+function person(cls, test){
+  return `<svg class="fig ${cls}" viewBox="0 0 18 21" aria-hidden="true">
+    <circle class="hd" cx="9" cy="4.6" r="3.5"/>
+    <path class="bd" d="M9 9.4c-3.4 0-5.6 2.1-5.6 4.9V20h11.2v-5.7c0-2.8-2.2-4.9-5.6-4.9z"/>
+    ${test ? `<circle class="bg" cx="14.4" cy="13.6" r="3"/><circle class="bgd" cx="14.4" cy="13.6" r="1.25"/>` : ``}
+  </svg>`;
+}
+
+/* ⚠ A slot is only rebuilt when its OCCUPANT changes, never on every frame. Rebuilding the whole
+   lane each tick gave every figure a fresh element, which restarted the .22s arrival animation
+   from opacity:0 sixty times a second — the boxes changed colour and the people were invisible
+   until you paused. Keep the key in sync with anything `dot` renders. */
+function slotKey(id, st){
+  return id === null ? "-" : (st.stuck.has(id) ? "j" : "i") + (st.test.get(id) ? "t" : "n") + id;
+}
+function dot(id, st){
+  const k = slotKey(id, st);
+  if(id === null) return `<span class="slot" data-k="-"></span>`;
+  const jam = st.stuck.has(id);
+  return `<span class="slot full${jam?" jam":""}" data-k="${k}">${person(jam?"jam":"in", st.test.get(id))}</span>`;
+}
+function paintSlots(host, ids, st){
+  if(host.childElementCount !== ids.length){
+    host.innerHTML = ids.map(id => dot(id, st)).join("");
+    return;
+  }
+  ids.forEach((id, i) => {
+    const el = host.children[i];
+    if(el.dataset.k !== slotKey(id, st)) el.outerHTML = dot(id, st);
+  });
+}
+
+function drawStageIdle(){
+  const m = modeOf();
+  $("stageClock").textContent = "--:--";
+  $("stageWait").innerHTML = ""; $("stageWaitN").textContent = "0";
+  $("stageA").innerHTML = new Array(S.A).fill(`<span class="slot"></span>`).join("");
+  $("stageB").innerHTML = m.hasR ? new Array(S.R).fill(`<span class="slot"></span>`).join("")
+    : `<span class="none">nobody moves in this layout</span>`;
+  $("stageGone").textContent = "0"; $("stageSent").textContent = "0";
+  $("stageBar").style.width = "0%";
+}
+
+function drawStage(){
+  if(!PLAY.trace) return;
+  const st = stageState(PLAY.t);
+  const clock = (h => `${String((S.start + Math.floor(h/60)) % 24).padStart(2,"0")}:${String(Math.floor(h%60)).padStart(2,"0")}`)(PLAY.t);
+  const m = modeOf();
+  $("stageClock").textContent = clock;
+  $("stageWait").innerHTML = new Array(Math.min(st.waiting, 22)).fill(person("wait", false)).join("")
+    + (st.waiting > 22 ? `<span class="more">+${st.waiting-22}</span>` : "");
+  $("stageWaitN").textContent = st.waiting;
+  paintSlots($("stageA"), st.A, st);
+  if(m.hasR) paintSlots($("stageB"), st.B, st);
+  else $("stageB").innerHTML = `<span class="none">nobody moves in this layout</span>`;
+  $("stageGone").textContent = st.gone;
+  $("stageSent").textContent = st.sent;
+  $("stageBar").style.width = (100*PLAY.t/(S.len*60)).toFixed(1) + "%";
+  const busy = PLAY.n > PLAY.expect*1.15 ? "a busy one" : PLAY.n < PLAY.expect*0.85 ? "a quiet one" : "a typical one";
+  $("stageHint").innerHTML = `This evening brought <b class="num">${PLAY.n}</b> patients into the lane
+    against a typical <b class="num">${PLAY.expect.toFixed(1)}</b> — ${busy}. A space outlined in red
+    holds a patient with nowhere to move on to.`;
+}
+
+function tick(ts){
+  if(!PLAY.on) return;
+  const dt = PLAY.last ? (ts - PLAY.last)/1000 : 0;
+  PLAY.last = ts;
+  PLAY.t += dt * PLAY.speed;
+  if(PLAY.t >= S.len*60){ PLAY.t = S.len*60; playPause(false); drawStage(); return }
+  drawStage();
+  PLAY.raf = requestAnimationFrame(tick);
+}
+
+function playPause(on){
+  PLAY.on = on === undefined ? !PLAY.on : on;
+  if(PLAY.on){
+    if(!PLAY.trace || PLAY.t >= S.len*60){ buildTrace(); PLAY.t = 0 }
+    PLAY.last = 0; PLAY.raf = requestAnimationFrame(tick);
+  } else cancelAnimationFrame(PLAY.raf);
+  $("playBtn").textContent = PLAY.on ? "Pause" : (PLAY.t>0 ? "Resume" : "Play the evening");
+  $("reroll").hidden = !PLAY.trace;
+}
+
+/* ── the operating window ────────────────────────────────────────────────────
+   The lane used to be nailed to 15:00-23:00. It is now a start hour and a length, because
+   WHERE you put the window turns out to matter more than how you split the chairs — and the
+   arrival curve and today's wait curve disagree about where the need is. Arrivals peak at
+   19:00-20:00 (3.9/hr) with a second bump at 11:00; today's wait peaks later still, 107 min at
+   22:00 and 99 at midnight, and is lowest at 08:00 (16 min). A window over the busiest ARRIVAL
+   hours is not automatically the one that removes the most waiting.
+
+   The day is the denominator now. Patients arriving outside the lane's hours are charged the
+   main department exactly like patients its criteria exclude — they are equally not served by
+   it, and a score that ignored them would reward a lane open for one quiet hour. */
+const HOURS = D.lam24.map((_,h)=>h);
+const winHours = () => Array.from({length:S.len}, (_,i)=>(S.start+i)%24);
+const dayFactor = () => LEVELS[S.level].pts / D.day_mean;
+// arrivals per hour inside the window, scaled to the day's volume
+const winLam = () => winHours().map(h => D.lam24[h] * dayFactor());
+
+/* ── who the lane accepts ────────────────────────────────────────────────────
+   Selecting complaints changes three things at once, and the third is the one people miss:
+     1. how many patients the lane sees   — the selected share of the evening
+     2. how often a test is needed        — Ear Problem 10%, Ankle Injury 99%
+     3. how long a space is held          — each complaint's own measured means
+   Service-time SHAPES are department-wide; only their means are per-complaint, so a selection
+   scales the pools rather than resampling them. Stated on the page, because it is an
+   approximation and a reader should know which part is measured per complaint and which is not. */
+const CC = D.cc.map((x,i)=>({...x, i}));
+let PICK = new Set(CC.map(x=>x.i));                 // everyone, until someone narrows it
+
+/* ── the composite ───────────────────────────────────────────────────────────
+   Every other number here can be improved by taking fewer patients: narrow the criteria, or let
+   the queue spill past 23:00, and the average among those you served looks better while the
+   evening is unchanged. This charges the patients a lane does NOT serve what they actually get
+   instead — today's wait for a room in the main department, by hour: 32 min at 15:00 rising to
+   107 at 22:00, day mean 50.0.
+
+   So the score is minutes of delay per ESI 4/5 patient ARRIVING THAT DAY — the whole day, not
+   the lane's hours; the denominator is dayTotal — whoever ends up treating them. Accept nobody
+   and you score exactly the status quo; there is no way to win by shrinking. LOWER IS BETTER,
+   and 50.0 is the number to beat.
+
+   ⚠ It assumes the main department's wait is unaffected by the lane. Taking work out of it
+   should improve it, so if anything this UNDERSTATES what excluding people costs. */
+/* ⚠ WHAT THE BAR ACTUALLY IS. This was labelled "no lane at all" and that was wrong: it is
+   measured on TODAY, and today already has a fast track. The Orca pod takes 65-68% of these
+   patients until 18:00, then 54% at 20:00, 15% at 21:00, 7% at 22:00 — and the whole hourly
+   escalation in the pooled curve is that pod closing. Orca patients wait a flat 31-45 min at
+   every hour including 22:00; everyone else goes 31 -> 118. So the curve is the STATUS QUO, not
+   a lane-free counterfactual, and the two differ by a lot: 58.1 against 80.5.
+
+   Which is the right bar depends on something no model settles — whether the proposed lane is
+   ADDED to today's pod or REPLACES it. So it is a control, not a constant.
+
+   Both curves charge a patient who walked out the time they spent before leaving. Dropping them
+   would condition the bar on not having walked out, and they cluster at 22:00 — 179 of 613 —
+   exactly where it matters most. */
+/* ⚠ THERE IS ONLY ONE BAR, AND THAT IS DELIBERATE.
+   A second one — "a day with no fast track" — was offered here and has been removed, because it
+   did not measure what its name claimed. It was built by excluding patients whose care area was
+   the Orca pod (today's fast track, visibly: 0-1% of ESI 4/5 overnight, 65-68% from 11:00 to
+   18:00, 7% by 23:00). Two things sank it:
+
+     - 59% of the walkouts in those hours have NO care area recorded at all. A patient who leaves
+       before being placed cannot be labelled Orca, so every one of them fell into the
+       "no fast track" group by construction rather than by outcome. Removing walkouts closes most
+       of the gap: 59.2 -> 52.7 against 46.0 for everyone.
+     - What remains is not a counterfactual anyway. It is the patients Orca did not take WHILE IT
+       WAS OPEN — the overflow, which is concentrated at the moments it was full.
+
+   The department has run a fast track throughout the measured period, so no lane-free day exists
+   to compare against. Today's arrangement is the honest bar: it is what actually happens now,
+   which is the thing any change has to beat. */
+const BARS = {today: {m24:D.main24, mean:D.main_mean, n:"today's arrangement"}};
+const bar = () => BARS[S.bar] || BARS.today;
+
+function mix(){
+  const sel = CC.filter(x=>PICK.has(x.i));
+  const s = sel.reduce((a,x)=>a+x.s, 0);
+  if(!s) return {share:0, shr:D.shr, fa:1, fr:1, fo:1, n:0};
+  const wsum = k => sel.reduce((a,x)=>a+x.s*x[k], 0)/s;
+  return {share:s, n:sel.length,
+          shr: wsum("w"),
+          fa: wsum("a")/D.g.asw,                    // scale factors onto the shared shapes
+          fr: wsum("r")/D.g.res,
+          fo: wsum("o")/D.g.now};
+}
+const scale  = (pool,f) => pool.map(x => x*f);
+
+/* One lane, evaluated. `cfg` is everything a saved board entry carries, so the live page and
+   the leaderboard cannot drift apart — they call this same function. */
+function evaluate(cfg, dayTotal){
+  /* a board row saved in the four-mode era ('zone', 'rooms') must not crash the page for
+     everyone sharing the board — fall back to split, the nearest surviving semantics */
+  const m = MODES.find(x=>x.id===cfg.mode) || MODES[0];
+  const f = cfg.mode==="pooled" ? cfg.cyc/D.T_A : 1;
+  const hours = Array.from({length:cfg.len}, (_,i)=>(cfg.start+i)%24);
+  const fac   = dayTotal / D.day_mean;
+
+  const keep = cfg.cc === undefined ? new Set(CC.map(x=>x.i))
+             : new Set(String(cfg.cc).split(".").filter(v=>v!=="").map(Number));
+  const sel = CC.filter(x=>keep.has(x.i)), share = sel.reduce((a,x)=>a+x.s,0);
+  const w = k => share ? sel.reduce((a,x)=>a+x.s*x[k],0)/share : 1;
+
+  const lam = hours.map(h => D.lam24[h] * fac * share);      // what the lane actually sees
+  const accepted = lam.reduce((a,b)=>a+b, 0);
+
+  const o = accepted < 0.05 ? {idle:true, perArrival:0, wa:0, wr:0, stuck:0, worst:0, worstIdx:0,
+                               byHour:hours.map(()=>0), diverted:0, divByHour:hours.map(()=>0),
+                               arrived:0, seen:0, divPct:0}
+    : sim({A:cfg.A, R:m.hasR?cfg.R:0, pooled:cfg.mode==="pooled", 
+           assessMin:cfg.assess, fastDischarge:cfg.fastDischarge, shr:w("w"), lam,
+           asw:scale(D.asw, f*w("a")/D.g.asw), now:scale(D.now, f*w("o")/D.g.now),
+           res:scale(D.res, f*w("r")/D.g.res), days:cfg.days||600, seeds:cfg.seeds||[11,12,13,14]});
+
+  // Everyone the lane does not serve is charged the main department for THEIR arrival hour:
+  // the whole of every hour outside the window, and the criteria-excluded share of every hour
+  // inside it. Out-of-hours and out-of-criteria are the same thing from the patient's side.
+  const B = BARS[cfg.bar] || BARS.today;
+  const inWin = new Set(hours);
+  let outMin = 0;
+  for(let h=0; h<24; h++){
+    const arr = D.lam24[h] * fac;
+    outMin += arr * (inWin.has(h) ? (1-share) : 1) * B.m24[h];
+  }
+  const divMin = (o.divByHour||[]).reduce((a,v,i)=>a + v*Math.max(0, B.m24[hours[i]] - D.floor), 0);
+  const laneMin = o.idle ? 0 : o.perArrival * accepted;
+  const score = dayTotal ? (laneMin + divMin + outMin) / dayTotal : B.mean;
+
+  return {o, m, hours, accepted, share, dayTotal, score, base:B.mean, delta:B.mean-score,
+          cover: dayTotal ? accepted/dayTotal : 0};
+}
+
+/* ── state ───────────────────────────────────────────────────────────────── */
+const MODES = [
+  {id:"split",  t:"Assessment spaces + a second area",
+                s:"Assessed in one space, then moved to a second area to wait for results or to be discharged.",
+                hasR:true},
+  {id:"pooled", t:"One group, patient stays put",
+                s:"A patient takes a space on arrival and keeps it until they leave. Nobody moves.",
+                hasR:false}
+];
+// Named layouts the group has put forward. Each is a full setting, not a hint.
+const PRESETS = [
+  {id:"mikelong", n:"The Mike Long Play",
+   set:{mode:"split", A:2, R:8, assess:44, fastDischarge:true},
+   d:"2 assessment chairs; the other 8 are one combined fast-track waiting and results-pending zone."},
+  {id:"park", n:"The Park Attack",
+   set:{mode:"split", A:3, R:2, budget:5},
+   d:"5 spaces in total, split between assessment and results-pending however you like — move one and the other follows."},
+  {id:"rooms", n:"8 rooms + 10 chairs",
+   set:{mode:"split", A:8, R:10, fastDischarge:true},
+   d:"The larger estate: assessment in a room, then a second area of 10 chairs."},
+  {id:"six", n:"Group consensus — 6, split",
+   set:{mode:"split", A:4, R:2, budget:6},
+   d:"6 spaces, divided. Which split is best depends entirely on the assessment time — move that slider and watch the best split move with it."}
+];
+// whole DAYS now, not evenings — the window can sit anywhere, so the day is the only
+// denominator that does not change meaning when you move it
+const LEVELS = [
+  {n:"A quiet day",   pts:D.day["10"], d:"1 day in 10 is quieter"},
+  {n:"A typical day", pts:D.day["50"], d:"half of days are quieter"},
+  {n:"A busy day",    pts:D.day["75"], d:"1 day in 4 is busier"},
+  {n:"A heavy day",   pts:D.day["90"], d:"1 day in 10 is busier"}
+];
+// ⚠ NO TARGET, DELIBERATELY. This carried a 15-minute pass/fail bar, inherited from the scoping
+// deck, and there is nothing behind it — no measurement here says a patient cannot wait 30
+// minutes or an hour. A bar drawn at an arbitrary number turns every comparison into a verdict
+// against it. The page reports how long people wait and how many are turned away; what counts
+// as acceptable is a judgement for the room, not a line in a chart.
+const S = {mode:"split", A:6, R:4, budget:0, cyc:Math.round(D.T_A), assess:44,
+           fastDischarge:false, level:1, bar:"today", start:15, len:8};
+// Measured: mean time from being roomed to the first test being ordered is 44 min. In the
+// combined-zone layouts the patient leaves the assessment chair at that point instead of
+// keeping it, so this is the natural starting value — and it is the number that decides
+// whether those layouts work, which is why it is a control and not a constant.
+
+/* ── render ──────────────────────────────────────────────────────────────── */
+const $ = id => document.getElementById(id);
+
+function modeOf(){ return MODES.find(m=>m.id===S.mode) }
+
+function drawModes(){
+  $("modes").innerHTML = MODES.map(m=>
+    `<button type="button" data-m="${m.id}" aria-pressed="${m.id===S.mode}">
+       <span class="t">${m.t}</span><br><span class="s">${m.s}</span></button>`).join("");
+  $("modes").querySelectorAll("button").forEach(b=>b.onclick=()=>{
+    S.mode=b.dataset.m; S.budget=0; const m=modeOf();
+    if(m.id==="pooled"){S.A=Math.min(12,S.A+S.R)}
+    if(m.id==="split" && S.A+S.R>16){S.A=6;S.R=4}
+    drawModes();drawSpaces();run();
+  });
+}
+
+/* Text-only companion to drawSpaces, safe on every pointer move. */
+function syncSpaces(){
+  const m=modeOf();
+  const oa=$("oA"); if(oa) oa.textContent = S.A;
+  const or=$("oR"); if(or) or.textContent = S.R;
+  const sa=$("sA"); if(sa && +sa.value !== S.A) sa.value = S.A;
+  const sr=$("sR"); if(sr && +sr.value !== S.R) sr.value = S.R;
+  const tot=$("spaceTot");
+  if(tot) tot.innerHTML = `${S.A + (m.hasR?S.R:0)}${S.budget?" of "+S.budget:""}`;
+}
+
+function drawSpaces(){
+  const m=modeOf(), rows=[];
+  rows.push(ctl("A", m.id==="pooled" ? "Spaces in the group" : "Assessment spaces", S.A, 1, 14, false));
+  if(m.hasR) rows.push(ctl("R", "Second area — results &amp; discharge pending", S.R, 1, 16, false));
+  const tot = S.A + (m.hasR?S.R:0);
+  rows.push(`<div class="total"><span>Spaces in use</span><b class="num" id="spaceTot">${tot}${S.budget?" of "+S.budget:""}</b></div>`);
+  $("spaceCtl").innerHTML = rows.join("");
+  $("spaceCtl").querySelectorAll("input").forEach(i=>{
+    i.oninput=()=>{
+      const k=i.dataset.k, v=+i.value;
+      if(S.budget && m.hasR){                       // spend from a fixed pot: one goes up, the other down
+        const other = k==="A" ? "R" : "A";
+        S[k] = Math.min(v, S.budget-1);
+        S[other] = S.budget - S[k];
+      } else S[k]=v;
+      /* ⚠ was drawSpaces() here — rebuilding the panel replaced the slider under the mouse and
+         ended the drag after one step. Update the readouts in place instead; the panel is only
+         rebuilt when the CONTROLS change (mode, preset, budget). */
+      syncSpaces();
+      requestRun();
+    };
+  });
+  if(S.budget) $("spaceCtl").insertAdjacentHTML("beforeend",
+    `<div class="hint" style="margin-top:8px">Fixed at ${S.budget} spaces — moving one takes from the
+     other. <a href="#" id="unlock">Unlock the total</a> to add more.</div>`);
+  const un=$("unlock"); if(un) un.onclick=e=>{e.preventDefault();S.budget=0;drawSpaces();run()};
+  function ctl(k,label,val,min,max,dis){
+    return `<div class="ctl"><div class="ctl-top"><label for="s${k}">${label}</label>
+      <output class="num" id="o${k}">${val}</output></div>
+      <input type="range" id="s${k}" data-k="${k}" min="${min}" max="${max}" step="1" value="${val}"${dis?" disabled":""}>
+      ${dis?'<div class="hint">Fixed — this layout uses the 8 rooms.</div>':""}</div>`;
+  }
+}
+
+/* A patient needing no test occupies the assessment space for their whole visit (86 min measured)
+   while a patient needing one leaves it after 72 — so the people who need NOTHING are 55% of the
+   assessment load. Whether they can be moved on once seen is therefore a real lever, but it is
+   CONDITIONAL ON SOMEWHERE TO MOVE THEM: at 6+4 moving them is 13 min WORSE (they flood a second
+   area that cannot hold them), at 6+10 it is 1.4 min better. Sign-stable across seed blocks.
+   An earlier version of this comment claimed it was worth 11 min unconditionally — that was
+   measured when such patients simply left the model. It barely touches a pooled lane, where the
+   patient keeps one space either way, so the control is hidden there rather than offered as a
+   lever that cannot move. */
+function fdControl(){
+  return `<div class="ctl"><div class="ctl-top"><label>A patient who needs no test</label></div>
+    <div class="seg" role="group">
+      <button type="button" data-fd="0" aria-pressed="${!S.fastDischarge}">keeps the space until they leave</button>
+      <button type="button" data-fd="1" aria-pressed="${S.fastDischarge}">moves on once seen</button>
+    </div>
+    <div class="hint">Half of these patients get no test, so nothing in the record marks when they
+      are finished being assessed. Keeping the space is what we measure today — ${D.g.now.toFixed(0)}
+      minutes, longer than a test patient's ${(D.g.asw-D.pom).toFixed(0)} measured to first order
+      (${D.g.asw.toFixed(0)} with the assumed ${D.pom} after it).</div></div>`;
+  /* ⚠ There used to be a second slider here, "They move on after". It wrote the SAME S.assess
+     as the one above — one number with two handles, and two different ranges (12-86 against
+     10-90), so the controls disagreed about their own limits. The engine has a single
+     assessMin, applied to test and no-test patients alike once this toggle is on. */
+}
+
+/* ⚠ BUILT ONCE PER SHAPE, THEN ONLY THE READOUTS CHANGE — same rule as drawWindow. run()
+   calls this on every input, and rebuilding innerHTML replaces the very <input> the user has
+   under the mouse, which ends the drag after one step. Rebuild only when the CONTROLS change
+   (mode, or the no-test toggle that adds a second slider), never on a value change. */
+let speedKey = null;
+function drawSpeed(m){
+  const host = $("speedCtl");
+  const key = m.id + "|" + (S.fastDischarge ? 1 : 0);
+  if(key === speedKey) return syncSpeed(m);
+  speedKey = key;
+  if(m.id==="pooled"){
+/* ⚠ This dial is a PACE, not a duration. It scales the measured service times by
+       cyc/T_A; the space is actually held for the whole visit, which is ~D.hold_all at
+       today's pace, not S.cyc. Labelling it "time a space is tied up: 76 min" was wrong by
+       about 50 minutes and steered one of the three layouts the room is choosing between. */
+    const pct = Math.round(100 - 100*S.cyc/D.T_A);
+    host.innerHTML = `<div class="ctl"><div class="ctl-top">
+        <label for="cyc">How fast a space turns over</label>
+        <output class="num" id="cycOut"></output></div>
+      <input type="range" id="cyc" min="55" max="115" step="1" value="${S.cyc}">
+      <div class="hint">Nobody moves in this layout, so one space carries the whole visit &mdash;
+        ${Math.round(D.hold_all)} min on average today. This dial runs that faster or slower; it is
+        a pace, not a duration.</div></div>`;
+    $("cyc").oninput = e => { S.cyc = +e.target.value; syncSpeed(m); requestRun() };
+    return syncSpeed(m);
+  }
+  host.innerHTML = `<div class="ctl"><div class="ctl-top">
+      <label for="asx">Assessment, before they move</label>
+      <output class="num" id="asxOut"></output></div>
+    <input type="range" id="asx" min="10" max="90" step="1" value="${S.assess}">
+    <div class="hint">How long a patient keeps an assessment space before moving to the second
+      area. Measured today, a test patient's first order lands
+      ${(D.g.asw-D.pom).toFixed(0)} min after rooming; the ${D.g.asw.toFixed(0)}-min reference
+      adds an <b>assumed</b> ${D.pom} min after the order. Neither is a decision anyone made, and
+      neither exists at all for the half who need no test. It is the number to argue about: the
+      best split follows it.
+      <span id="asxBoth"></span></div></div>`
+    + fdControl();
+  $("asx").oninput = e => { S.assess = +e.target.value; syncSpeed(m); requestRun() };
+  syncSpeed(m);
+}
+
+/* The cheap half: text only, safe to call on every pointer move. */
+function syncSpeed(m){
+  if(m.id==="pooled"){
+    const pct = Math.round(100 - 100*S.cyc/D.T_A);
+    const o = $("cycOut");
+    if(o) o.textContent = pct===0 ? "today's pace" : (pct>0 ? pct+"% faster" : (-pct)+"% slower");
+    const s = $("cyc"); if(s && +s.value !== S.cyc) s.value = S.cyc;   // a loaded row moved it, not a drag
+    return;
+  }
+  const o = $("asxOut"); if(o) o.textContent = S.assess + " min";
+  const s1 = $("asx");  if(s1 && +s1.value !== S.assess) s1.value = S.assess;
+  const both = $("asxBoth");
+  if(both) both.textContent = S.fastDischarge
+    ? " With \u201cmoves on once seen\u201d selected below, this is when the no-test patients move too."
+    : "";
+}
+
+function drawPresets(){
+  $("presets").innerHTML = PRESETS.map(p=>
+    `<button type="button" data-p="${p.id}"><span class="t">${p.n}</span><br>
+       <span class="s">${p.d}</span></button>`).join("");
+  $("presets").querySelectorAll("button").forEach(btn=>btn.onclick=()=>{
+    const p=PRESETS.find(x=>x.id===btn.dataset.p);
+    S.budget=0; Object.assign(S,p.set); drawModes(); drawSpaces(); run();
+  });
+}
+
+/* ── leaderboard ─────────────────────────────────────────────────────────────
+   Two stores, same interface. If a shared board answers at /board on this origin — i.e. the
+   page is being served by serve_board.py on someone's machine — every entry goes there and
+   everyone in the room sees one list. Otherwise it falls back to this browser's own storage,
+   so the GitHub Pages copy still works exactly as before. The page never blocks on the
+   network: a shared board that stops answering degrades to the local one rather than hanging. */
+const LB_KEY  = "chairlab.board.v1";
+const API_KEY = "chairlab.endpoint.v1";
+let SHARED = false, cache = [], API = null;
+
+const localBoard = () => { try{ return JSON.parse(localStorage.getItem(LB_KEY)||"[]") }catch(e){ return [] } };
+const saveLocal  = b => { try{ localStorage.setItem(LB_KEY, JSON.stringify(b.slice(-40))) }catch(e){} };
+const board      = () => SHARED ? cache : localBoard();
+
+// The endpoint can arrive three ways, in this order: a ?board= link (so only ONE person ever
+// sets it up and everyone else just follows their link), whatever was saved here before, or a
+// same-origin /board when the page is being served by serve_board.py on the local network.
+function endpointFromEnv(){
+  const q = new URLSearchParams(location.search).get("board");
+  if(q){ try{ localStorage.setItem(API_KEY, q) }catch(e){} return q }
+  try{ const s = localStorage.getItem(API_KEY); if(s) return s }catch(e){}
+  return location.protocol === "https:" ? null : "board";
+}
+
+async function probeShared(explicit){
+  API = explicit === undefined ? endpointFromEnv() : (explicit || null);
+  if(!API) return markShared();
+  try{
+    const r = await fetch(API, {cache:"no-store", redirect:"follow"});
+    if(!r.ok) throw 0;
+    const d = await r.json();
+    if(!Array.isArray(d)) throw 0;
+    cache = d; SHARED = true; drawBoard();
+  }catch(e){ SHARED = false; }
+  markShared();
+}
+
+function markShared(){
+  const n=$("sharedTag"); if(!n) return;
+  n.textContent = SHARED ? "shared board — everyone using this link sees the same list"
+                : API ? "shared board unreachable — using this browser only"
+                      : "saved in this browser only";
+}
+
+async function pushShared(entry){
+  try{
+    // text/plain deliberately: a JSON content-type makes the browser send a CORS preflight,
+    // which an Apps Script web app cannot answer, and the POST would fail before arriving.
+    const r = await fetch(API, {method:"POST", headers:{"Content-Type":"text/plain;charset=utf-8"},
+                                body: JSON.stringify(entry), redirect:"follow"});
+    if(!r.ok) return false;
+    const d = await r.json();
+    if(!Array.isArray(d)) return false;
+    cache = d; return true;
+  }catch(e){ return false }
+}
+
+function setEndpoint(url){
+  url = (url||"").trim();
+  try{ url ? localStorage.setItem(API_KEY, url) : localStorage.removeItem(API_KEY) }catch(e){}
+  // Drop ?board= from the address bar too. Without this, clearing the endpoint looks broken:
+  // the next probe reads the parameter still sitting in the URL and rejoins the board.
+  if(!url && new URLSearchParams(location.search).has("board")){
+    const u = new URL(location.href); u.searchParams.delete("board");
+    history.replaceState(null, "", u.pathname + u.search + u.hash);
+  }
+  SHARED = false; cache = []; probeShared(url);
+  drawBoard();
+}
+
+function scoreOf(cfg, pts){
+  // entries saved before the window was adjustable ran the original 15:00-23:00 lane
+  const c = {...cfg, start: cfg.start ?? 15, len: cfg.len ?? 8, bar: S.bar, days:300, seeds:[11,12,13]};
+  const E = evaluate(c, pts);
+  return {score:E.score, lane:E.o.perArrival, div:E.o.diverted, divPct:E.o.divPct, worst:E.o.worst,
+          cover:E.cover, empty:E.o.idle, spaces: c.A + (E.m.hasR?c.R:0), len: c.len,
+          // a 24h lane wraps to "00-00", which reads as a zero-length window
+          win: c.len>=24 ? "all day"
+             : `${String(c.start).padStart(2,"0")}-${String((c.start+c.len)%24).padStart(2,"0")}`};
+}
+
+async function addEntry(){
+  const who = ($("who").value||"").trim().slice(0,28);
+  if(!who){ $("who").focus(); return }
+  const cfg = {mode:S.mode, A:S.A, R:S.R, cyc:S.cyc, assess:S.assess, fastDischarge:S.fastDischarge,
+               cc:[...PICK].sort((a,b)=>a-b).join("."), start:S.start, len:S.len};
+  const entry = {who, cfg, at: Date.now()};
+  if(SHARED){
+    const ok = await pushShared(entry);
+    if(!ok){ SHARED=false; markShared(); }        // shared board went away — keep playing locally
+  }
+  if(!SHARED){
+    const b = localBoard().filter(e => !(e.who===who && JSON.stringify(e.cfg)===JSON.stringify(cfg)));
+    b.push(entry); saveLocal(b);
+  }
+  $("who").value=""; drawBoard();
+}
+
+function drawBoard(){
+  const pts = LEVELS[S.level].pts;
+  // the largest layout anyone has actually proposed — a lane above it is claiming new estate
+  const most = Math.max(...PRESETS.map(p => (p.set.A||0) + (p.set.R||0)));
+  /* ⚠ The score prices patients, not real estate: a lane can always improve by claiming
+     more spaces, and the sliders reach far past anything on offer. Rather than invent a cap
+     (the layouts under discussion run 5, 6, 10 and 18 spaces — there is no single estate to
+     cap at), spaces gets its own column and breaks ties, so a bigger lane is never free. */
+  const rows = board().map(e => ({...e, ...scoreOf(e.cfg, pts)}))
+                      .sort((x,y)=> x.score-y.score || x.spaces-y.spaces || x.len-y.len);
+  $("boardBody").innerHTML = rows.length ? rows.map((r,i)=>{
+    const m = MODES.find(x=>x.id===r.cfg.mode)||MODES[0];
+    const shape = r.cfg.mode==="pooled" ? `${r.cfg.A} pooled`
+                : `${r.cfg.A}+${r.cfg.R}`;
+    const big = r.spaces > most;
+    return `<tr><td class="num">${i+1}</td><td>${r.who}</td>
+      <td>${shape}</td>
+      <td class="num${big?" warn":""}">${r.spaces}</td>
+      <td class="num">${r.win}<span class="sub"> · ${r.len}h</span></td>
+      <td class="num"><b>${r.score.toFixed(1)}</b></td>
+      <!-- ⚠ threshold matches the hero card. It was <0.999, which flagged every lane that did
+           not run 24 hours: the scoped 15-23 lane tops out at 49% by construction, so the
+           colour fired on every realistic row and carried no information. -->
+      <td class="num${r.cover<0.2?" warn":""}">${Math.round(100*r.cover)}%</td>
+      <td class="num">${r.empty?"—":r.worst.toFixed(0)}</td>
+      <td class="num${r.divPct>2?" warn":""}">${r.div.toFixed(1)}</td>
+      <td><button type="button" class="mini" data-load="${r.at}">load</button></td></tr>`;
+  }).join("") : `<tr><td colspan="10" class="empty">Nothing saved yet. Build a lane you like, put your
+                 name in and add it — the board ranks on delay per arriving patient.</td></tr>`;
+  $("boardBody").querySelectorAll("[data-load]").forEach(btn=>btn.onclick=()=>{
+    const e = board().find(x=>String(x.at)===btn.dataset.load); if(!e) return;
+    S.budget=0; Object.assign(S, e.cfg);
+    /* ⚠ SANITIZE THE MODE. evaluate() and drawBoard() already fall back to split for a
+       legacy 'zone'/'rooms' row — but this handler writes cfg.mode straight into live state,
+       and modeOf() returning undefined killed drawSpaces and then EVERY subsequent run()
+       until reload. Same guard fromHash has had all along. */
+    if(!MODES.some(m=>m.id===S.mode)) S.mode = MODES[0].id;
+    /* ⚠ The criteria live in PICK, not in S, so Object.assign cannot carry them — loading a row
+       used to keep whichever complaints the CURRENT user had selected, and the lane you got back
+       was not the lane that was scored. An entry with no cc at all is a pre-criteria row: it ran
+       on everyone, which is what `evaluate` assumes for it too. */
+    PICK = e.cfg.cc === undefined || e.cfg.cc === ""
+         ? new Set(CC.map(x=>x.i))
+         : new Set(String(e.cfg.cc).split(".").filter(v=>v!=="").map(Number));
+    drawModes(); drawSpaces(); drawWindow(); run();
+  });
+  $("boardNote").innerHTML = `Scored on ${LEVELS[S.level].n.toLowerCase()} — ${pts} patients. `
+    + `<b>Lowest score wins</b>: it is minutes of delay, so the best lane is the one that adds `
+    + `the fewest. Changing nothing scores `
+    + `<b class="num">${(BARS[S.bar]||BARS.today).mean.toFixed(1)}</b>. `
+    + `The score charges for patients, not for space or for open hours — a lane wins by `
+    + `serving more of the day, so compare lanes at the same spaces and the same window. `
+    + `Anything above ${most} spaces is asking for more room than any option on the table.`;
+}
+
+/* ── shareable setup ─────────────────────────────────────────────────────── */
+/* ⚠ THE CRITERIA TRAVEL TOO. The hash carried nine numbers and not PICK, so 'Copy link to
+   this setup' delivered a narrowed lane as an everyone-lane — same layout, different numbers —
+   and a plain refresh after narrowing quietly reset the criteria. Field 10 is the complaint ids
+   joined by '.', appended only when narrowed so untouched links keep their old shape. */
+function hashState(){
+  const c = [S.mode,S.A,S.R,S.cyc,S.assess,S.fastDischarge?1:0,S.level,S.start,S.len];
+  if(PICK.size < CC.length) c.push([...PICK].sort((x,y)=>x-y).join("."));
+  return c.join(",");
+}
+function toHash(){
+  const c = hashState();
+  // carry the shared board along, so a colleague opening this link is joined to it automatically
+  const q = API && API!=="board" ? "?board="+encodeURIComponent(API) : "";
+  return location.origin + location.pathname + q + "#" + encodeURIComponent(c);
+}
+function fromHash(){
+  const h = decodeURIComponent(location.hash.slice(1)); if(!h) return;
+  const p = h.split(","); if(p.length<7) return;
+  if(!MODES.some(m=>m.id===p[0])) return;
+  /* ⚠ 8-field links from the retired-target era are [mode..fd, TARGET, level] — the old
+     15-minute target sits where level now lives, and LEVELS[15] killed the page on load.
+     The guard for this existed once and was dropped in the window rewrite; its comment
+     outlived it. Clamp regardless: a garbage level from ANY malformed link must not brick
+     a page whose first run() happens before a single handler is wired. */
+  const rawLvl = p.length===8 ? +p[7] : +p[6];
+  const lvl = Number.isFinite(rawLvl) ? Math.max(0, Math.min(LEVELS.length-1, rawLvl)) : 1;
+  Object.assign(S, {mode:p[0], A:+p[1], R:+p[2], cyc:+p[3], assess:+p[4],
+                    fastDischarge:p[5]==="1", level:lvl, budget:0,
+                    start: p.length>=9 ? +p[7] : 15, len: p.length>=9 ? +p[8] : 8});
+  if(p.length>=10) PICK = new Set(p[9].split(".").filter(v=>v!=="").map(Number));
+}
+
+/* ⚠ BUILT ONCE, THEN ONLY THE READOUTS CHANGE. These sliders sit next to the chart they drive,
+   so they are dragged rather than clicked — and re-rendering the input inside its own oninput
+   handler destroys the element mid-drag, which stops the drag dead after one step. run() calls
+   syncWindow(), never drawWindow(). */
+let winBuilt = false;
+function drawWindow(){
+  if(winBuilt) return;
+  $("winCtl").innerHTML = `
+    <div class="wctl">
+      <div class="ctl"><div class="ctl-top"><label for="wstart">Opens at</label>
+        <output class="num" id="wstartOut"></output></div>
+        <input type="range" id="wstart" min="0" max="23" step="1" value="${S.start}"></div>
+      <div class="ctl"><div class="ctl-top"><label for="wlen">Open for</label>
+        <output class="num" id="wlenOut"></output></div>
+        <input type="range" id="wlen" min="2" max="24" step="1" value="${S.len}"></div>
+    </div>`;
+  $("wstart").oninput = e => { S.start = +e.target.value; syncWindow(); requestRun() };
+  $("wlen").oninput   = e => { S.len   = +e.target.value; syncWindow(); requestRun() };
+  winBuilt = true;
+}
+
+function syncWindow(){
+  const end = (S.start + S.len) % 24;
+  $("wstartOut").textContent = String(S.start).padStart(2,"0") + ":00";
+  $("wlenOut").innerHTML = `${S.len} h &nbsp;&rarr;&nbsp; ${String(end).padStart(2,"0")}:00`;
+  const a=$("wstart"), b=$("wlen");
+  if(a && +a.value !== S.start) a.value = S.start;      // a preset or a link moved it, not a drag
+  if(b && +b.value !== S.len)   b.value = S.len;
+}
+
+// The arrival curve for the whole day with the lane's hours picked out. This is the chart the
+// window control exists for: it shows at a glance that a window can be long and still miss the
+// need, or short and sit right on it.
+function drawArrivals(E){
+  const fac = LEVELS[S.level].pts / D.day_mean;
+  const arr = D.lam24.map(v=>v*fac);
+  const top = Math.max(...arr) * 1.18;
+  const inWin = new Set(E.hours);
+  const B = BARS[S.bar] || BARS.today;
+  $("arrBars").innerHTML = arr.map((v,h)=>
+    `<div class="abar${inWin.has(h)?" on":""}" title="${h}:00 — ${v.toFixed(1)} arrivals, ${B.m24[h].toFixed(0)} min wait today">
+       <div class="afill" style="height:${Math.max(1,100*v/top)}%"></div></div>`).join("");
+  $("arrHours").innerHTML = arr.map((_,h)=>
+    `<span class="${inWin.has(h)?"on":""}">${h%3===0?h:""}</span>`).join("");
+  $("arrNote").innerHTML = `The lane is open <b>${String(S.start).padStart(2,"0")}:00</b> to
+    <b>${String((S.start+S.len)%24).padStart(2,"0")}:00</b> and sees
+    <b class="num">${E.hours.reduce((a,h)=>a+arr[h],0).toFixed(1)}</b> of the day's
+    <b class="num">${LEVELS[S.level].pts}</b> ESI 4/5 arrivals before criteria.`;
+}
+
+function drawCriteria(){
+  const mx = mix();
+  const fac = LEVELS[S.level].pts / D.day_mean;
+  const pts = winHours().reduce((a,h)=>a + D.lam24[h]*fac, 0);   // arrivals inside the hours
+  /* The counts are per-day AND per-window, so both need saying once — a reader seeing "4.4"
+     beside Fever cannot otherwise tell whether that is a day, a shift, or a year. */
+  const hint = $("ccHint");
+  if(hint) hint.innerHTML = `Counts are patients arriving between
+    <b class="num">${String(S.start).padStart(2,"0")}:00</b> and
+    <b class="num">${String((S.start+S.len)%24).padStart(2,"0")}:00</b>
+    on ${LEVELS[S.level].n.toLowerCase()} — <b class="num">${pts.toFixed(1)}</b> in total.
+    Tap a complaint to take it or leave it.`;
+  $("ccList").innerHTML = CC.map(x=>{
+    const on = PICK.has(x.i);
+    return `<button type="button" class="cc${on?" on":""}" data-cc="${x.i}" aria-pressed="${on}">
+      <span class="cc-n">${x.n}</span>
+      <span class="cc-m"><b class="num">${(pts*x.s).toFixed(1)}</b> arrive while you are open
+        · <span class="num">${Math.round(100*x.w)}%</span> need a test</span></button>`;
+  }).join("");
+  $("ccList").querySelectorAll("[data-cc]").forEach(btn=>btn.onclick=()=>{
+    const i=+btn.dataset.cc; PICK.has(i)?PICK.delete(i):PICK.add(i); run();
+  });
+  $("ccSum").innerHTML = mx.share
+    ? `Taking <b class="num">${(pts*mx.share).toFixed(1)}</b> of the
+       <b class="num">${pts.toFixed(1)}</b> ESI 4/5 patients who arrive in the lane's hours —
+       <b class="num">${Math.round(100*mx.share)}%</b> of them, of whom
+       <b class="num">${Math.round(100*mx.shr)}%</b> need a test.
+       <span class="dim">(The day brings ${LEVELS[S.level].pts} in total.)</span>`
+    : `Nothing selected — the lane takes no one.`;
+}
+
+
+/* ⚠ One full recompute is ~16 ms of simulation plus a rebuild of the hero, the bars, the
+   criteria list and the chart. A dragged slider fires far faster than that, so the events pile
+   up and the handle stutters. Coalesce to at most one per animation frame: the readouts have
+   already updated synchronously, so the slider stays glued to the pointer either way. */
+let lastCritKey = null, lastBoardKey = null;
+let runQueued = false, runRaf = 0, runTimer = 0;
+function requestRun(){
+  if(runQueued) return;
+  runQueued = true;
+  /* ⚠ rAF ALONE IS NOT SAFE HERE. A hidden tab pauses rAF, so the queued recompute never fires
+     and `runQueued` stays true — after which no later input schedules one either, and the page
+     shows numbers that no longer match its own controls. Belt and braces: whichever of the two
+     fires first does the work and cancels the other. */
+  const go = () => {
+    if(!runQueued) return;
+    runQueued = false;
+    if(runRaf && typeof cancelAnimationFrame === "function") cancelAnimationFrame(runRaf);
+    if(runTimer) clearTimeout(runTimer);
+    runRaf = runTimer = 0;
+    run();
+  };
+  if(typeof requestAnimationFrame === "function") runRaf = requestAnimationFrame(go);
+  runTimer = setTimeout(go, 120);
+}
+
+function run(){
+  const m=modeOf(), lvl=LEVELS[S.level];
+  const cfg = {mode:S.mode, A:S.A, R:S.R, cyc:S.cyc, assess:S.assess, fastDischarge:S.fastDischarge,
+               cc:[...PICK].sort((a,b)=>a-b).join("."), start:S.start, len:S.len, bar:S.bar};
+  const E = evaluate(cfg, lvl.pts), o = E.o;
+  drawSpeed(m); drawWindow(); syncWindow();
+  $("speedCtl").querySelectorAll("[data-fd]").forEach(bt=>bt.onclick=()=>{
+    S.fastDischarge = bt.dataset.fd==="1"; run() });
+
+  const winArr = E.hours.reduce((a,h)=>a + D.lam24[h]*(lvl.pts/D.day_mean), 0);
+  const mins = S.len*60;
+  const mx = mix();
+  // what one patient demands of each side, given the assessment time the physician set
+  const fPace = m.id==="pooled" ? S.cyc/D.T_A : 1;
+  const perAssess = m.id==="pooled" ? D.hold_all*fPace
+    : S.fastDischarge ? S.assess
+    : mx.shr*S.assess + (1-mx.shr)*D.g.now*mx.fo;
+  const perRes = m.id==="pooled" ? 0
+    : S.fastDischarge
+      ? mx.shr*(D.g.asw*mx.fa + D.g.res*mx.fr - S.assess) + (1-mx.shr)*Math.max(0, D.g.now*mx.fo - S.assess)
+      : mx.shr*(D.g.asw*mx.fa + D.g.res*mx.fr - S.assess);
+  const sides = [{n:"assessment", spaces:S.A, thing:"assessment spaces",
+                  load: E.accepted*perAssess/(S.A*mins), cap: S.A*mins/perAssess}];
+  if(m.hasR) sides.push({n:"results", spaces:S.R, thing:"results chairs",
+                         load: E.accepted*perRes/(S.R*mins), cap: S.R*mins/perRes});
+  const bind = sides.reduce((a,b)=>b.load>a.load?b:a), rho = bind.load;
+
+  if(o.idle){
+    $("load").className = "load";
+    $("load").innerHTML = `The lane takes no one — check the hours and the complaints.`;
+  } else {
+    $("load").className = "load" + (rho>=1 ? " bad" : rho>0.85 ? " warn" : "");
+    const busy = rho * bind.spaces;
+    $("load").innerHTML = rho >= 1
+      ? `<b>Too many patients for the ${bind.thing}.</b> Across the whole shift they can get
+         through about <b class="num">${bind.cap.toFixed(0)}</b> patients, and
+         <b class="num">${E.accepted.toFixed(0)}</b> are coming. The queue never catches up, so
+         people are still waiting when it closes.`
+      : `<b>The ${bind.thing} are the tight spot.</b> On average
+         <b class="num">${busy.toFixed(1)}</b> of your <b class="num">${bind.spaces}</b> are in use.
+         That is not <b class="num">${(bind.spaces-busy).toFixed(1)}</b> going spare — patients
+         arrive in clusters, so people start waiting well before every one is taken.`;
+  }
+
+  $("hero").innerHTML = [
+    [`${E.score.toFixed(1)}`, `minutes per ESI 4/5 patient arriving that day, lower is better —
+      against ${E.base.toFixed(1)} for ${(BARS[S.bar]||BARS.today).n}`,
+      E.delta>0.5 ? "is-hold" : E.delta<-0.5 ? "is-breach" : ""],
+    [o.idle ? "—" : `${o.perArrival.toFixed(1)}`,
+     /* "the lane accepts" is arithmetically right — the denominator is every arrival into the
+        lane's stream — but it reads as "got a chair", two cards from one counting who did not. */
+     o.idle ? "nobody in the lane"
+            : "minutes per patient arriving into the lane — including the ones it later sends away", ""],
+    [`${Math.round(100*E.cover)}%`, `of the day's ${lvl.pts} patients go through the lane`,
+      E.cover<0.2 ? "is-breach" : ""],
+    [o.idle ? "—" : `${o.diverted.toFixed(1)}`, "still waiting when it closes — sent to the main department",
+      o.divPct>2 ? "is-breach" : ""],
+    /* Peak concurrent, not the space count: capacity is what you set aside, this is what the
+       lane actually reached. They differ whenever the lane is not full at its busiest. */
+    [o.idle ? "—" : `${o.peak.toFixed(1)}`,
+     o.idle ? "nobody in the lane"
+            : `patients in the lane at once at its busiest — the physician's peak load, of
+               ${S.A + (m.hasR?S.R:0)} spaces`, ""]
+  ].map(([v,k,c])=>`<div class="stat ${c}"><div class="v num">${v}</div><div class="k">${k}</div></div>`).join("");
+
+  const top = Math.max(6, Math.ceil(o.worst*1.15));
+  $("bars").innerHTML = o.byHour.map((v,i)=>`<div class="bar${v===o.worst&&v>0?" peak":""}">
+        <div class="val">${v.toFixed(0)}</div>
+        <div class="fill" style="height:${Math.max(1,100*v/top)}%"></div></div>`).join("");
+  $("bars").style.gridTemplateColumns = `repeat(${S.len},1fr)`;
+  $("hours").style.gridTemplateColumns = `repeat(${S.len},1fr)`;
+  $("hours").innerHTML = E.hours.map(h=>`<span>${h}</span>`).join("");
+  drawArrivals(E);
+
+  const _B = BARS[S.bar] || BARS.today;
+  const _lo = _B.m24.indexOf(Math.min(..._B.m24)), _hi = _B.m24.indexOf(Math.max(..._B.m24));
+  $("barNote").innerHTML = `Everyone the lane does not take — outside its hours or outside its
+    criteria — is charged what they wait instead, by the hour they arrive:
+    <b class="num">${_B.mean.toFixed(1)}</b> min across the day, best at ${_lo}:00
+    (${_B.m24[_lo].toFixed(0)}) and worst at ${_hi}:00 (${_B.m24[_hi].toFixed(0)}).`;
+  drawLevels(E);
+  /* ⚠ Neither of these depends on the slider being dragged. drawBoard RE-SIMULATES every saved
+     entry (900 evenings each) and only its day/bar can change the answer; drawCriteria rebuilds
+     25 buttons and only the hours and the day move its numbers. Redrawing both on every pointer
+     move was most of the stutter. Keyed, so they run when they can actually differ. */
+  const critKey = `${S.start}|${S.len}|${S.level}|${[...PICK].sort((x,y)=>x-y).join(".")}`;
+  if(critKey !== lastCritKey){ lastCritKey = critKey; drawCriteria() }
+  const boardKey = `${S.level}|${S.bar}`;
+  if(boardKey !== lastBoardKey){ lastBoardKey = boardKey; drawBoard() }
+  // any change to the lane invalidates the recorded evening — a stage showing one layout while
+  // the numbers describe another is worse than no stage
+  if(PLAY.trace){ PLAY.trace = null; PLAY.runs = null; PLAY.pick = 0; playPause(false); PLAY.t = 0; }
+  if(!PLAY.trace){ drawStageIdle(); $("reroll").hidden = true;
+    $("stageHint").textContent = "The same run the numbers come from — one seeded evening, replayed "
+      + "on a clock. A space that looks full is full."; }
+  // keep the query string — it carries ?board=, and replacing the URL with a bare hash would
+  // drop the shared board from the address bar on the first render
+  history.replaceState(null, "", location.pathname + location.search + "#" +
+    encodeURIComponent(hashState()));
+}
+
+function drawLevels(E){
+  $("levels").innerHTML = LEVELS.map((l,i)=>{
+    const on = i===S.level;
+    return `<div class="lv" data-i="${i}" aria-current="${on}" role="button" tabindex="0">
+      <div class="n">${l.n}</div><div class="d">${l.pts} patients · ${l.d}</div>
+      <div class="r">${on ? E.score.toFixed(1)+" min per arrival" : "&nbsp;"}</div></div>`;
+  }).join("");
+  $("levels").querySelectorAll(".lv").forEach(el=>{
+    const go=()=>{S.level=+el.dataset.i;run()};
+    el.onclick=go; el.onkeydown=e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();go()}};
+  });
+}
+
+fromHash();
+drawPresets(); drawModes(); drawSpaces(); run();
+$("ccAll").onclick  = () => { PICK = new Set(CC.map(x=>x.i)); run() };
+$("ccNone").onclick = () => { PICK = new Set(); run() };
+$("ccLow").onclick  = () => { PICK = new Set(CC.filter(x=>x.w<=0.25).map(x=>x.i)); run() };
+$("playBtn").onclick = () => playPause();
+$("speedSel").onchange = e => { PLAY.speed = +e.target.value };
+$("reroll").onclick = () => { if(!PLAY.runs) return;
+  PLAY.pick = (PLAY.pick + 1) % PLAY.runs.length; playPause(false); buildTrace(); };
+drawStageIdle();
+$("add").onclick = addEntry;
+$("who").onkeydown = e => { if(e.key==="Enter") addEntry() };
+$("share").onclick = () => {
+  navigator.clipboard?.writeText(toHash()).then(
+    ()=>{ $("share").textContent="Link copied"; setTimeout(()=>$("share").textContent="Copy link to this setup",1600) },
+    ()=>{ $("share").textContent="Copy failed — the link is in the address bar"; });
+};
+$("clearBoard").onclick = () => {
+  if(SHARED){ alert("This is the shared board. Delete board.json next to serve_board.py to reset it."); return }
+  if(confirm("Clear the board in this browser?")){ saveLocal([]); drawBoard() }
+};
+markShared(); probeShared();
+$("boardSetup").onclick = e => { e.preventDefault(); const d=$("setupRow"); d.hidden = !d.hidden;
+  if(!d.hidden) $("apiUrl").value = (API && API!=="board") ? API : ""; };
+$("apiSave").onclick = () => { setEndpoint($("apiUrl").value); $("setupRow").hidden = true; };
+</script>

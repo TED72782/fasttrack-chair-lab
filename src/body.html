@@ -1,0 +1,263 @@
+<div class="wrap">
+<header>
+  <div class="eyebrow">Mary Bridge ED · fast-track lane · hours you choose</div>
+  <h1>Fast Track Chair Lab</h1>
+  <p>Build a lane, run the evening, put it on the board. Every setting simulates 2,400 evenings
+     on service times measured from our own department (board entries use 900, so they rank
+     quickly). There is no pass mark here — the page
+     reports <b>how long people wait and how many get turned away</b>, and what counts as
+     acceptable is yours to argue about.</p>
+</header>
+
+<div class="layout">
+  <!-- ── controls ─────────────────────────────────────────── -->
+  <div>
+    <section class="panel">
+      <div class="panel-h"><div class="eyebrow">Named layouts</div></div>
+      <div class="panel-b"><div class="opt" id="presets"></div></div>
+    </section>
+
+    <section class="panel" style="margin-top:14px">
+      <div class="panel-h"><div class="eyebrow">1 · Layout</div></div>
+      <div class="panel-b">
+        <div class="opt" id="modes"></div>
+      </div>
+    </section>
+
+    <section class="panel" style="margin-top:14px">
+      <div class="panel-h"><div class="eyebrow">2 · Spaces</div></div>
+      <div class="panel-b" id="spaceCtl"></div>
+    </section>
+
+    <section class="panel" style="margin-top:14px">
+      <div class="panel-h"><div class="eyebrow">3 · Timing</div></div>
+      <div class="panel-b">
+        <div id="speedCtl"></div>
+      </div>
+    </section>
+
+  </div>
+
+  <!-- ── results ──────────────────────────────────────────── -->
+  <div>
+    <div class="hero" id="hero"></div>
+    <div class="load" id="load"></div>
+    <div class="barbar"><span id="barNote"></span></div>
+
+    <section class="panel">
+      <div class="chart">
+        <div class="eyebrow">ESI 4/5 arrivals across the day · the lane's hours picked out</div>
+        <div class="abars" id="arrBars"></div>
+        <div class="ahours" id="arrHours"></div>
+        <div id="winCtl"></div>
+        <div class="anote" id="arrNote"></div>
+        <div class="ahint">Today's fast track runs roughly 11:00&ndash;20:00. Arrivals peak at
+          19:00&ndash;20:00; the longest waits are at 22:00&ndash;23:00, as it closes.</div>
+      </div>
+    </section>
+
+    <section class="panel stage" style="margin-top:14px">
+      <div class="stage-h">
+        <div><div class="eyebrow">One evening, played out</div>
+          <div class="stage-sub" id="stageHint">The same run the numbers come from — one seeded
+            evening, replayed on a clock. A space that looks full is full.</div></div>
+        <div class="stage-ctl">
+          <span class="clock num" id="stageClock">--:--</span>
+          <select id="speedSel" aria-label="playback speed">
+            <option value="30">slow</option>
+            <option value="60" selected>1 min / sec</option>
+            <option value="120">fast</option>
+            <option value="300">very fast</option>
+          </select>
+          <button type="button" id="reroll" hidden>Another evening</button>
+          <button type="button" id="playBtn" class="primary">Play the evening</button>
+        </div>
+      </div>
+      <div class="stage-bar"><span id="stageBar"></span></div>
+      <div class="stage-body">
+        <div class="zone">
+          <div class="zone-h">Waiting to be seen <b class="num" id="stageWaitN">0</b></div>
+          <div class="wait-pool" id="stageWait"></div>
+        </div>
+        <div class="zone">
+          <div class="zone-h">Being assessed</div>
+          <div class="slots" id="stageA"></div>
+        </div>
+        <div class="zone">
+          <div class="zone-h">Second area — results &amp; discharge</div>
+          <div class="slots" id="stageB"></div>
+        </div>
+        <div class="zone tally">
+          <div class="zone-h">Discharged</div><div class="big num" id="stageGone">0</div>
+          <div class="zone-h" style="margin-top:10px">Sent to main dept</div>
+          <div class="big num warnv" id="stageSent">0</div>
+        </div>
+      </div>
+      <div class="stage-f">Each figure is a patient; the dot on the shoulder marks the half who
+        need a test. A space outlined in red holds someone with nowhere to move on to.</div>
+    </section>
+
+    <section class="panel" style="margin-top:14px">
+      <div class="chart">
+        <div class="eyebrow">Wait for a space, by hour of arrival · minutes</div>
+        <div class="bars" id="bars"></div>
+        <div class="hours" id="hours"></div>
+      </div>
+    </section>
+
+    <div class="eyebrow" style="margin:22px 0 0">The day you are running</div>
+    <div class="levels" id="levels"></div>
+
+    <section class="panel crit">
+      <div class="crit-h">
+        <div><div class="eyebrow">Who the lane accepts</div>
+          <div class="crit-sum" id="ccSum"></div></div>
+        <div class="crit-btns">
+          <button type="button" id="ccAll" class="mini">Everyone</button>
+          <button type="button" id="ccLow" class="mini">Rarely need a test (&le;25%)</button>
+          <button type="button" id="ccNone" class="mini">Clear</button>
+        </div>
+      </div>
+      <div class="crit-hint" id="ccHint"></div>
+      <div class="crit-list" id="ccList"></div>
+      <div class="crit-f">Chief complaints as triage records them, grouped by our shared
+        normaliser so <i>Febrile</i> and <i>Fever</i> are one complaint rather than two.
+        Volumes and test rates are measured per complaint; the SHAPE of the service times is
+        department-wide, scaled to each complaint's own mean. The mix itself is measured on
+        15:00&ndash;23:00 and applied to whatever window you pick &mdash; close for any daytime or
+        evening window, but an overnight lane would see a different mix than this assumes.</div>
+    </section>
+
+    <section class="panel board">
+      <div class="board-h">
+        <div><div class="eyebrow">Leaderboard</div>
+          <div class="board-note" id="boardNote"></div></div>
+        <div class="board-add">
+          <input id="who" type="text" maxlength="28" placeholder="your name" aria-label="your name">
+          <button type="button" id="add" class="primary">Add this lane</button>
+          <button type="button" id="share">Copy link to this setup</button>
+        </div>
+      </div>
+      <div class="board-scroll">
+        <table class="board-t">
+          <thead><tr><th>#</th><th>who</th><th>lane</th>
+            <th>spaces</th><th>hours</th><th>score<br>min/patient</th><th>of the<br>day</th><th>worst<br>hour</th><th>still waiting<br>at close</th><th></th></tr></thead>
+          <tbody id="boardBody"></tbody>
+        </table>
+      </div>
+      <div class="board-f">
+        <span>Ranked on <b>minutes of delay per ESI 4/5 patient arriving that day</b>, whoever
+          ends up treating them &mdash; the whole day, not just the lane's hours. Patients the lane
+          does not take are charged today's main-department wait, so no lane can score well by
+          taking fewer.</span>
+        <span id="sharedTag" class="board-tag"></span>
+        <span class="board-actions">
+          <a href="#" id="boardSetup" class="link">Shared board</a>
+          <button type="button" id="clearBoard" class="mini">Clear board</button>
+        </span>
+      </div>
+    </section>
+
+    <div class="setup-row" id="setupRow" hidden>
+      <label for="apiUrl">Shared board endpoint</label>
+      <input id="apiUrl" type="url" placeholder="https://script.google.com/…/exec"
+             aria-label="shared board endpoint">
+      <button type="button" id="apiSave" class="primary">Save</button>
+      <p>Paste the web-app URL from SETUP-SHARED-BOARD.md. Only one person needs to do this —
+         once it is set, <b>Copy link to this setup</b> produces a link that joins everyone else
+         to the same board automatically. Leave it empty to go back to a board saved only here.</p>
+    </div>
+
+    <div class="note">
+      <h3>What this does and does not know</h3>
+      <ul>
+        <li><b>Where the numbers come from.</b> Arrival pattern, how long people occupy a space,
+            and the half who need a test are all measured from Mary Bridge ESI 4/5 patients,
+            2025 onward. Nothing here is invented except the assumptions flagged in the next
+            item.</li>
+        <li><b>Two assumptions, and both are controls rather than constants.</b> The first is
+            <b>how long a patient keeps the assessment space before moving on</b> — the slider under
+            Timing. Nothing measures it: what we can measure is that a test patient's <b>first
+            order lands {{toorder}} minutes</b> after rooming. The {{refasw}}-minute reference this page also
+            quotes is that {{toorder}} plus an <b>assumed {{pom}} minutes</b> after the order &mdash; nothing
+            timestamps when a patient could actually move, so that 25 was chosen, not measured.
+            Neither number is a decision anyone made, and neither exists at all for the half who
+            need no test. It is the number that decides the best split, so move it and watch the
+            split move. The second is what happens, in the combined-zone layouts, to the half of
+            patients who need no test at all. Nothing measures that either, and it decides whether
+            two assessment chairs can work. Try both ways.</li>
+        <li><b>The lane closes when you close it, and that is modelled.</b> Anyone still waiting for a space
+            goes to the main department. Without that rule the simulation quietly served its backlog
+            in overtime — a six-space lane ran until 09:04 the next morning and spent 45% of its
+            work outside its own hours, which made every layout's worst hour land at 22:00 and read
+            like a demand peak. It was the overtime bucket.</li>
+        <li><b>Read the wait and the diversions together.</b> The wait already includes the patients
+            sent to the main department &mdash; but only for what they waited <i>in the lane</i>, up
+            to closing. What they wait after that is not in it; the score is what charges that. So
+            a layout that sends people away looks <i>worse</i> on the wait, not better: at its most
+            crowded those patients are the ones waiting longest. The wait is the lane's own queue;
+            the score is the whole evening.</li>
+        <li><b>The score prices everyone who arrives, including the ones you turn down.</b> Every
+            other number here improves if the lane takes fewer patients — narrow the criteria, or
+            let the queue spill past closing, and the average among those you served looks better
+            while the evening is unchanged. So the score charges the patients a lane does not
+            serve what they actually get instead: today's wait for a room in the main department,
+            by hour — {{main15}} minutes at 15:00 rising to {{main22}} at 22:00. Accept nobody and you score
+            exactly the status quo. There is no way to win by shrinking.</li>
+        <li><b>There is no "no fast track" comparison, and there cannot be.</b> The department has
+            run one throughout the period measured here, so no lane-free day exists to compare
+            against. This page briefly offered one, built by excluding the patients who went
+            through today's pod — it was withdrawn because 59% of the walkouts in those hours have
+            no care area recorded at all, so they fell into the "no fast track" group by
+            bookkeeping rather than by outcome, and what remained was the pod's overflow rather
+            than a counterfactual.</li>
+        <li><b>The bar is today, and today already has a fast track.</b> An ESI 4/5 patient
+            arriving between 15:00 and 23:00 waits {{mean1523}} minutes on average now. The score compares
+            against {{mainmean}} rather than {{mean1523}}, because it prices <i>every</i> ESI 4/5 patient of the
+            day and the quieter daytime hours are in that average too. Both are today; they
+            differ only in which patients they count. But the Orca pod is
+            already taking 65&ndash;68% of them until 18:00, and the whole hourly escalation
+            &mdash; {{main15}} minutes at 15:00 to {{main22}} at 22:00 &mdash; is that pod closing: its patients
+            wait a flat 31&ndash;45 minutes at every hour, while everyone else goes 31 to 118.
+            Whether a proposed lane is <i>added</i> to today's pod or <i>replaces</i> it
+            therefore changes what it should be compared against, and this page does not try to
+            settle that &mdash; for the reason in the bullet above, there is no lane-free bar to
+            offer.</li>
+        <li><b>The clock starts at the door.</b> A patient cannot be put anywhere before
+            registration and the start of triage &mdash; {{floor}} minutes on average here, barely varying
+            across the evening. That is added to every lane wait, because the figure it is
+            compared against &mdash; today's arrival-to-room &mdash; contains it too. Without it
+            the lane was being credited with about 8 minutes it never saves.</li>
+        <li><b>It assumes the main department is unaffected.</b> Taking work out of it should make
+            its wait shorter, which this does not model &mdash; so if anything the score
+            understates what excluding patients costs.</li>
+        <li><b>Whether narrowing helps depends on the layout, not on a rule.</b> At ten spaces a
+            lane taking everyone beats one taking only the easy complaints. At six it is the other
+            way round, because six cannot absorb them. Do not carry either result across to a
+            different footprint.</li>
+        <li><b>The split follows the assessment time — it is not a fixed answer.</b> The best split
+            at ten spaces runs 2+8 if the assessment ends at 20 minutes and 6+4 if it ends at 90,
+            tracking how the visit divides between the two sides. What barely moves is the score
+            you can achieve: about three minutes across that whole range, provided the split
+            matches the time. So the question to settle is when an assessment is finished, not
+            which split is right in the abstract.</li>
+        <li><b>There is no pass mark, on purpose.</b> Nothing measured here says how long a
+            patient may reasonably wait, so the page does not pretend to know. A line drawn at a
+            number nobody can justify turns every comparison into a verdict against it. Compare
+            the layouts with each other, and decide what is acceptable yourselves.</li>
+        <li><b>Waits are averages, and small differences are noise.</b> Most patients wait nothing
+            at all, and half an evening's delay can land in a single hour — which is why the worst
+            hour is shown separately. Two layouts a minute or two apart are not reliably in that
+            order; rerun them and they can swap.</li>
+        <li><b>It cannot see the ward.</b> Who is watching a patient waiting on a result, whether an
+            open chair is right for a given child, and what happens at 23:00 are all real and none
+            of them are in here. If pooling wins on this screen and loses on the floor, the floor
+            is right.</li>
+      </ul>
+    </div>
+
+    <footer>Simulated live in your browser · 600 evenings × 4 runs per setting ·
+      measured from ESI 4/5 visits 2025-01-01 &rarr; {{cut}} ·
+      the same engine that produced the figures in the scoping deck.</footer>
+  </div>
+</div>
