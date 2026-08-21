@@ -236,10 +236,11 @@ footer{margin-top:26px;font-size:12.5px;color:var(--ink-3);border-top:1px solid 
 </style>
 <div class="wrap">
 <header>
-  <div class="eyebrow">Mary Bridge ED · fast-track lane · 15:00–23:00</div>
+  <div class="eyebrow">Mary Bridge ED · fast-track lane · hours you choose</div>
   <h1>Fast Track Chair Lab</h1>
-  <p>Build a lane, run the evening, put it on the board. Every setting simulates 1,200 evenings
-     on service times measured from our own department. There is no pass mark here — the page
+  <p>Build a lane, run the evening, put it on the board. Every setting simulates 2,400 evenings
+     on service times measured from our own department (board entries use 900, so they rank
+     quickly). There is no pass mark here — the page
      reports <b>how long people wait and how many get turned away</b>, and what counts as
      acceptable is yours to argue about.</p>
 </header>
@@ -357,7 +358,9 @@ footer{margin-top:26px;font-size:12.5px;color:var(--ink-3);border-top:1px solid 
       <div class="crit-f">Chief complaints as triage records them, grouped by our shared
         normaliser so <i>Febrile</i> and <i>Fever</i> are one complaint rather than two.
         Volumes and test rates are measured per complaint; the SHAPE of the service times is
-        department-wide, scaled to each complaint's own mean.</div>
+        department-wide, scaled to each complaint's own mean. The mix itself is measured on
+        15:00&ndash;23:00 and applied to whatever window you pick &mdash; close for any daytime or
+        evening window, but an overnight lane would see a different mix than this assumes.</div>
     </section>
 
     <section class="panel board">
@@ -373,7 +376,7 @@ footer{margin-top:26px;font-size:12.5px;color:var(--ink-3);border-top:1px solid 
       <div class="board-scroll">
         <table class="board-t">
           <thead><tr><th>#</th><th>who</th><th>lane</th>
-            <th>score<br>min/patient</th><th>of the<br>evening</th><th>worst<br>hour</th><th>sent to<br>main dept</th><th></th></tr></thead>
+            <th>spaces</th><th>score<br>min/patient</th><th>of the<br>day</th><th>worst<br>hour</th><th>sent to<br>main dept</th><th></th></tr></thead>
           <tbody id="boardBody"></tbody>
         </table>
       </div>
@@ -405,12 +408,15 @@ footer{margin-top:26px;font-size:12.5px;color:var(--ink-3);border-top:1px solid 
         <li><b>Where the numbers come from.</b> Arrival pattern, how long people occupy a space,
             and the half who need a test are all measured from Mary Bridge ESI 4/5 patients,
             2025 onward. Nothing here is invented except the one item below.</li>
-        <li><b>Two assumptions, and both are controls rather than constants.</b> How long someone
-            keeps the assessment space after their test is ordered (we assume 25 minutes — it moves
-            the divided layouts and does not touch the pooled one), and, in the combined-zone
-            layouts, what happens to the half of patients who need no test at all. Nothing measures
-            the second and it decides whether two assessment chairs can work. Try it both ways.</li>
-        <li><b>The lane closes at 23:00, and that is modelled.</b> Anyone still waiting for a space
+        <li><b>Two assumptions, and both are controls rather than constants.</b> The first is
+            <b>how long a patient keeps the assessment space before moving on</b> — the slider under
+            Timing. Nothing measures it: what we can measure is the 72 minutes to a test patient's
+            first order, which is not a decision anyone made and does not exist at all for the half
+            who need no test. It is the number that decides the best split, so move it and watch the
+            split move. The second is what happens, in the combined-zone layouts, to the half of
+            patients who need no test at all. Nothing measures that either, and it decides whether
+            two assessment chairs can work. Try both ways.</li>
+        <li><b>The lane closes when you close it, and that is modelled.</b> Anyone still waiting for a space
             goes to the main department. Without that rule the simulation quietly served its backlog
             in overtime — a six-space lane ran until 09:04 the next morning and spent 45% of its
             work outside its own hours, which made every layout's worst hour land at 22:00 and read
@@ -423,7 +429,7 @@ footer{margin-top:26px;font-size:12.5px;color:var(--ink-3);border-top:1px solid 
             let the queue spill past closing, and the average among those you served looks better
             while the evening is unchanged. So the score charges the patients a lane does not
             serve what they actually get instead: today's wait for a room in the main department,
-            by hour — 31 minutes at 15:00 rising to 101 at 22:00. Accept nobody and you score
+            by hour — 32 minutes at 15:00 rising to 107 at 22:00. Accept nobody and you score
             exactly the status quo. There is no way to win by shrinking.</li>
         <li><b>There is no "no fast track" comparison, and there cannot be.</b> The department has
             run one throughout the period measured here, so no lane-free day exists to compare
@@ -433,13 +439,17 @@ footer{margin-top:26px;font-size:12.5px;color:var(--ink-3);border-top:1px solid 
             bookkeeping rather than by outcome, and what remained was the pod's overflow rather
             than a counterfactual.</li>
         <li><b>The bar is today, and today already has a fast track.</b> An ESI 4/5 patient
-            arriving in this window waits 58.1 minutes on average now. But the Orca pod is
+            arriving between 15:00 and 23:00 waits 58.1 minutes on average now. The score compares
+            against 50.0 rather than 58.1, because it prices <i>every</i> ESI 4/5 patient of the
+            day and the quieter daytime hours are in that average too. Both are today; they
+            differ only in which patients they count. But the Orca pod is
             already taking 65&ndash;68% of them until 18:00, and the whole hourly escalation
             &mdash; 32 minutes at 15:00 to 107 at 22:00 &mdash; is that pod closing: its patients
             wait a flat 31&ndash;45 minutes at every hour, while everyone else goes 31 to 118.
-            Strip the pod out and the bar is 80.5. Which one is right depends on whether the
-            proposed lane is <i>added</i> to today's pod or <i>replaces</i> it, so it is a
-            control rather than a number we chose for you.</li>
+            Whether a proposed lane is <i>added</i> to today's pod or <i>replaces</i> it
+            therefore changes what it should be compared against, and this page does not try to
+            settle that &mdash; for the reason in the bullet above, there is no lane-free bar to
+            offer.</li>
         <li><b>The clock starts at the door.</b> A patient cannot be put anywhere until they are
             registered and triaged, which takes 8.0 minutes on average here and barely varies
             across the evening. That is added to every lane wait, because the figure it is
@@ -923,9 +933,8 @@ function drawModes(){
        <span class="t">${m.t}</span><br><span class="s">${m.s}</span></button>`).join("");
   $("modes").querySelectorAll("button").forEach(b=>b.onclick=()=>{
     S.mode=b.dataset.m; S.budget=0; const m=modeOf();
-    if(m.id==="rooms"){S.A=8;S.R=Math.max(1,S.R)}
     if(m.id==="pooled"){S.A=Math.min(12,S.A+S.R)}
-    if((m.id==="split"||m.id==="zone") && S.A+S.R>16){S.A=6;S.R=4}
+    if(m.id==="split" && S.A+S.R>16){S.A=6;S.R=4}
     drawModes();drawSpaces();run();
   });
 }
@@ -986,14 +995,18 @@ function fdControl(){
 function drawSpeed(m){
   const host = $("speedCtl");
   if(m.id==="pooled"){
+/* ⚠ This dial is a PACE, not a duration. It scales the measured service times by
+       cyc/T_A; the space is actually held for the whole visit, which is ~D.hold_all at
+       today's pace, not S.cyc. Labelling it "time a space is tied up: 76 min" was wrong by
+       about 50 minutes and steered one of the three layouts the room is choosing between. */
+    const pct = Math.round(100 - 100*S.cyc/D.T_A);
     host.innerHTML = `<div class="ctl"><div class="ctl-top">
-        <label for="cyc">Time a space is tied up</label>
-        <output class="num">${S.cyc} min</output></div>
+        <label for="cyc">How fast a space turns over</label>
+        <output class="num">${pct===0 ? "today's pace" : (pct>0 ? pct+"% faster" : (-pct)+"% slower")}</output></div>
       <input type="range" id="cyc" min="55" max="115" step="1" value="${S.cyc}">
-      <div class="hint">${S.cyc===Math.round(D.T_A) ? "Today's measured figure."
-        : (S.cyc<D.T_A ? `${Math.round(100-100*S.cyc/D.T_A)}% faster than today (${Math.round(D.T_A)} min).`
-                       : `${Math.round(100*S.cyc/D.T_A-100)}% slower than today (${Math.round(D.T_A)} min).`)}
-        Nobody moves in this layout, so the whole visit happens in one space.</div></div>`;
+      <div class="hint">Nobody moves in this layout, so one space carries the whole visit &mdash;
+        ${Math.round(D.hold_all)} min on average today. This dial runs that faster or slower; it is
+        a pace, not a duration.</div></div>`;
     $("cyc").oninput = e => { S.cyc = +e.target.value; run() };
     return;
   }
@@ -1117,19 +1130,28 @@ async function addEntry(){
 
 function drawBoard(){
   const pts = LEVELS[S.level].pts;
-  const rows = board().map(e => ({...e, ...scoreOf(e.cfg, pts)})).sort((x,y)=>x.score-y.score);
+  // the largest layout anyone has actually proposed — a lane above it is claiming new estate
+  const most = Math.max(...PRESETS.map(p => (p.set.A||0) + (p.set.R||0)));
+  /* ⚠ The score prices patients, not real estate: a lane can always improve by claiming
+     more spaces, and the sliders reach far past anything on offer. Rather than invent a cap
+     (the layouts under discussion run 5, 6, 10 and 18 spaces — there is no single estate to
+     cap at), spaces gets its own column and breaks ties, so a bigger lane is never free. */
+  const rows = board().map(e => ({...e, ...scoreOf(e.cfg, pts)}))
+                      .sort((x,y)=> x.score-y.score || x.spaces-y.spaces);
   $("boardBody").innerHTML = rows.length ? rows.map((r,i)=>{
     const m = MODES.find(x=>x.id===r.cfg.mode)||MODES[2];
     const shape = r.cfg.mode==="pooled" ? `${r.cfg.A} pooled`
                 : `${r.cfg.A}+${r.cfg.R}`;
+    const big = r.spaces > most;
     return `<tr><td class="num">${i+1}</td><td>${r.who}</td>
-      <td>${shape}<span class="sub"> · ${r.spaces} spaces · ${r.win}</span></td>
+      <td>${shape}<span class="sub"> · ${r.win}</span></td>
+      <td class="num${big?" warn":""}">${r.spaces}</td>
       <td class="num"><b>${r.score.toFixed(1)}</b></td>
       <td class="num${r.cover<0.999?" warn":""}">${Math.round(100*r.cover)}%</td>
       <td class="num">${r.empty?"—":r.worst.toFixed(0)}</td>
       <td class="num${r.div>1?" warn":""}">${r.div.toFixed(1)}</td>
       <td><button type="button" class="mini" data-load="${r.at}">load</button></td></tr>`;
-  }).join("") : `<tr><td colspan="8" class="empty">Nothing saved yet. Build a lane you like, put your
+  }).join("") : `<tr><td colspan="9" class="empty">Nothing saved yet. Build a lane you like, put your
                  name in and add it — the board ranks on delay per arriving patient.</td></tr>`;
   $("boardBody").querySelectorAll("[data-load]").forEach(btn=>btn.onclick=()=>{
     const e = board().find(x=>String(x.at)===btn.dataset.load); if(!e) return;
@@ -1144,7 +1166,9 @@ function drawBoard(){
     drawModes(); drawSpaces(); drawWindow(); run();
   });
   $("boardNote").innerHTML = `Scored on ${LEVELS[S.level].n.toLowerCase()} — ${pts} patients. `
-    + `Changing nothing scores <b class="num">${(BARS[S.bar]||BARS.today).mean.toFixed(1)}</b>.`;
+    + `Changing nothing scores <b class="num">${(BARS[S.bar]||BARS.today).mean.toFixed(1)}</b>. `
+    + `The score does not charge for space, so compare lanes at the same number of spaces; `
+    + `anything above ${most} is asking for more room than any option on the table.`;
 }
 
 /* ── shareable setup ─────────────────────────────────────────────────────── */
