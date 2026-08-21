@@ -792,12 +792,13 @@ let PICK = new Set(CC.map(x=>x.i));                 // everyone, until someone n
    Every other number here can be improved by taking fewer patients: narrow the criteria, or let
    the queue spill past 23:00, and the average among those you served looks better while the
    evening is unchanged. This charges the patients a lane does NOT serve what they actually get
-   instead — today's wait for a room in the main department, by hour: 31 min at 15:00 rising to
-   101 at 22:00, mean 54.6.
+   instead — today's wait for a room in the main department, by hour: 32 min at 15:00 rising to
+   107 at 22:00, day mean 50.0.
 
-   So the score is minutes of delay per ESI 4/5 patient ARRIVING IN THE WINDOW, whoever ends up
-   treating them. Accept nobody and you score exactly the status quo; there is no way to win by
-   shrinking. Lower is better, and 54.6 is the number to beat.
+   So the score is minutes of delay per ESI 4/5 patient ARRIVING THAT DAY — the whole day, not
+   the lane's hours; the denominator is dayTotal — whoever ends up treating them. Accept nobody
+   and you score exactly the status quo; there is no way to win by shrinking. LOWER IS BETTER,
+   and 50.0 is the number to beat.
 
    ⚠ It assumes the main department's wait is unaffected by the lane. Taking work out of it
    should improve it, so if anything this UNDERSTATES what excluding people costs. */
@@ -1179,7 +1180,9 @@ function drawBoard(){
     drawModes(); drawSpaces(); drawWindow(); run();
   });
   $("boardNote").innerHTML = `Scored on ${LEVELS[S.level].n.toLowerCase()} — ${pts} patients. `
-    + `Changing nothing scores <b class="num">${(BARS[S.bar]||BARS.today).mean.toFixed(1)}</b>. `
+    + `<b>Lowest score wins</b>: it is minutes of delay, so the best lane is the one that adds `
+    + `the fewest. Changing nothing scores `
+    + `<b class="num">${(BARS[S.bar]||BARS.today).mean.toFixed(1)}</b>. `
     + `The score charges for patients, not for space or for open hours — a lane wins by `
     + `serving more of the day, so compare lanes at the same spaces and the same window. `
     + `Anything above ${most} spaces is asking for more room than any option on the table.`;
@@ -1320,8 +1323,8 @@ function run(){
   }
 
   $("hero").innerHTML = [
-    [`${E.score.toFixed(1)}`, `minutes per ESI 4/5 patient arriving that day — against
-      ${E.base.toFixed(1)} for ${(BARS[S.bar]||BARS.today).n}`,
+    [`${E.score.toFixed(1)}`, `minutes per ESI 4/5 patient arriving that day, lower is better —
+      against ${E.base.toFixed(1)} for ${(BARS[S.bar]||BARS.today).n}`,
       E.delta>0.5 ? "is-hold" : E.delta<-0.5 ? "is-breach" : ""],
     [o.idle ? "—" : `${o.perArrival.toFixed(1)}`,
      /* "the lane accepts" is arithmetically right — the denominator is every arrival into the
