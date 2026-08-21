@@ -1306,8 +1306,10 @@ function run(){
     : S.fastDischarge
       ? mx.shr*(D.g.asw*mx.fa + D.g.res*mx.fr - S.assess) + (1-mx.shr)*Math.max(0, D.g.now*mx.fo - S.assess)
       : mx.shr*(D.g.asw*mx.fa + D.g.res*mx.fr - S.assess);
-  const sides = [{n:"assessment", load: E.accepted*perAssess/(S.A*mins), cap: S.A*mins/perAssess}];
-  if(m.hasR) sides.push({n:"results", load: E.accepted*perRes/(S.R*mins), cap: S.R*mins/perRes});
+  const sides = [{n:"assessment", spaces:S.A, thing:"assessment spaces",
+                  load: E.accepted*perAssess/(S.A*mins), cap: S.A*mins/perAssess}];
+  if(m.hasR) sides.push({n:"results", spaces:S.R, thing:"results chairs",
+                         load: E.accepted*perRes/(S.R*mins), cap: S.R*mins/perRes});
   const bind = sides.reduce((a,b)=>b.load>a.load?b:a), rho = bind.load;
 
   if(o.idle){
@@ -1315,14 +1317,16 @@ function run(){
     $("load").innerHTML = `The lane takes no one — check the hours and the complaints.`;
   } else {
     $("load").className = "load" + (rho>=1 ? " bad" : rho>0.85 ? " warn" : "");
+    const busy = rho * bind.spaces;
     $("load").innerHTML = rho >= 1
-      ? `<b>Over capacity on the ${bind.n} side.</b> It can carry about
-         <b class="num">${bind.cap.toFixed(0)}</b> patients in these hours and
-         <b class="num">${E.accepted.toFixed(1)}</b> are arriving into the lane, so the backlog does
-         not clear by closing — read the wait beside the number sent to the main department.`
-      : `Busiest side is <b>${bind.n}</b>, <b class="num">${(100*rho).toFixed(0)}%</b> loaded before
-         any queueing — about <b class="num">${bind.cap.toFixed(0)}</b> patients of capacity against
-         <b class="num">${E.accepted.toFixed(1)}</b> arriving into the lane.`;
+      ? `<b>Too many patients for the ${bind.thing}.</b> Across the whole shift they can get
+         through about <b class="num">${bind.cap.toFixed(0)}</b> patients, and
+         <b class="num">${E.accepted.toFixed(0)}</b> are coming. The queue never catches up, so
+         people are still waiting when it closes.`
+      : `<b>The ${bind.thing} are the tight spot.</b> On average
+         <b class="num">${busy.toFixed(1)}</b> of your <b class="num">${bind.spaces}</b> are in use.
+         That is not <b class="num">${(bind.spaces-busy).toFixed(1)}</b> going spare — patients
+         arrive in clusters, so people start waiting well before every one is taken.`;
   }
 
   $("hero").innerHTML = [
