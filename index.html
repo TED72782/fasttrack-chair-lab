@@ -87,6 +87,14 @@ input[type=range]{width:100%;margin:8px 0 0;accent-color:var(--hold)}
   font-size:12.5px;color:var(--ink-3)}
 .barbar .seg{display:inline-flex;gap:6px;margin:0}
 .barbar .seg button{padding:5px 10px;font-size:12px}
+.abars{display:grid;grid-template-columns:repeat(24,1fr);gap:2px;align-items:end;height:112px;margin-top:18px}
+.abar{height:100%;display:flex;align-items:flex-end}
+.afill{width:100%;background:var(--line);border-radius:2px 2px 0 0;transition:background .15s}
+.abar.on .afill{background:var(--hold)}
+.ahours{display:grid;grid-template-columns:repeat(24,1fr);gap:2px;margin-top:6px}
+.ahours span{font-family:"IBM Plex Mono",monospace;font-size:10px;color:var(--ink-3);text-align:center}
+.ahours span.on{color:var(--hold);font-weight:600}
+.anote{margin-top:10px;font-size:12.5px;color:var(--ink-2)}
 .chart{padding:16px 16px 10px}
 .bars{display:grid;grid-template-columns:repeat(8,1fr);gap:6px;align-items:end;
   height:230px;position:relative;margin-top:26px}
@@ -210,7 +218,12 @@ footer{margin-top:26px;font-size:12.5px;color:var(--ink-3);border-top:1px solid 
     </section>
 
     <section class="panel" style="margin-top:14px">
-      <div class="panel-h"><div class="eyebrow">3 · How fast the lane runs</div></div>
+      <div class="panel-h"><div class="eyebrow">3 · Hours</div></div>
+      <div class="panel-b" id="winCtl"></div>
+    </section>
+
+    <section class="panel" style="margin-top:14px">
+      <div class="panel-h"><div class="eyebrow">4 · How fast the lane runs</div></div>
       <div class="panel-b">
         <div id="speedCtl"></div>
       </div>
@@ -232,6 +245,15 @@ footer{margin-top:26px;font-size:12.5px;color:var(--ink-3);border-top:1px solid 
     </div>
 
     <section class="panel">
+      <div class="chart">
+        <div class="eyebrow">ESI 4/5 arrivals across the day · the lane's hours picked out</div>
+        <div class="abars" id="arrBars"></div>
+        <div class="ahours" id="arrHours"></div>
+        <div class="anote" id="arrNote"></div>
+      </div>
+    </section>
+
+    <section class="panel" style="margin-top:14px">
       <div class="chart">
         <div class="eyebrow">Wait for a space, by hour of arrival · minutes</div>
         <div class="bars" id="bars"></div>
@@ -364,7 +386,7 @@ footer{margin-top:26px;font-size:12.5px;color:var(--ink-3);border-top:1px solid 
   </div>
 </div>
 <script>
-const D = {"lam":[2.8947,3.1851,3.455,3.5823,3.8574,3.8489,3.3786,2.5976],"shr":0.498105,"now":[1,13,17,18,19,20,21,22,23,24,24,25,26,26,27,27,28,28,29,29,30,30,31,31,32,32,33,33,33,34,34,35,35,35,36,36,36,37,37,38,38,38,39,39,40,40,40,41,41,41,42,42,42,43,43,44,44,44,45,45,45,46,46,46,47,47,47,48,48,48,49,49,50,50,50,50,51,51,51,52,52,53,53,53,54,54,55,55,55,56,56,56,57,57,57,58,58,58,59,59,60,60,60,61,61,62,62,62,63,63,63,64,64,65,65,65,66,66,67,67,68,68,69,69,70,70,70,71,71,72,72,73,73,74,74,74,75,75,76,76,77,77,78,78,78,79,79,80,80,81,81,82,82,83,83,84,85,85,86,86,87,87,88,88,89,89,90,90,91,91,92,92,93,93,94,95,95,96,96,97,98,98,99,100,100,101,101,102,103,104,104,105,106,107,107,108,109,110,110,111,112,113,114,115,116,117,118,119,120,121,122,123,124,125,126,127,128,129,130,132,133,134,135,136,138,139,140,142,143,145,146,148,149,151,153,155,157,159,161,163,166,169,171,174,178,181,186,189,194,201,207,214,225,240,261,304,1529],"asw":[25,25,25,25,26,26,26,27,27,27,28,28,28,28,29,29,30,30,30,31,31,31,32,32,32,33,33,33,33,34,34,34,34,35,35,35,36,36,36,36,37,37,37,37,38,38,38,38,38,39,39,39,39,40,40,40,40,40,41,41,41,41,41,42,42,42,42,43,43,43,43,43,44,44,44,44,44,45,45,45,45,46,46,46,46,47,47,47,47,47,48,48,48,48,49,49,49,49,50,50,50,50,51,51,51,52,52,52,52,53,53,53,54,54,54,54,55,55,55,55,56,56,56,57,57,57,58,58,58,59,59,59,60,60,60,61,61,61,62,62,62,63,63,63,64,64,64,65,65,65,66,66,67,67,68,68,68,69,69,69,70,70,71,71,72,72,72,73,73,74,74,75,75,76,76,77,77,78,78,79,79,80,80,81,81,82,83,83,84,84,85,86,86,87,87,88,89,89,90,91,91,92,93,93,94,95,95,96,97,98,98,99,100,101,102,103,104,105,106,107,108,110,111,112,112,113,115,116,117,118,119,121,122,124,126,127,128,130,131,133,135,138,141,143,146,149,151,154,158,162,168,174,180,189,204,227,441],"res":[1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,2,2,3,3,4,4,5,5,6,7,7,8,8,9,9,10,11,11,12,12,13,13,14,15,15,16,17,17,18,18,19,20,20,21,22,22,23,23,24,25,25,26,27,27,28,29,29,30,31,31,32,33,33,34,35,35,36,36,37,38,38,39,39,40,40,41,42,42,43,43,44,45,45,46,46,47,47,48,49,49,50,51,51,52,52,53,53,54,54,55,55,56,57,58,58,59,59,60,60,61,62,62,63,64,64,65,65,66,67,67,68,69,70,71,71,72,73,73,74,75,76,76,77,78,78,79,80,81,81,82,83,84,84,85,86,87,88,89,89,90,91,92,93,94,95,96,97,98,99,99,100,101,102,103,104,105,106,107,108,109,110,111,113,114,116,117,118,120,121,122,123,125,126,127,129,130,131,132,135,137,138,140,142,144,145,147,149,151,154,156,158,161,163,167,170,172,175,178,181,185,189,192,196,200,204,208,213,218,224,232,240,248,256,267,276,288,302,319,339,372,424,516,4566],"T_A":76.04,"T_R":78.19,"pom":25,"eve_p":{"10":18,"25":22,"50":26,"75":31,"90":36,"95":38},"eve_n":589,"mean_now":83.0,"mean_asw":69.0,"mean_res":79.3,"hold_all":111.6,"eve":[8,8,10,11,11,11,11,12,13,13,13,13,13,14,14,14,14,15,15,15,15,15,15,15,15,16,16,16,16,16,16,16,16,17,17,17,17,17,17,17,17,17,17,17,17,17,17,17,18,18,18,18,18,18,18,18,18,18,18,18,18,18,18,18,18,18,18,19,19,19,19,19,19,19,19,19,19,19,19,19,19,20,20,20,20,20,20,20,20,20,20,20,20,20,20,20,20,20,20,20,20,20,20,20,20,20,20,20,20,20,20,20,21,21,21,21,21,21,21,21,21,21,21,21,21,21,21,21,21,21,21,21,21,21,21,21,21,21,21,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,23,23,23,23,23,23,23,23,23,23,23,23,23,23,23,23,23,23,23,23,23,23,23,23,23,23,23,23,23,23,23,24,24,24,24,24,24,24,24,24,24,24,24,24,24,24,24,24,24,24,24,24,24,24,24,24,24,24,24,24,24,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,26,26,26,26,26,26,26,26,26,26,26,26,26,26,26,26,26,26,26,26,26,26,26,26,26,26,26,26,26,27,27,27,27,27,27,27,27,27,27,27,27,27,27,27,27,27,27,27,27,27,27,27,27,27,27,27,27,27,27,27,27,27,27,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,31,31,31,31,31,31,31,31,31,31,31,31,31,31,31,31,31,31,31,31,31,31,31,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,33,33,33,33,33,33,33,33,33,33,33,33,33,33,33,33,33,33,33,33,33,33,34,34,34,34,34,34,34,34,34,34,34,34,34,34,35,35,35,35,35,35,35,35,35,35,35,35,35,35,35,35,35,35,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,37,37,37,37,37,37,37,37,37,37,37,37,37,37,37,37,37,37,37,37,37,38,38,38,38,38,38,39,39,39,39,39,40,40,40,41,41,42,42,42,42,42,42,42,42,43,43,43,44,44,45,45,46,46,47,48],"cc":[{"n":"Fever","s":0.16679,"w":0.665,"a":76.1,"r":67.2,"o":86.8},{"n":"Cough","s":0.08523,"w":0.62,"a":71.5,"r":60.9,"o":79.2},{"n":"Rash","s":0.05193,"w":0.192,"a":84.4,"r":44.9,"o":75.6},{"n":"Vomiting","s":0.0518,"w":0.518,"a":77.5,"r":95.8,"o":96.5},{"n":"Ear Problem","s":0.04939,"w":0.101,"a":73.5,"r":77.6,"o":69.1},{"n":"Fall","s":0.03761,"w":0.306,"a":65.9,"r":99.2,"o":92.8},{"n":"Head Injury","s":0.03641,"w":0.132,"a":70.7,"r":115.7,"o":91},{"n":"URI","s":0.03305,"w":0.597,"a":73.3,"r":54.1,"o":86.2},{"n":"Laceration","s":0.02748,"w":0.116,"a":63.8,"r":109.5,"o":115.0},{"n":"Abdominal Pain","s":0.01969,"w":0.749,"a":64.8,"r":121.2,"o":105.4},{"n":"Breathing Difficulty","s":0.01925,"w":0.507,"a":79.3,"r":78.6,"o":98.5},{"n":"Eye Problem","s":0.019,"w":0.092,"a":83.1,"r":74.9,"o":81.3},{"n":"Arm Injury","s":0.01779,"w":0.757,"a":51.6,"r":76.2,"o":50.0},{"n":"Finger Injury","s":0.0171,"w":0.83,"a":53.0,"r":78.2,"o":97.2},{"n":"Throat Pain","s":0.01665,"w":0.762,"a":64.9,"r":46.7,"o":81.6},{"n":"Skin Problem","s":0.01444,"w":0.231,"a":91.1,"r":86.0,"o":87.5},{"n":"Diarrhea","s":0.01292,"w":0.469,"a":77.1,"r":85.0,"o":83.7},{"n":"Ankle Injury","s":0.0126,"w":0.99,"a":39.2,"r":90.4,"o":85.8},{"n":"Well Child","s":0.01209,"w":0.373,"a":77.1,"r":163.2,"o":83.8},{"n":"Headache","s":0.01083,"w":0.555,"a":89.8,"r":72.0,"o":105.5},{"n":"Dysuria","s":0.01057,"w":0.981,"a":50.1,"r":86.7,"o":85.8},{"n":"Constipation","s":0.00963,"w":0.421,"a":72.9,"r":111.1,"o":116.9},{"n":"Foot Injury","s":0.00887,"w":0.877,"a":49.8,"r":79.7,"o":99.8},{"n":"Musculoskeletal Problem","s":0.00855,"w":0.876,"a":61.7,"r":90.9,"o":73.3},{"n":"Everything else (227 complaints)","s":0.25032,"w":0.521,"a":68.9,"r":87.3,"o":83.7}],"g":{"shr":0.5035,"asw":71.7,"res":77.2,"now":85.8},"main":[31.6,38.1,41.2,46.5,53.8,67.4,85.6,107.0],"main_mean":58.1,"nolane":[31.4,38.8,44.6,52.2,70.0,93.6,115.8,117.8],"nolane_mean":80.5,"floor":8.0};
+const D = {"lam":[2.8947,3.1851,3.455,3.5823,3.8574,3.8489,3.3786,2.5976],"shr":0.498105,"now":[1,13,17,18,19,20,21,22,23,24,24,25,26,26,27,27,28,28,29,29,30,30,31,31,32,32,33,33,33,34,34,35,35,35,36,36,36,37,37,38,38,38,39,39,40,40,40,41,41,41,42,42,42,43,43,44,44,44,45,45,45,46,46,46,47,47,47,48,48,48,49,49,50,50,50,50,51,51,51,52,52,53,53,53,54,54,55,55,55,56,56,56,57,57,57,58,58,58,59,59,60,60,60,61,61,62,62,62,63,63,63,64,64,65,65,65,66,66,67,67,68,68,69,69,70,70,70,71,71,72,72,73,73,74,74,74,75,75,76,76,77,77,78,78,78,79,79,80,80,81,81,82,82,83,83,84,85,85,86,86,87,87,88,88,89,89,90,90,91,91,92,92,93,93,94,95,95,96,96,97,98,98,99,100,100,101,101,102,103,104,104,105,106,107,107,108,109,110,110,111,112,113,114,115,116,117,118,119,120,121,122,123,124,125,126,127,128,129,130,132,133,134,135,136,138,139,140,142,143,145,146,148,149,151,153,155,157,159,161,163,166,169,171,174,178,181,186,189,194,201,207,214,225,240,261,304,1529],"asw":[25,25,25,25,26,26,26,27,27,27,28,28,28,28,29,29,30,30,30,31,31,31,32,32,32,33,33,33,33,34,34,34,34,35,35,35,36,36,36,36,37,37,37,37,38,38,38,38,38,39,39,39,39,40,40,40,40,40,41,41,41,41,41,42,42,42,42,43,43,43,43,43,44,44,44,44,44,45,45,45,45,46,46,46,46,47,47,47,47,47,48,48,48,48,49,49,49,49,50,50,50,50,51,51,51,52,52,52,52,53,53,53,54,54,54,54,55,55,55,55,56,56,56,57,57,57,58,58,58,59,59,59,60,60,60,61,61,61,62,62,62,63,63,63,64,64,64,65,65,65,66,66,67,67,68,68,68,69,69,69,70,70,71,71,72,72,72,73,73,74,74,75,75,76,76,77,77,78,78,79,79,80,80,81,81,82,83,83,84,84,85,86,86,87,87,88,89,89,90,91,91,92,93,93,94,95,95,96,97,98,98,99,100,101,102,103,104,105,106,107,108,110,111,112,112,113,115,116,117,118,119,121,122,124,126,127,128,130,131,133,135,138,141,143,146,149,151,154,158,162,168,174,180,189,204,227,441],"res":[1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,2,2,3,3,4,4,5,5,6,7,7,8,8,9,9,10,11,11,12,12,13,13,14,15,15,16,17,17,18,18,19,20,20,21,22,22,23,23,24,25,25,26,27,27,28,29,29,30,31,31,32,33,33,34,35,35,36,36,37,38,38,39,39,40,40,41,42,42,43,43,44,45,45,46,46,47,47,48,49,49,50,51,51,52,52,53,53,54,54,55,55,56,57,58,58,59,59,60,60,61,62,62,63,64,64,65,65,66,67,67,68,69,70,71,71,72,73,73,74,75,76,76,77,78,78,79,80,81,81,82,83,84,84,85,86,87,88,89,89,90,91,92,93,94,95,96,97,98,99,99,100,101,102,103,104,105,106,107,108,109,110,111,113,114,116,117,118,120,121,122,123,125,126,127,129,130,131,132,135,137,138,140,142,144,145,147,149,151,154,156,158,161,163,167,170,172,175,178,181,185,189,192,196,200,204,208,213,218,224,232,240,248,256,267,276,288,302,319,339,372,424,516,4566],"T_A":76.04,"T_R":78.19,"pom":25,"eve_p":{"10":18,"25":22,"50":26,"75":31,"90":36,"95":38},"eve_n":589,"mean_now":83.0,"mean_asw":69.0,"mean_res":79.3,"hold_all":111.6,"eve":[8,8,10,11,11,11,11,12,13,13,13,13,13,14,14,14,14,15,15,15,15,15,15,15,15,16,16,16,16,16,16,16,16,17,17,17,17,17,17,17,17,17,17,17,17,17,17,17,18,18,18,18,18,18,18,18,18,18,18,18,18,18,18,18,18,18,18,19,19,19,19,19,19,19,19,19,19,19,19,19,19,20,20,20,20,20,20,20,20,20,20,20,20,20,20,20,20,20,20,20,20,20,20,20,20,20,20,20,20,20,20,20,21,21,21,21,21,21,21,21,21,21,21,21,21,21,21,21,21,21,21,21,21,21,21,21,21,21,21,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,22,23,23,23,23,23,23,23,23,23,23,23,23,23,23,23,23,23,23,23,23,23,23,23,23,23,23,23,23,23,23,23,24,24,24,24,24,24,24,24,24,24,24,24,24,24,24,24,24,24,24,24,24,24,24,24,24,24,24,24,24,24,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,25,26,26,26,26,26,26,26,26,26,26,26,26,26,26,26,26,26,26,26,26,26,26,26,26,26,26,26,26,26,27,27,27,27,27,27,27,27,27,27,27,27,27,27,27,27,27,27,27,27,27,27,27,27,27,27,27,27,27,27,27,27,27,27,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,31,31,31,31,31,31,31,31,31,31,31,31,31,31,31,31,31,31,31,31,31,31,31,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,33,33,33,33,33,33,33,33,33,33,33,33,33,33,33,33,33,33,33,33,33,33,34,34,34,34,34,34,34,34,34,34,34,34,34,34,35,35,35,35,35,35,35,35,35,35,35,35,35,35,35,35,35,35,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,37,37,37,37,37,37,37,37,37,37,37,37,37,37,37,37,37,37,37,37,37,38,38,38,38,38,38,39,39,39,39,39,40,40,40,41,41,42,42,42,42,42,42,42,42,43,43,43,44,44,45,45,46,46,47,48],"cc":[{"n":"Fever","s":0.16679,"w":0.665,"a":76.1,"r":67.2,"o":86.8},{"n":"Cough","s":0.08523,"w":0.62,"a":71.5,"r":60.9,"o":79.2},{"n":"Rash","s":0.05193,"w":0.192,"a":84.4,"r":44.9,"o":75.6},{"n":"Vomiting","s":0.0518,"w":0.518,"a":77.5,"r":95.8,"o":96.5},{"n":"Ear Problem","s":0.04939,"w":0.101,"a":73.5,"r":77.6,"o":69.1},{"n":"Fall","s":0.03761,"w":0.306,"a":65.9,"r":99.2,"o":92.8},{"n":"Head Injury","s":0.03641,"w":0.132,"a":70.7,"r":115.7,"o":91},{"n":"URI","s":0.03305,"w":0.597,"a":73.3,"r":54.1,"o":86.2},{"n":"Laceration","s":0.02748,"w":0.116,"a":63.8,"r":109.5,"o":115.0},{"n":"Abdominal Pain","s":0.01969,"w":0.749,"a":64.8,"r":121.2,"o":105.4},{"n":"Breathing Difficulty","s":0.01925,"w":0.507,"a":79.3,"r":78.6,"o":98.5},{"n":"Eye Problem","s":0.019,"w":0.092,"a":83.1,"r":74.9,"o":81.3},{"n":"Arm Injury","s":0.01779,"w":0.757,"a":51.6,"r":76.2,"o":50.0},{"n":"Finger Injury","s":0.0171,"w":0.83,"a":53.0,"r":78.2,"o":97.2},{"n":"Throat Pain","s":0.01665,"w":0.762,"a":64.9,"r":46.7,"o":81.6},{"n":"Skin Problem","s":0.01444,"w":0.231,"a":91.1,"r":86.0,"o":87.5},{"n":"Diarrhea","s":0.01292,"w":0.469,"a":77.1,"r":85.0,"o":83.7},{"n":"Ankle Injury","s":0.0126,"w":0.99,"a":39.2,"r":90.4,"o":85.8},{"n":"Well Child","s":0.01209,"w":0.373,"a":77.1,"r":163.2,"o":83.8},{"n":"Headache","s":0.01083,"w":0.555,"a":89.8,"r":72.0,"o":105.5},{"n":"Dysuria","s":0.01057,"w":0.981,"a":50.1,"r":86.7,"o":85.8},{"n":"Constipation","s":0.00963,"w":0.421,"a":72.9,"r":111.1,"o":116.9},{"n":"Foot Injury","s":0.00887,"w":0.877,"a":49.8,"r":79.7,"o":99.8},{"n":"Musculoskeletal Problem","s":0.00855,"w":0.876,"a":61.7,"r":90.9,"o":73.3},{"n":"Everything else (227 complaints)","s":0.25032,"w":0.521,"a":68.9,"r":87.3,"o":83.7}],"g":{"shr":0.5035,"asw":71.7,"res":77.2,"now":85.8},"main_mean":50.0,"nolane_mean":59.2,"floor":8.0,"lam24":[1.4618,1.0153,0.781,0.691,0.6757,0.5484,0.7216,1.1205,1.5942,2.4092,2.8149,3.2003,3.0238,2.8981,2.8353,2.8981,3.1885,3.4601,3.584,3.8625,3.8591,3.3837,2.5976,1.9745],"main24":[98.7,89.9,65.0,47.0,35.7,23.2,18.7,15.6,16.3,23.6,25.8,27.2,33.8,38.6,39.2,31.6,38.1,41.2,46.5,53.8,67.4,85.6,107.0,109.3],"day":{"10":38,"25":46,"50":54,"75":63,"90":72,"95":78},"day_mean":54.6,"nolane24":[100.8,89.9,65.0,47.1,35.7,23.2,18.0,15.3,15.3,17.4,18.5,28.0,34.0,38.6,39.2,31.4,38.8,44.6,52.2,70.0,93.6,115.8,117.8,113.6]};
 
 /* ── engine: a port of tandem()/pooled() from the deck builder ───────────── */
 function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
@@ -480,7 +502,7 @@ function sim(cfg){
   // wait figure that cannot be improved by sending someone home.
   const perArrival = (wa + wr + divWait) / arrN;
   return {wa:wa/waN, perArrival, wr:nw?wr/nw:0, stuck:nw?100*blocked/nw:0, byHour, worst,
-          worstHour:15+byHour.indexOf(worst),
+          worstIdx:byHour.indexOf(worst),
           seen:seen/runs, arrived:arrN/runs, diverted:divN/runs,
           divByHour:[...divH].map(v=>v/runs),
           divPct: arrN? 100*divN/arrN : 0, saturated: divN/arrN > 0.02,
@@ -488,7 +510,22 @@ function sim(cfg){
 }
 
 /* ── scaling helpers ─────────────────────────────────────────────────────── */
-const LAM_MEAN = D.lam.reduce((a,b)=>a+b,0)/D.lam.length;
+/* ── the operating window ────────────────────────────────────────────────────
+   The lane used to be nailed to 15:00-23:00. It is now a start hour and a length, because
+   WHERE you put the window turns out to matter more than how you split the chairs — and the
+   arrival curve and today's wait curve disagree about where the need is. Arrivals peak at
+   19:00-20:00 (3.9/hr) with a second bump at 11:00; today's wait peaks later still, 107 min at
+   22:00 and 99 at midnight, and is lowest at 08:00 (16 min). A window over the busiest ARRIVAL
+   hours is not automatically the one that removes the most waiting.
+
+   The day is the denominator now. Patients arriving outside the lane's hours are charged the
+   main department exactly like patients its criteria exclude — they are equally not served by
+   it, and a score that ignored them would reward a lane open for one quiet hour. */
+const HOURS = D.lam24.map((_,h)=>h);
+const winHours = () => Array.from({length:S.len}, (_,i)=>(S.start+i)%24);
+const dayFactor = () => LEVELS[S.level].pts / D.day_mean;
+// arrivals per hour inside the window, scaled to the day's volume
+const winLam = () => winHours().map(h => D.lam24[h] * dayFactor());
 
 /* ── who the lane accepts ────────────────────────────────────────────────────
    Selecting complaints changes three things at once, and the third is the one people miss:
@@ -527,22 +564,9 @@ let PICK = new Set(CC.map(x=>x.i));                 // everyone, until someone n
    Both curves charge a patient who walked out the time they spent before leaving. Dropping them
    would condition the bar on not having walked out, and they cluster at 22:00 — 179 of 613 —
    exactly where it matters most. */
-const BARS = {today:{m:D.main, mean:D.main_mean, n:"today's arrangement"},
-              nolane:{m:D.nolane, mean:D.nolane_mean, n:"an evening with no fast track"}};
+const BARS = {today: {m24:D.main24,   mean:D.main_mean,   n:"today's arrangement"},
+              nolane:{m24:D.nolane24, mean:D.nolane_mean, n:"a day with no fast track"}};
 const bar = () => BARS[S.bar] || BARS.today;
-
-function composite(o, accepted, total){
-  const B = bar();
-  if(!total) return {score:B.mean, base:B.mean, delta:0};
-  const excluded = Math.max(0, total - accepted);
-  const laneMin  = o.idle ? 0 : o.perArrival * accepted;   // includes the pre-close wait of the turned-away
-  // A patient turned away at 23:00 has ALREADY been triaged, so charge them the main-department
-  // wait less the triage floor — the bar carries it for a patient arriving fresh, and counting
-  // it twice would penalise diversion for something that only happened once.
-  const divMin   = o.idle ? 0 : (o.divByHour||[]).reduce((a,v,h)=>a + v*Math.max(0,B.m[h]-D.floor), 0);
-  const score    = (laneMin + divMin + excluded*B.mean) / total;
-  return {score, base:B.mean, delta: B.mean - score};
-}
 
 function mix(){
   const sel = CC.filter(x=>PICK.has(x.i));
@@ -555,8 +579,49 @@ function mix(){
           fr: wsum("r")/D.g.res,
           fo: wsum("o")/D.g.now};
 }
-const lamFor = total => D.lam.map(x => x * (total/D.lam.length) / LAM_MEAN);
 const scale  = (pool,f) => pool.map(x => x*f);
+
+/* One lane, evaluated. `cfg` is everything a saved board entry carries, so the live page and
+   the leaderboard cannot drift apart — they call this same function. */
+function evaluate(cfg, dayTotal){
+  const m = MODES.find(x=>x.id===cfg.mode) || MODES[2];
+  const f = cfg.cyc / D.T_A;
+  const hours = Array.from({length:cfg.len}, (_,i)=>(cfg.start+i)%24);
+  const fac   = dayTotal / D.day_mean;
+
+  const keep = cfg.cc === undefined ? new Set(CC.map(x=>x.i))
+             : new Set(String(cfg.cc).split(".").filter(v=>v!=="").map(Number));
+  const sel = CC.filter(x=>keep.has(x.i)), share = sel.reduce((a,x)=>a+x.s,0);
+  const w = k => share ? sel.reduce((a,x)=>a+x.s*x[k],0)/share : 1;
+
+  const lam = hours.map(h => D.lam24[h] * fac * share);      // what the lane actually sees
+  const accepted = lam.reduce((a,b)=>a+b, 0);
+
+  const o = accepted < 0.05 ? {idle:true, perArrival:0, wa:0, wr:0, stuck:0, worst:0, worstIdx:0,
+                               byHour:hours.map(()=>0), diverted:0, divByHour:hours.map(()=>0),
+                               arrived:0, seen:0, divPct:0}
+    : sim({A:cfg.A, R:m.hasR?cfg.R:0, pooled:cfg.mode==="pooled", zone:!!m.zone,
+           assessMin:cfg.assess, fastDischarge:cfg.fastDischarge, shr:w("w"), lam,
+           asw:scale(D.asw, f*w("a")/D.g.asw), now:scale(D.now, f*w("o")/D.g.now),
+           res:scale(D.res, w("r")/D.g.res), days:cfg.days||600, seeds:cfg.seeds||[11,12,13,14]});
+
+  // Everyone the lane does not serve is charged the main department for THEIR arrival hour:
+  // the whole of every hour outside the window, and the criteria-excluded share of every hour
+  // inside it. Out-of-hours and out-of-criteria are the same thing from the patient's side.
+  const B = BARS[cfg.bar] || BARS.today;
+  const inWin = new Set(hours);
+  let outMin = 0;
+  for(let h=0; h<24; h++){
+    const arr = D.lam24[h] * fac;
+    outMin += arr * (inWin.has(h) ? (1-share) : 1) * B.m24[h];
+  }
+  const divMin = (o.divByHour||[]).reduce((a,v,i)=>a + v*Math.max(0, B.m24[hours[i]] - D.floor), 0);
+  const laneMin = o.idle ? 0 : o.perArrival * accepted;
+  const score = dayTotal ? (laneMin + divMin + outMin) / dayTotal : B.mean;
+
+  return {o, m, hours, accepted, share, dayTotal, score, base:B.mean, delta:B.mean-score,
+          cover: dayTotal ? accepted/dayTotal : 0};
+}
 
 /* ── state ───────────────────────────────────────────────────────────────── */
 const MODES = [
@@ -579,11 +644,13 @@ const PRESETS = [
    set:{mode:"split", A:4, R:2, budget:6},
    d:"6 spaces, divided. Opens on 4+2, the best of the four splits. Try the same 6 undivided for comparison."}
 ];
+// whole DAYS now, not evenings — the window can sit anywhere, so the day is the only
+// denominator that does not change meaning when you move it
 const LEVELS = [
-  {n:"A typical evening", pts:26, d:"half of evenings are quieter"},
-  {n:"A busy evening",    pts:31, d:"1 evening in 4 is busier"},
-  {n:"Busiest in ten",    pts:36, d:"1 evening in 10 is busier"},
-  {n:"The bad one",       pts:40, d:"about 1 evening in 25"}
+  {n:"A quiet day",   pts:D.day["10"], d:"1 day in 10 is quieter"},
+  {n:"A typical day", pts:D.day["50"], d:"half of days are quieter"},
+  {n:"A busy day",    pts:D.day["75"], d:"1 day in 4 is busier"},
+  {n:"A heavy day",   pts:D.day["90"], d:"1 day in 10 is busier"}
 ];
 // ⚠ NO TARGET, DELIBERATELY. This carried a 15-minute pass/fail bar, inherited from the scoping
 // deck, and there is nothing behind it — no measurement here says a patient cannot wait 30
@@ -591,7 +658,7 @@ const LEVELS = [
 // against it. The page reports how long people wait and how many are turned away; what counts
 // as acceptable is a judgement for the room, not a line in a chart.
 const S = {mode:"split", A:6, R:4, budget:0, cyc:Math.round(D.T_A), assess:44,
-           fastDischarge:false, level:1, bar:"today"};
+           fastDischarge:false, level:1, bar:"today", start:15, len:8};
 // Measured: mean time from being roomed to the first test being ordered is 44 min. In the
 // combined-zone layouts the patient leaves the assessment chair at that point instead of
 // keeping it, so this is the natural starting value — and it is the number that decides
@@ -761,30 +828,19 @@ function setEndpoint(url){
 }
 
 function scoreOf(cfg, pts){
-  const m = MODES.find(x=>x.id===cfg.mode) || MODES[2], f = cfg.cyc/D.T_A;
-  // an entry saved before criteria existed took everyone — a missing list means "all"
-  const keep = cfg.cc === undefined ? new Set(CC.map(x=>x.i))
-             : new Set(String(cfg.cc).split(".").filter(v=>v!=="").map(Number));
-  const sel = CC.filter(x=>keep.has(x.i)), s = sel.reduce((a,x)=>a+x.s,0);
-  const w = k => s ? sel.reduce((a,x)=>a+x.s*x[k],0)/s : 1;
-  const seen = pts * s;
-  if(!seen) return {score:bar().mean, lane:0, div:0, worst:0, cover:0, empty:true,
-                    spaces: cfg.A + (m.hasR?cfg.R:0)};
-  const o = sim({A:cfg.A, R:m.hasR?cfg.R:0, pooled:cfg.mode==="pooled", zone:!!m.zone,
-                 assessMin:cfg.assess, fastDischarge:cfg.fastDischarge, shr:w("w"),
-                 lam:lamFor(seen), asw:scale(D.asw,f*w("a")/D.g.asw),
-                 now:scale(D.now,f*w("o")/D.g.now), res:scale(D.res,w("r")/D.g.res),
-                 days:300, seeds:[11,12,13]});
-  const cs = composite(o, seen, pts);
-  return {score:cs.score, lane:o.perArrival, div:o.diverted, worst:o.worst, cover:s,
-          spaces: cfg.A + (m.hasR?cfg.R:0)};
+  // entries saved before the window was adjustable ran the original 15:00-23:00 lane
+  const c = {...cfg, start: cfg.start ?? 15, len: cfg.len ?? 8, bar: S.bar, days:300, seeds:[11,12,13]};
+  const E = evaluate(c, pts);
+  return {score:E.score, lane:E.o.perArrival, div:E.o.diverted, worst:E.o.worst,
+          cover:E.cover, empty:E.o.idle, spaces: c.A + (E.m.hasR?c.R:0),
+          win:`${String(c.start).padStart(2,"0")}-${String((c.start+c.len)%24).padStart(2,"0")}`};
 }
 
 async function addEntry(){
   const who = ($("who").value||"").trim().slice(0,28);
   if(!who){ $("who").focus(); return }
   const cfg = {mode:S.mode, A:S.A, R:S.R, cyc:S.cyc, assess:S.assess, fastDischarge:S.fastDischarge,
-               cc:[...PICK].sort((a,b)=>a-b).join(".")};
+               cc:[...PICK].sort((a,b)=>a-b).join("."), start:S.start, len:S.len};
   const entry = {who, cfg, at: Date.now()};
   if(SHARED){
     const ok = await pushShared(entry);
@@ -805,7 +861,7 @@ function drawBoard(){
     const shape = r.cfg.mode==="pooled" ? `${r.cfg.A} pooled`
                 : m.zone ? `${r.cfg.A}+${r.cfg.R} zone` : `${r.cfg.A}+${r.cfg.R}`;
     return `<tr><td class="num">${i+1}</td><td>${r.who}</td>
-      <td>${shape}<span class="sub"> · ${r.spaces} spaces</span></td>
+      <td>${shape}<span class="sub"> · ${r.spaces} spaces · ${r.win}</span></td>
       <td class="num"><b>${r.score.toFixed(1)}</b></td>
       <td class="num${r.cover<0.999?" warn":""}">${Math.round(100*r.cover)}%</td>
       <td class="num">${r.empty?"—":r.worst.toFixed(0)}</td>
@@ -818,12 +874,12 @@ function drawBoard(){
     S.budget=0; Object.assign(S, e.cfg); drawModes(); drawSpaces(); run();
   });
   $("boardNote").innerHTML = `Scored on ${LEVELS[S.level].n.toLowerCase()} — ${pts} patients. `
-    + `Changing nothing scores <b class="num">${bar().mean.toFixed(1)}</b>.`;
+    + `Changing nothing scores <b class="num">${(BARS[S.bar]||BARS.today).mean.toFixed(1)}</b>.`;
 }
 
 /* ── shareable setup ─────────────────────────────────────────────────────── */
 function toHash(){
-  const c = [S.mode,S.A,S.R,S.cyc,S.assess,S.fastDischarge?1:0,S.level].join(",");
+  const c = [S.mode,S.A,S.R,S.cyc,S.assess,S.fastDischarge?1:0,S.level,S.start,S.len].join(",");
   // carry the shared board along, so a colleague opening this link is joined to it automatically
   const q = API && API!=="board" ? "?board="+encodeURIComponent(API) : "";
   return location.origin + location.pathname + q + "#" + encodeURIComponent(c);
@@ -834,7 +890,43 @@ function fromHash(){
   if(!MODES.some(m=>m.id===p[0])) return;
   // links made before the target was removed carry an extra field at index 6 — ignore it
   Object.assign(S, {mode:p[0], A:+p[1], R:+p[2], cyc:+p[3], assess:+p[4],
-                    fastDischarge:p[5]==="1", level:+(p.length>=8 ? p[7] : p[6]), budget:0});
+                    fastDischarge:p[5]==="1", level:+p[6], budget:0,
+                    start: p.length>=9 ? +p[7] : 15, len: p.length>=9 ? +p[8] : 8});
+}
+
+function drawWindow(){
+  const end = (S.start + S.len) % 24;
+  $("winCtl").innerHTML = `
+    <div class="ctl"><div class="ctl-top"><label for="wstart">Opens at</label>
+      <output class="num">${String(S.start).padStart(2,"0")}:00</output></div>
+      <input type="range" id="wstart" min="0" max="23" step="1" value="${S.start}"></div>
+    <div class="ctl"><div class="ctl-top"><label for="wlen">Open for</label>
+      <output class="num">${S.len} h &nbsp;&rarr;&nbsp; ${String(end).padStart(2,"0")}:00</output></div>
+      <input type="range" id="wlen" min="2" max="16" step="1" value="${S.len}">
+      <div class="hint">Today's fast track runs roughly 10:00&ndash;21:00. Arrivals peak at
+        19:00&ndash;20:00; the longest waits are at 22:00&ndash;23:00.</div></div>`;
+  $("wstart").oninput = e => { S.start = +e.target.value; run() };
+  $("wlen").oninput   = e => { S.len   = +e.target.value; run() };
+}
+
+// The arrival curve for the whole day with the lane's hours picked out. This is the chart the
+// window control exists for: it shows at a glance that a window can be long and still miss the
+// need, or short and sit right on it.
+function drawArrivals(E){
+  const fac = LEVELS[S.level].pts / D.day_mean;
+  const arr = D.lam24.map(v=>v*fac);
+  const top = Math.max(...arr) * 1.18;
+  const inWin = new Set(E.hours);
+  const B = BARS[S.bar] || BARS.today;
+  $("arrBars").innerHTML = arr.map((v,h)=>
+    `<div class="abar${inWin.has(h)?" on":""}" title="${h}:00 — ${v.toFixed(1)} arrivals, ${B.m24[h].toFixed(0)} min wait today">
+       <div class="afill" style="height:${Math.max(1,100*v/top)}%"></div></div>`).join("");
+  $("arrHours").innerHTML = arr.map((_,h)=>
+    `<span class="${inWin.has(h)?"on":""}">${h%3===0?h:""}</span>`).join("");
+  $("arrNote").innerHTML = `The lane is open <b>${String(S.start).padStart(2,"0")}:00</b> to
+    <b>${String((S.start+S.len)%24).padStart(2,"0")}:00</b> and sees
+    <b class="num">${E.hours.reduce((a,h)=>a+arr[h],0).toFixed(1)}</b> of the day's
+    <b class="num">${LEVELS[S.level].pts}</b> ESI 4/5 arrivals before criteria.`;
 }
 
 function drawCriteria(){
@@ -861,88 +953,79 @@ function drawHours(){
 }
 
 function run(){
-  const m=modeOf(), f=S.cyc/D.T_A, lvl=LEVELS[S.level];
-  const mx = mix();
-  const seen = lvl.pts * mx.share;                  // patients this lane actually accepts
-  const o = sim({A:S.A, R:m.hasR?S.R:0, pooled:m.id==="pooled", zone:!!m.zone, assessMin:S.assess,
-                 fastDischarge:S.fastDischarge, shr:mx.shr,
-                 lam:lamFor(seen), asw:scale(D.asw,f*mx.fa), now:scale(D.now,f*mx.fo),
-                 res:scale(D.res,mx.fr)});
-  const cs = composite(o, seen, lvl.pts);
-  drawSpeed(m);
+  const m=modeOf(), lvl=LEVELS[S.level];
+  const cfg = {mode:S.mode, A:S.A, R:S.R, cyc:S.cyc, assess:S.assess, fastDischarge:S.fastDischarge,
+               cc:[...PICK].sort((a,b)=>a-b).join("."), start:S.start, len:S.len, bar:S.bar};
+  const E = evaluate(cfg, lvl.pts), o = E.o;
+  drawSpeed(m); drawWindow();
 
-  // ── Can the spaces carry the evening at all, before any queueing?
-  //
-  // Checked on BOTH sides and on the total. The Park Attack (5 spaces) is what forced this:
-  // its assessment side looks survivable at a fast cycle while the RESULTS side is already
-  // over — only ~half the patients need a test, but each one holds a results chair ~79 min.
-  // A banner that only watched the assessment chairs called that layout workable when the
-  // arithmetic says it cannot be.
-  const perAssess = m.zone ? (S.fastDischarge ? S.assess : mx.shr*S.assess + (1-mx.shr)*D.mean_now*mx.fo)
-                  : m.id==="pooled" ? (mx.shr*(D.g.asw*mx.fa+D.g.res*mx.fr) + (1-mx.shr)*D.g.now*mx.fo)
-                  : S.cyc*mx.fa;
-  const mins = 8*60;
-  const sides = [{n:"assessment", load: seen*perAssess/(S.A*mins), cap: S.A*mins/perAssess}];
-  if(m.hasR) sides.push({n:"results", load: seen*mx.shr*D.g.res*mx.fr/(S.R*mins),
-                         cap: S.R*mins/(mx.shr*D.g.res*mx.fr)});
-  const bind = sides.reduce((a,b)=>b.load>a.load?b:a);
-  const rho = bind.load;
+  const winArr = E.hours.reduce((a,h)=>a + D.lam24[h]*(lvl.pts/D.day_mean), 0);
+  const mins = S.len*60;
+  const mx = mix();
+  const perAssess = m.zone ? (S.fastDischarge ? S.assess : mx.shr*S.assess + (1-mx.shr)*D.g.now*mx.fo)
+                  : m.id==="pooled" ? D.hold_all : S.cyc*mx.fa;
+  const perRes = mx.shr * D.g.res * mx.fr;
+  const sides = [{n:"assessment", load: E.accepted*perAssess/(S.A*mins), cap: S.A*mins/perAssess}];
+  if(m.hasR) sides.push({n:"results", load: E.accepted*perRes/(S.R*mins), cap: S.R*mins/perRes});
+  const bind = sides.reduce((a,b)=>b.load>a.load?b:a), rho = bind.load;
+
   if(o.idle){
     $("load").className = "load";
-    $("load").innerHTML = `No complaints are selected, so the lane takes no one. Choose who it
-      should accept above.`;
+    $("load").innerHTML = `The lane takes no one — check the hours and the complaints.`;
   } else {
     $("load").className = "load" + (rho>=1 ? " bad" : rho>0.85 ? " warn" : "");
-    // both branches count arrivals INTO THE LANE, not the whole evening — with criteria in play
-    // those are different numbers, and mixing them was making the banner contradict itself
     $("load").innerHTML = rho >= 1
       ? `<b>Over capacity on the ${bind.n} side.</b> It can carry about
-         <b class="num">${bind.cap.toFixed(0)}</b> patients an evening and <b class="num">${seen.toFixed(1)}</b>
-         are arriving into the lane, so the backlog does not clear before 23:00 — read the wait beside
-         the number sent to the main department, not on its own.`
-      : `Busiest side is <b>${bind.n}</b>, <b class="num">${(100*rho).toFixed(0)}%</b> loaded before any
-         queueing — about <b class="num">${bind.cap.toFixed(0)}</b> patients an evening of capacity
-         against <b class="num">${seen.toFixed(1)}</b> arriving into the lane.`;
+         <b class="num">${bind.cap.toFixed(0)}</b> patients in these hours and
+         <b class="num">${E.accepted.toFixed(1)}</b> are arriving into the lane, so the backlog does
+         not clear by closing — read the wait beside the number sent to the main department.`
+      : `Busiest side is <b>${bind.n}</b>, <b class="num">${(100*rho).toFixed(0)}%</b> loaded before
+         any queueing — about <b class="num">${bind.cap.toFixed(0)}</b> patients of capacity against
+         <b class="num">${E.accepted.toFixed(1)}</b> arriving into the lane.`;
   }
 
-  // ⚠ The wait is a SURVIVOR number — it averages the people the lane actually saw. Any layout
-  // that sends patients away looks better on it than it is, so the two are always shown together.
   $("hero").innerHTML = [
-    [`${cs.score.toFixed(1)}`, `minutes per ESI 4/5 patient arriving — against ${cs.base.toFixed(1)} for ${bar().n}`,
-      cs.delta>0.5 ? "is-hold" : cs.delta<-0.5 ? "is-breach" : ""],
+    [`${E.score.toFixed(1)}`, `minutes per ESI 4/5 patient arriving that day — against
+      ${E.base.toFixed(1)} for ${(BARS[S.bar]||BARS.today).n}`,
+      E.delta>0.5 ? "is-hold" : E.delta<-0.5 ? "is-breach" : ""],
     [o.idle ? "—" : `${o.perArrival.toFixed(1)}`,
-     o.idle ? "no complaints selected" : "minutes per patient the lane accepts", ""],
-    [`${o.diverted.toFixed(1)}`, `sent to the main department at 23:00 — of ${o.arrived.toFixed(0)}`,
-      o.divPct>2?"is-breach":""],
-    [m.id==="pooled" ? "—" : `${o.stuck.toFixed(0)}%`,
-     m.id==="pooled" ? "nobody is ever moved"
-       : (m.zone ? "of test patients held in a chair with no seat free"
-                 : "of test patients stuck waiting to move"), ""]
+     o.idle ? "nobody in the lane" : "minutes per patient the lane accepts", ""],
+    [`${Math.round(100*E.cover)}%`, `of the day's ${lvl.pts} patients go through the lane`,
+      E.cover<0.2 ? "is-breach" : ""],
+    [o.idle ? "—" : `${o.diverted.toFixed(1)}`, "still waiting when it closes — sent to the main department",
+      o.divPct>2 ? "is-breach" : ""]
   ].map(([v,k,c])=>`<div class="stat ${c}"><div class="v num">${v}</div><div class="k">${k}</div></div>`).join("");
 
   const top = Math.max(6, Math.ceil(o.worst*1.15));
-  $("bars").innerHTML = o.byHour.map(v=>`<div class="bar${v===o.worst?" peak":""}">
+  $("bars").innerHTML = o.byHour.map((v,i)=>`<div class="bar${v===o.worst&&v>0?" peak":""}">
         <div class="val">${v.toFixed(0)}</div>
         <div class="fill" style="height:${Math.max(1,100*v/top)}%"></div></div>`).join("");
+  $("bars").style.gridTemplateColumns = `repeat(${S.len},1fr)`;
+  $("hours").style.gridTemplateColumns = `repeat(${S.len},1fr)`;
+  $("hours").innerHTML = E.hours.map(h=>`<span>${h}</span>`).join("");
+  drawArrivals(E);
 
   $("barSeg").querySelectorAll("[data-bar]").forEach(bt=>
     bt.setAttribute("aria-pressed", String(bt.dataset.bar===S.bar)));
-  $("barNote").innerHTML = `Patients the lane does not take are charged what they get instead:
-    <b class="num">${bar().mean.toFixed(1)}</b> min on average, ${bar().m[0].toFixed(0)} at 15:00
-    rising to ${bar().m[7].toFixed(0)} at 22:00.`;
-  drawLevels(o, cs); drawCriteria(); drawBoard();
+  const _B = BARS[S.bar] || BARS.today;
+  const _lo = _B.m24.indexOf(Math.min(..._B.m24)), _hi = _B.m24.indexOf(Math.max(..._B.m24));
+  $("barNote").innerHTML = `Everyone the lane does not take — outside its hours or outside its
+    criteria — is charged what they wait instead, by the hour they arrive:
+    <b class="num">${_B.mean.toFixed(1)}</b> min across the day, best at ${_lo}:00
+    (${_B.m24[_lo].toFixed(0)}) and worst at ${_hi}:00 (${_B.m24[_hi].toFixed(0)}).`;
+  drawLevels(E); drawCriteria(); drawBoard();
   // keep the query string — it carries ?board=, and replacing the URL with a bare hash would
   // drop the shared board from the address bar on the first render
   history.replaceState(null, "", location.pathname + location.search + "#" +
-    encodeURIComponent([S.mode,S.A,S.R,S.cyc,S.assess,S.fastDischarge?1:0,S.level].join(",")));
+    encodeURIComponent([S.mode,S.A,S.R,S.cyc,S.assess,S.fastDischarge?1:0,S.level,S.start,S.len].join(",")));
 }
 
-function drawLevels(cur, cs){
+function drawLevels(E){
   $("levels").innerHTML = LEVELS.map((l,i)=>{
     const on = i===S.level;
     return `<div class="lv" data-i="${i}" aria-current="${on}" role="button" tabindex="0">
       <div class="n">${l.n}</div><div class="d">${l.pts} patients · ${l.d}</div>
-      <div class="r">${on ? cs.score.toFixed(1)+" min per arrival" : "&nbsp;"}</div></div>`;
+      <div class="r">${on ? E.score.toFixed(1)+" min per arrival" : "&nbsp;"}</div></div>`;
   }).join("");
   $("levels").querySelectorAll(".lv").forEach(el=>{
     const go=()=>{S.level=+el.dataset.i;run()};
@@ -951,7 +1034,7 @@ function drawLevels(cur, cs){
 }
 
 fromHash();
-drawPresets(); drawModes(); drawSpaces(); drawHours(); run();
+drawPresets(); drawModes(); drawSpaces(); run();
 $("ccAll").onclick  = () => { PICK = new Set(CC.map(x=>x.i)); run() };
 $("ccNone").onclick = () => { PICK = new Set(); run() };
 $("ccLow").onclick  = () => { PICK = new Set(CC.filter(x=>x.w<=0.25).map(x=>x.i)); run() };
