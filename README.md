@@ -73,6 +73,32 @@ to build, not about six spaces as such.
 It assumes the main department's wait is unaffected by the lane. Taking work out of it should
 make that shorter, so if anything this understates what excluding patients costs.
 
+## The patient who needs no test
+
+Half of these patients get no test at all — and they are the **heavier** user of the scarce side:
+
+| | holds the assessment space | then |
+|---|---|---|
+| needs a test | 72 min | 77 min in a results chair |
+| **needs no test** | **86 min** | that is the whole visit |
+
+So the people who need nothing are **55% of the assessment load**. Nothing in the record marks
+when they are finished being assessed — there is no order to time from — so whether they can be
+moved on once seen is a control, not a constant.
+
+In a **divided** lane it is worth more than a chair or two. Typical day, against today's 50.0:
+
+| | keeps the space | moves on at 44 min |
+|---|---|---|
+| 6+4 divided | 31.7 | **28.2** |
+| 4+2 divided | 65.6 | **54.6** |
+| 10 pooled | 26.8 | 26.8 |
+| 8 rooms + 10 chairs | 25.9 | 25.4 |
+
+It does almost nothing to a **pooled** lane, because there the patient keeps one chair either way
+— shortening their stay is just shortening the visit. The control is hidden for that layout
+rather than offered as a lever that cannot move.
+
 ## Choosing who the lane accepts
 
 The **Who the lane accepts** panel turns each chief complaint on or off. Selecting changes three

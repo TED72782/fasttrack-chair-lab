@@ -469,7 +469,14 @@ function sim(cfg){
         }
       } else {
         const startA=(t,tag)=>{ab++;const w=r()<shr;need[tag]=w?1:0;
-          const dur=pooled?(w?pick(r,asw)+pick(r,res):pick(r,now)):(w?pick(r,asw):pick(r,now));
+          // ⚠ A patient who needs NO test holds the assessment space for their WHOLE visit —
+          // measured 86 min against 72 for a patient who does. They are the heavier user of the
+          // scarce side, and 55% of its load. `fastDischarge` is the question of whether they
+          // can be moved on once seen; in a divided lane it is worth more than a chair or two.
+          const nw = pick(r,now);
+          const dur = pooled ? (w ? pick(r,asw)+pick(r,res) : nw)
+                    : w ? pick(r,asw)
+                    : (fastDischarge ? Math.min(assessMin, nw) : nw);
           ev.push([t+dur,1,tag])};
         const startR=(t,tag)=>{rb++;ev.push([t+pick(r,res),2,tag])};
         while(ev.a.length){
@@ -729,6 +736,26 @@ function drawSpaces(){
   }
 }
 
+/* The single biggest lever in a DIVIDED lane, and it is not a chair. A patient needing no test
+   occupies the assessment space for their whole visit (86 min measured) while a patient needing
+   one leaves it after 72. So the people who need nothing are 55% of the assessment load. Whether
+   they can be moved on once seen halves the worst hour at 6+4 (23 -> 12 min). It barely touches
+   a pooled lane, where the patient keeps one chair either way — so the control is hidden there
+   rather than offered as a lever that does nothing. */
+function fdControl(){
+  return `<div class="ctl"><div class="ctl-top"><label>A patient who needs no test</label></div>
+    <div class="seg" role="group">
+      <button type="button" data-fd="0" aria-pressed="${!S.fastDischarge}">keeps the space until they leave</button>
+      <button type="button" data-fd="1" aria-pressed="${S.fastDischarge}">moves on once seen</button>
+    </div>
+    <div class="hint">Half of these patients get no test, so nothing in the record marks when they
+      are finished being assessed. Keeping the space is what we measure today — ${D.g.now.toFixed(0)}
+      minutes, longer than the ${D.g.asw.toFixed(0)} a test patient holds it.</div></div>`
+    + (S.fastDischarge ? `<div class="ctl"><div class="ctl-top">
+        <label for="asx2">They move on after</label><output class="num">${S.assess} min</output></div>
+        <input type="range" id="asx2" min="12" max="86" step="1" value="${S.assess}"></div>` : "");
+}
+
 function drawSpeed(m){
   const host=$("speedCtl");
   if(m.zone){
@@ -739,17 +766,8 @@ function drawSpeed(m){
       <div class="hint">How long a patient keeps an assessment chair before moving out. Measured
         roomed-to-first-order is 44 min; below that you are assuming the lane turns those chairs
         over faster than it does today.</div></div>
-      <div class="ctl"><div class="ctl-top"><label>A patient who needs no test</label></div>
-        <div class="seg" role="group">
-          <button type="button" data-fd="1" aria-pressed="${S.fastDischarge}">leaves at that point</button>
-          <button type="button" data-fd="0" aria-pressed="${!S.fastDischarge}">keeps the chair until they go</button>
-        </div>
-        <div class="hint">Half of these patients get no test at all, so there is no order to move
-          them on. Nothing measures what happens to them — and it decides the layout. Keeping the
-          chair is what the rest of our modelling assumes.</div></div>`;
+      </div>` + fdControl();
     $("asx").oninput = e => { S.assess = +e.target.value; run() };
-    host.querySelectorAll("[data-fd]").forEach(bt=>bt.onclick=()=>{
-      S.fastDischarge = bt.dataset.fd==="1"; run() });
   } else {
     host.innerHTML = `<div class="ctl"><div class="ctl-top">
         <label for="cyc">Time a space is tied up</label>
@@ -757,7 +775,8 @@ function drawSpeed(m){
       <input type="range" id="cyc" min="55" max="115" step="1" value="${S.cyc}">
       <div class="hint">${S.cyc===Math.round(D.T_A) ? "Today's measured figure."
         : (S.cyc<D.T_A ? `${Math.round(100-100*S.cyc/D.T_A)}% faster than today (${Math.round(D.T_A)} min).`
-                       : `${Math.round(100*S.cyc/D.T_A-100)}% slower than today (${Math.round(D.T_A)} min).`)}</div></div>`;
+                       : `${Math.round(100*S.cyc/D.T_A-100)}% slower than today (${Math.round(D.T_A)} min).`)}</div></div>`
+      + (m.id==="pooled" ? "" : fdControl());
     $("cyc").oninput = e => { S.cyc = +e.target.value; run() };
   }
 }
@@ -977,6 +996,9 @@ function run(){
                cc:[...PICK].sort((a,b)=>a-b).join("."), start:S.start, len:S.len, bar:S.bar};
   const E = evaluate(cfg, lvl.pts), o = E.o;
   drawSpeed(m); drawWindow();
+  $("speedCtl").querySelectorAll("[data-fd]").forEach(bt=>bt.onclick=()=>{
+    S.fastDischarge = bt.dataset.fd==="1"; run() });
+  const _ax=$("asx2"); if(_ax) _ax.oninput = e => { S.assess = +e.target.value; run() };
 
   const winArr = E.hours.reduce((a,h)=>a + D.lam24[h]*(lvl.pts/D.day_mean), 0);
   const mins = S.len*60;
