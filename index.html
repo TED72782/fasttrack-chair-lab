@@ -1012,10 +1012,11 @@ function fdControl(){
     </div>
     <div class="hint">Half of these patients get no test, so nothing in the record marks when they
       are finished being assessed. Keeping the space is what we measure today — ${D.g.now.toFixed(0)}
-      minutes, longer than the ${D.g.asw.toFixed(0)} a test patient holds it.</div></div>`
-    + (S.fastDischarge ? `<div class="ctl"><div class="ctl-top">
-        <label for="asx2">They move on after</label><output class="num" id="asx2Out"></output></div>
-        <input type="range" id="asx2" min="12" max="86" step="1" value="${S.assess}"></div>` : "");
+      minutes, longer than the ${D.g.asw.toFixed(0)} a test patient holds it.</div></div>`;
+  /* ⚠ There used to be a second slider here, "They move on after". It wrote the SAME S.assess
+     as the one above — one number with two handles, and two different ranges (12-86 against
+     10-90), so the controls disagreed about their own limits. The engine has a single
+     assessMin, applied to test and no-test patients alike once this toggle is on. */
 }
 
 /* ⚠ BUILT ONCE PER SHAPE, THEN ONLY THE READOUTS CHANGE — same rule as drawWindow. run()
@@ -1051,7 +1052,8 @@ function drawSpeed(m){
     <div class="hint">How long a patient keeps an assessment space before moving to the second
       area. Measured today a test patient holds it ${D.g.asw.toFixed(0)} min — but that is the time
       to their first ORDER, not a decision anyone made, and it does not exist at all for the half
-      who need no test. It is the number to argue about: the best split follows it.</div></div>`
+      who need no test. It is the number to argue about: the best split follows it.
+      <span id="asxBoth"></span></div></div>`
     + fdControl();
   $("asx").oninput = e => { S.assess = +e.target.value; syncSpeed(m); requestRun() };
   syncSpeed(m);
@@ -1066,9 +1068,11 @@ function syncSpeed(m){
     return;
   }
   const o = $("asxOut"); if(o) o.textContent = S.assess + " min";
-  const o2 = $("asx2Out"); if(o2) o2.textContent = S.assess + " min";
-  const s2 = $("asx2"); if(s2 && +s2.value !== S.assess) s2.value = S.assess;
   const s1 = $("asx");  if(s1 && +s1.value !== S.assess) s1.value = S.assess;
+  const both = $("asxBoth");
+  if(both) both.textContent = S.fastDischarge
+    ? " With \u201cmoves on once seen\u201d selected below, this is when the no-test patients move too."
+    : "";
 }
 
 function drawPresets(){
@@ -1356,7 +1360,6 @@ function run(){
   drawSpeed(m); drawWindow(); syncWindow();
   $("speedCtl").querySelectorAll("[data-fd]").forEach(bt=>bt.onclick=()=>{
     S.fastDischarge = bt.dataset.fd==="1"; run() });
-  const _ax=$("asx2"); if(_ax) _ax.oninput = e => { S.assess = +e.target.value; syncSpeed(m); requestRun() };
 
   const winArr = E.hours.reduce((a,h)=>a + D.lam24[h]*(lvl.pts/D.day_mean), 0);
   const mins = S.len*60;
