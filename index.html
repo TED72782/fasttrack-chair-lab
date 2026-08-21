@@ -157,16 +157,23 @@ input[type=range]:focus-visible{outline:2px solid var(--hold);outline-offset:3px
 .stage-body{display:grid;grid-template-columns:1.15fr 1fr 1fr .6fr;gap:18px;padding:16px}
 @media (max-width:860px){.stage-body{grid-template-columns:1fr 1fr}}
 .zone-h{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);margin-bottom:9px}
-.wait-pool{display:flex;flex-wrap:wrap;gap:5px;align-content:flex-start;min-height:74px}
+.wait-pool{display:flex;flex-wrap:wrap;gap:6px 5px;align-content:flex-start;min-height:74px}
 .slots{display:flex;flex-wrap:wrap;gap:6px}
 .slot{width:28px;height:28px;border-radius:7px;border:1.5px dashed var(--line);
   display:flex;align-items:center;justify-content:center}
 .slot.full{border-style:solid;border-color:var(--hold);background:var(--hold-wash)}
 .slot.jam{border-color:var(--breach);background:var(--breach-wash)}
-.pt{width:13px;height:13px;border-radius:50%;background:var(--hold);display:block;position:relative}
-.pt.wait{background:var(--ink-3);opacity:.55}
-.pt.tst::after{content:"";position:absolute;inset:4px;border-radius:50%;background:var(--surface)}
-.slot.jam .pt{background:var(--breach)}
+.fig{width:15px;height:18px;display:block}
+.fig .hd,.fig .bd{fill:var(--hold)}
+.fig.wait .hd,.fig.wait .bd{fill:var(--ink-3);opacity:.5}
+.fig.jam .hd,.fig.jam .bd{fill:var(--breach)}
+.fig .bg{fill:var(--surface)}
+.fig .bgd{fill:var(--hold)}
+.fig.jam .bgd{fill:var(--breach)}
+.slot.full .fig{animation:pop .22s ease-out}
+@keyframes pop{from{transform:scale(.55);opacity:0}to{transform:scale(1);opacity:1}}
+@media (prefers-reduced-motion:reduce){.slot.full .fig{animation:none}}
+.wait-pool .fig{width:13px;height:16px}
 .more{font-size:11px;color:var(--ink-3);align-self:center}
 .none{font-size:12px;color:var(--ink-3)}
 .tally .big{font-family:"IBM Plex Mono",monospace;font-size:24px;font-weight:600}
@@ -642,10 +649,21 @@ function stageState(t){
   return {A, B, waiting, gone, sent, stuck, test};
 }
 
-function dot(id, st, extra){
+/* One patient. A head and shoulders reads as a person at 18px where a stick figure turns to mush;
+   the badge on the shoulder marks the half who need a test, so the distinction survives being
+   printed, projected, or seen by someone who cannot separate the two colours. */
+function person(cls, test){
+  return `<svg class="fig ${cls}" viewBox="0 0 18 21" aria-hidden="true">
+    <circle class="hd" cx="9" cy="4.6" r="3.5"/>
+    <path class="bd" d="M9 9.4c-3.4 0-5.6 2.1-5.6 4.9V20h11.2v-5.7c0-2.8-2.2-4.9-5.6-4.9z"/>
+    ${test ? `<circle class="bg" cx="14.4" cy="13.6" r="3"/><circle class="bgd" cx="14.4" cy="13.6" r="1.25"/>` : ``}
+  </svg>`;
+}
+
+function dot(id, st){
   if(id === null) return `<span class="slot"></span>`;
-  return `<span class="slot full${st.stuck.has(id)?" jam":""}">
-    <span class="pt${st.test.get(id)?" tst":""}"></span></span>`;
+  const jam = st.stuck.has(id);
+  return `<span class="slot full${jam?" jam":""}">${person(jam?"jam":"in", st.test.get(id))}</span>`;
 }
 
 function drawStageIdle(){
@@ -665,8 +683,8 @@ function drawStage(){
   const clock = (h => `${String((S.start + Math.floor(h/60)) % 24).padStart(2,"0")}:${String(Math.floor(h%60)).padStart(2,"0")}`)(PLAY.t);
   const m = modeOf();
   $("stageClock").textContent = clock;
-  $("stageWait").innerHTML = new Array(Math.min(st.waiting, 24)).fill(`<span class="pt wait"></span>`).join("")
-    + (st.waiting > 24 ? `<span class="more">+${st.waiting-24}</span>` : "");
+  $("stageWait").innerHTML = new Array(Math.min(st.waiting, 22)).fill(person("wait", false)).join("")
+    + (st.waiting > 22 ? `<span class="more">+${st.waiting-22}</span>` : "");
   $("stageWaitN").textContent = st.waiting;
   $("stageA").innerHTML = st.A.map(id => dot(id, st)).join("");
   $("stageB").innerHTML = m.hasR ? st.B.map(id => dot(id, st)).join("")
