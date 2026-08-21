@@ -1130,7 +1130,15 @@ function drawBoard(){
                  name in and add it — the board ranks on delay per arriving patient.</td></tr>`;
   $("boardBody").querySelectorAll("[data-load]").forEach(btn=>btn.onclick=()=>{
     const e = board().find(x=>String(x.at)===btn.dataset.load); if(!e) return;
-    S.budget=0; Object.assign(S, e.cfg); drawModes(); drawSpaces(); run();
+    S.budget=0; Object.assign(S, e.cfg);
+    /* ⚠ The criteria live in PICK, not in S, so Object.assign cannot carry them — loading a row
+       used to keep whichever complaints the CURRENT user had selected, and the lane you got back
+       was not the lane that was scored. An entry with no cc at all is a pre-criteria row: it ran
+       on everyone, which is what `evaluate` assumes for it too. */
+    PICK = e.cfg.cc === undefined || e.cfg.cc === ""
+         ? new Set(CC.map(x=>x.i))
+         : new Set(String(e.cfg.cc).split(".").filter(v=>v!=="").map(Number));
+    drawModes(); drawSpaces(); drawWindow(); run();
   });
   $("boardNote").innerHTML = `Scored on ${LEVELS[S.level].n.toLowerCase()} — ${pts} patients. `
     + `Changing nothing scores <b class="num">${(BARS[S.bar]||BARS.today).mean.toFixed(1)}</b>.`;

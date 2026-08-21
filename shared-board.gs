@@ -6,17 +6,28 @@
  * into the lab page. Nothing else to configure.
  *
  * The sheet becomes the board: one row per lane, columns who / mode / A / R / cyc / assess /
- * fastDischarge / at. Sort or annotate it freely — the page only ever reads these columns.
+ * fastDischarge / at / cc / start / len. Sort or annotate it freely — the page only ever reads
+ * these columns.
+ *
+ * ⚠ EVERY FIELD THE PAGE SENDS MUST BE STORED. The first version kept only the first eight
+ * columns, silently dropping the chief-complaint criteria and the operating hours. A row saved
+ * from a narrowed lane came back as an everyone-24/7 lane, so the board re-scored it against a
+ * configuration nobody had chosen and the load button could not reproduce it. Adding a control
+ * to the page means adding a column here.
  */
 
 var SHEET = 'board';
+var HEAD = ['who', 'mode', 'A', 'R', 'cyc', 'assess', 'fastDischarge', 'at',
+            'cc', 'start', 'len'];
 
 function sheet_() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var sh = ss.getSheetByName(SHEET);
   if (!sh) {
     sh = ss.insertSheet(SHEET);
-    sh.appendRow(['who', 'mode', 'A', 'R', 'cyc', 'assess', 'fastDischarge', 'at']);
+    sh.appendRow(HEAD);
+  } else if (sh.getLastColumn() < HEAD.length) {
+    sh.getRange(1, 1, 1, HEAD.length).setValues([HEAD]);   // widen a board written by v1
   }
   return sh;
 }
@@ -34,8 +45,13 @@ function read_() {
     if (!r[0]) continue;
     out.push({
       who: String(r[0]).slice(0, 28),
+      // a v1 row has no cc/start/len: leaving them undefined is exactly how the page reads
+      // "every complaint, the original 15:00-23:00 lane", so old rows keep scoring as they did
       cfg: { mode: String(r[1]), A: Number(r[2]), R: Number(r[3]),
-             cyc: Number(r[4]), assess: Number(r[5]), fastDischarge: r[6] === true || r[6] === 'TRUE' },
+             cyc: Number(r[4]), assess: Number(r[5]), fastDischarge: r[6] === true || r[6] === 'TRUE',
+             cc: r[8] === '' || r[8] === undefined ? undefined : String(r[8]),
+             start: r[9] === '' || r[9] === undefined ? undefined : Number(r[9]),
+             len: r[10] === '' || r[10] === undefined ? undefined : Number(r[10]) },
       at: Number(r[7]) || 0
     });
   }
@@ -67,13 +83,17 @@ function doPost(e) {
     for (var i = rows.length - 1; i >= 1; i--) {
       if (String(rows[i][0]) === who && String(rows[i][1]) === String(c.mode) &&
           Number(rows[i][2]) === Number(c.A) && Number(rows[i][3]) === Number(c.R) &&
-          Number(rows[i][4]) === Number(c.cyc) && Number(rows[i][5]) === Number(c.assess)) {
+          Number(rows[i][4]) === Number(c.cyc) && Number(rows[i][5]) === Number(c.assess) &&
+          String(rows[i][8] || '') === String(c.cc || '') &&
+          Number(rows[i][9] || 15) === Number(c.start === undefined ? 15 : c.start) &&
+          Number(rows[i][10] || 8) === Number(c.len === undefined ? 8 : c.len)) {
         sh.deleteRow(i + 1);
       }
     }
     sh.appendRow([who, String(c.mode), Number(c.A) || 0, Number(c.R) || 0,
                   Number(c.cyc) || 0, Number(c.assess) || 0, c.fastDischarge === true,
-                  Number(b.at) || Date.now()]);
+                  Number(b.at) || Date.now(),
+                  String(c.cc === undefined ? '' : c.cc), Number(c.start) || 15, Number(c.len) || 8]);
     return json_(read_());
   } catch (err) {
     return json_({ error: String(err) });
