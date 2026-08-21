@@ -1328,13 +1328,24 @@ function drawHours(){
    up and the handle stutters. Coalesce to at most one per animation frame: the readouts have
    already updated synchronously, so the slider stays glued to the pointer either way. */
 let lastCritKey = null, lastBoardKey = null;
-let runQueued = false;
+let runQueued = false, runRaf = 0, runTimer = 0;
 function requestRun(){
   if(runQueued) return;
   runQueued = true;
-  const raf = typeof requestAnimationFrame === "function" ? requestAnimationFrame
-                                                          : (f => setTimeout(f, 16));
-  raf(() => { runQueued = false; run() });
+  /* ⚠ rAF ALONE IS NOT SAFE HERE. A hidden tab pauses rAF, so the queued recompute never fires
+     and `runQueued` stays true — after which no later input schedules one either, and the page
+     shows numbers that no longer match its own controls. Belt and braces: whichever of the two
+     fires first does the work and cancels the other. */
+  const go = () => {
+    if(!runQueued) return;
+    runQueued = false;
+    if(runRaf && typeof cancelAnimationFrame === "function") cancelAnimationFrame(runRaf);
+    if(runTimer) clearTimeout(runTimer);
+    runRaf = runTimer = 0;
+    run();
+  };
+  if(typeof requestAnimationFrame === "function") runRaf = requestAnimationFrame(go);
+  runTimer = setTimeout(go, 120);
 }
 
 function run(){
