@@ -421,9 +421,12 @@ footer{margin-top:26px;font-size:12.5px;color:var(--ink-3);border-top:1px solid 
             in overtime — a six-space lane ran until 09:04 the next morning and spent 45% of its
             work outside its own hours, which made every layout's worst hour land at 22:00 and read
             like a demand peak. It was the overtime bucket.</li>
-        <li><b>Read the wait and the diversions together.</b> The wait only counts patients the lane
-            actually saw, so a layout that sends people away looks better on it than it is. Both
-            numbers are on the same row for that reason.</li>
+        <li><b>Read the wait and the diversions together.</b> The wait already includes the patients
+            sent to the main department &mdash; but only for what they waited <i>in the lane</i>, up
+            to closing. What they wait after that is not in it; the score is what charges that. So
+            a layout that sends people away looks <i>worse</i> on the wait, not better: at its most
+            crowded those patients are the ones waiting longest. The wait is the lane's own queue;
+            the score is the whole evening.</li>
         <li><b>The score prices everyone who arrives, including the ones you turn down.</b> Every
             other number here improves if the lane takes fewer patients — narrow the criteria, or
             let the queue spill past closing, and the average among those you served looks better
@@ -1320,7 +1323,10 @@ function run(){
       ${E.base.toFixed(1)} for ${(BARS[S.bar]||BARS.today).n}`,
       E.delta>0.5 ? "is-hold" : E.delta<-0.5 ? "is-breach" : ""],
     [o.idle ? "—" : `${o.perArrival.toFixed(1)}`,
-     o.idle ? "nobody in the lane" : "minutes per patient the lane accepts", ""],
+     /* "the lane accepts" is arithmetically right — the denominator is every arrival into the
+        lane's stream — but it reads as "got a chair", two cards from one counting who did not. */
+     o.idle ? "nobody in the lane"
+            : "minutes per patient arriving into the lane — including the ones it later sends away", ""],
     [`${Math.round(100*E.cover)}%`, `of the day's ${lvl.pts} patients go through the lane`,
       E.cover<0.2 ? "is-breach" : ""],
     [o.idle ? "—" : `${o.diverted.toFixed(1)}`, "still waiting when it closes — sent to the main department",
