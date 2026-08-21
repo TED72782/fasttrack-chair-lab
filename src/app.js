@@ -624,8 +624,8 @@ const board      = () => SHARED ? cache : localBoard();
 const DEFAULT_BOARD = "https://script.google.com/macros/s/AKfycbx91tZp5wYvxwMoGJhMV2fnHUrV7P6uCo-TrIU8orxauPGErNzqYkKV6fwLWXM6auKC/exec";
 function endpointFromEnv(){
   const q = new URLSearchParams(location.search).get("board");
-  if(q){ try{ localStorage.setItem(API_KEY, q) }catch(e){} return q }
-  try{ const s = localStorage.getItem(API_KEY); if(s) return s }catch(e){}
+  if(q) return q;                                  // a link's board wins, for this visit only
+  try{ const s = localStorage.getItem(API_KEY); if(s) return s }catch(e){}  // typed in the setup row
   return location.protocol === "https:" ? DEFAULT_BOARD : "board";
 }
 
