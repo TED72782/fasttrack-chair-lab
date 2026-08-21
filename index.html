@@ -224,7 +224,7 @@ footer{margin-top:26px;font-size:12.5px;color:var(--ink-3);border-top:1px solid 
     </section>
 
     <section class="panel" style="margin-top:14px">
-      <div class="panel-h"><div class="eyebrow">4 · How fast the lane runs</div></div>
+      <div class="panel-h"><div class="eyebrow">3 · Timing</div></div>
       <div class="panel-b">
         <div id="speedCtl"></div>
       </div>
@@ -733,28 +733,29 @@ function fdControl(){
 }
 
 function drawSpeed(m){
-  const host=$("speedCtl");
-  if(m.zone){
-    host.innerHTML = `<div class="ctl"><div class="ctl-top">
-        <label for="asx">Time in the assessment chair</label>
-        <output class="num">${S.assess} min</output></div>
-      <input type="range" id="asx" min="12" max="80" step="1" value="${S.assess}">
-      <div class="hint">How long a patient keeps an assessment chair before moving out. Measured
-        roomed-to-first-order is 44 min; below that you are assuming the lane turns those chairs
-        over faster than it does today.</div></div>
-      </div>` + fdControl();
-    $("asx").oninput = e => { S.assess = +e.target.value; run() };
-  } else {
+  const host = $("speedCtl");
+  if(m.id==="pooled"){
     host.innerHTML = `<div class="ctl"><div class="ctl-top">
         <label for="cyc">Time a space is tied up</label>
         <output class="num">${S.cyc} min</output></div>
       <input type="range" id="cyc" min="55" max="115" step="1" value="${S.cyc}">
       <div class="hint">${S.cyc===Math.round(D.T_A) ? "Today's measured figure."
         : (S.cyc<D.T_A ? `${Math.round(100-100*S.cyc/D.T_A)}% faster than today (${Math.round(D.T_A)} min).`
-                       : `${Math.round(100*S.cyc/D.T_A-100)}% slower than today (${Math.round(D.T_A)} min).`)}</div></div>`
-      + (m.id==="pooled" ? "" : fdControl());
+                       : `${Math.round(100*S.cyc/D.T_A-100)}% slower than today (${Math.round(D.T_A)} min).`)}
+        Nobody moves in this layout, so the whole visit happens in one space.</div></div>`;
     $("cyc").oninput = e => { S.cyc = +e.target.value; run() };
+    return;
   }
+  host.innerHTML = `<div class="ctl"><div class="ctl-top">
+      <label for="asx">Assessment, before they move</label>
+      <output class="num">${S.assess} min</output></div>
+    <input type="range" id="asx" min="10" max="90" step="1" value="${S.assess}">
+    <div class="hint">How long a patient keeps an assessment space before moving to the second
+      area. Measured today a test patient holds it ${D.g.asw.toFixed(0)} min — but that is the time
+      to their first ORDER, not a decision anyone made, and it does not exist at all for the half
+      who need no test. It is the number to argue about: the best split follows it.</div></div>`
+    + fdControl();
+  $("asx").oninput = e => { S.assess = +e.target.value; run() };
 }
 
 function drawPresets(){
