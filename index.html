@@ -236,16 +236,8 @@ footer{margin-top:26px;font-size:12.5px;color:var(--ink-3);border-top:1px solid 
   <div>
     <div class="hero" id="hero"></div>
     <div class="load" id="load"></div>
-    <div class="barbar">
-      <span>Compared against</span>
-      <span class="seg" id="barSeg" role="group">
-        <button type="button" data-bar="today">today's arrangement</button>
-        <button type="button" data-bar="nolane">no fast track at all</button>
-      </span>
-      <span id="barNote"></span>
-    </div>
-
-    <section class="panel">
+    <div class="barbar"><span id="barNote"></span></div>
+on class="panel">
       <div class="chart">
         <div class="eyebrow">ESI 4/5 arrivals across the day · the lane's hours picked out</div>
         <div class="abars" id="arrBars"></div>
@@ -347,6 +339,13 @@ footer{margin-top:26px;font-size:12.5px;color:var(--ink-3);border-top:1px solid 
             serve what they actually get instead: today's wait for a room in the main department,
             by hour — 31 minutes at 15:00 rising to 101 at 22:00. Accept nobody and you score
             exactly the status quo. There is no way to win by shrinking.</li>
+        <li><b>There is no "no fast track" comparison, and there cannot be.</b> The department has
+            run one throughout the period measured here, so no lane-free day exists to compare
+            against. This page briefly offered one, built by excluding the patients who went
+            through today's pod — it was withdrawn because 59% of the walkouts in those hours have
+            no care area recorded at all, so they fell into the "no fast track" group by
+            bookkeeping rather than by outcome, and what remained was the pod's overflow rather
+            than a counterfactual.</li>
         <li><b>The bar is today, and today already has a fast track.</b> An ESI 4/5 patient
             arriving in this window waits 58.1 minutes on average now. But the Orca pod is
             already taking 65&ndash;68% of them until 18:00, and the whole hourly escalation
@@ -565,8 +564,23 @@ let PICK = new Set(CC.map(x=>x.i));                 // everyone, until someone n
    Both curves charge a patient who walked out the time they spent before leaving. Dropping them
    would condition the bar on not having walked out, and they cluster at 22:00 — 179 of 613 —
    exactly where it matters most. */
-const BARS = {today: {m24:D.main24,   mean:D.main_mean,   n:"today's arrangement"},
-              nolane:{m24:D.nolane24, mean:D.nolane_mean, n:"a day with no fast track"}};
+/* ⚠ THERE IS ONLY ONE BAR, AND THAT IS DELIBERATE.
+   A second one — "a day with no fast track" — was offered here and has been removed, because it
+   did not measure what its name claimed. It was built by excluding patients whose care area was
+   the Orca pod (today's fast track, visibly: 0-1% of ESI 4/5 overnight, 65-68% from 11:00 to
+   18:00, 7% by 23:00). Two things sank it:
+
+     - 59% of the walkouts in those hours have NO care area recorded at all. A patient who leaves
+       before being placed cannot be labelled Orca, so every one of them fell into the
+       "no fast track" group by construction rather than by outcome. Removing walkouts closes most
+       of the gap: 59.2 -> 52.7 against 46.0 for everyone.
+     - What remains is not a counterfactual anyway. It is the patients Orca did not take WHILE IT
+       WAS OPEN — the overflow, which is concentrated at the moments it was full.
+
+   The department has run a fast track throughout the measured period, so no lane-free day exists
+   to compare against. Today's arrangement is the honest bar: it is what actually happens now,
+   which is the thing any change has to beat. */
+const BARS = {today: {m24:D.main24, mean:D.main_mean, n:"today's arrangement"}};
 const bar = () => BARS[S.bar] || BARS.today;
 
 function mix(){
@@ -1010,8 +1024,6 @@ function run(){
   $("hours").innerHTML = E.hours.map(h=>`<span>${h}</span>`).join("");
   drawArrivals(E);
 
-  $("barSeg").querySelectorAll("[data-bar]").forEach(bt=>
-    bt.setAttribute("aria-pressed", String(bt.dataset.bar===S.bar)));
   const _B = BARS[S.bar] || BARS.today;
   const _lo = _B.m24.indexOf(Math.min(..._B.m24)), _hi = _B.m24.indexOf(Math.max(..._B.m24));
   $("barNote").innerHTML = `Everyone the lane does not take — outside its hours or outside its

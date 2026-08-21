@@ -19,26 +19,29 @@ instead — today's wait for a room, by the hour they arrived in.
 
 Accept nobody and you score exactly the bar. There is no way to win by shrinking.
 
-### What the bar is, and why it is a control
+### What the bar is
 
-It is **today**, and today already has a fast track. The Orca pod takes 65–68% of these patients
-until 18:00, then 54% at 20:00, 15% at 21:00, 7% at 22:00 — and the entire hourly escalation in
-the pooled figure is that pod closing:
+**Today.** An ESI 4/5 patient arriving in this window waits 50.0 minutes on average now, by the
+hour they arrive — best at 07:00 (16 min), worst at 23:00 (109).
 
-| | 15:00 | 18:00 | 20:00 | 22:00 |
-|---|---|---|---|---|
-| Orca pod patients | 32 | 44 | 45 | 45 |
-| everyone else | 31 | 52 | 94 | 118 |
+Today already has a fast track: the **Orca pod**, whose hours are plainly visible in the data —
+0–1% of ESI 4/5 overnight, 65–68% from 11:00 to 18:00, 40% by 21:00, 7% by 23:00. So the wait
+curve's shape is largely that pod opening and closing. Its patients wait a flat 31–45 minutes at
+every hour; everyone else climbs from 31 to 118.
 
-So there are two defensible bars, and which is right depends on whether the proposed lane is
-*added* to today's pod or *replaces* it — a question no model settles:
+**There is no "no fast track" comparison, and there cannot be one.** The department has run a
+fast track throughout the measured period, so no lane-free day exists. This page briefly offered
+such a bar, built by excluding the patients who went through the pod. It was withdrawn:
 
-- **today's arrangement — 58.1 min**
-- **an evening with no fast track — 80.5 min**
+- **59% of the walkouts in those hours have no care area recorded at all.** Someone who leaves
+  before being placed can never be labelled Orca, so every walkout fell into the "no fast track"
+  group by bookkeeping rather than by outcome. Removing walkouts closed most of the gap —
+  59.2 → 52.7, against 46.0 for everyone.
+- What remained was not a counterfactual either: it was the patients the pod did **not** take
+  while it was open, i.e. its overflow, concentrated at the moments it was full.
 
-Both charge a patient who walked out the time they spent in the department before leaving.
-Dropping them instead would condition the bar on not having walked out, and they cluster at
-22:00 — 179 of 613 — exactly where it matters.
+Today's arrangement is the honest bar. It is what actually happens now, which is the thing any
+change has to beat.
 
 ### Where that leaves the layouts
 
