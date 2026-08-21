@@ -85,15 +85,17 @@ function doPost(e) {
           Number(rows[i][2]) === Number(c.A) && Number(rows[i][3]) === Number(c.R) &&
           Number(rows[i][4]) === Number(c.cyc) && Number(rows[i][5]) === Number(c.assess) &&
           String(rows[i][8] || '') === String(c.cc || '') &&
-          Number(rows[i][9] || 15) === Number(c.start === undefined ? 15 : c.start) &&
-          Number(rows[i][10] || 8) === Number(c.len === undefined ? 8 : c.len)) {
+          Number(rows[i][9] === '' ? 15 : rows[i][9]) === Number(c.start === undefined ? 15 : c.start) &&
+          Number(rows[i][10] === '' ? 8 : rows[i][10]) === Number(c.len === undefined ? 8 : c.len)) {
         sh.deleteRow(i + 1);
       }
     }
     sh.appendRow([who, String(c.mode), Number(c.A) || 0, Number(c.R) || 0,
                   Number(c.cyc) || 0, Number(c.assess) || 0, c.fastDischarge === true,
                   Number(b.at) || Date.now(),
-                  String(c.cc === undefined ? '' : c.cc), Number(c.start) || 15, Number(c.len) || 8]);
+                  String(c.cc === undefined ? '' : c.cc),
+                  c.start === undefined || c.start === null || c.start === '' ? 15 : Number(c.start),
+                  c.len === undefined || c.len === null || c.len === '' ? 8 : Number(c.len)]);
     return json_(read_());
   } catch (err) {
     return json_({ error: String(err) });
