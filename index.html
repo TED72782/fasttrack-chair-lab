@@ -141,9 +141,9 @@ input[type=range]:focus-visible{outline:2px solid var(--hold);outline-offset:3px
 .cc-m{font-size:11.5px;color:var(--ink-3)}
 .dim{color:var(--ink-3)}
 .crit-f{padding:0 16px 14px;font-size:12px;color:var(--ink-3);max-width:88ch}
-.stage-h{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap;
-  padding:14px 16px 12px}
-.stage-sub{font-size:12.5px;color:var(--ink-3);margin-top:4px;max-width:62ch}
+.stage-h{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;
+  padding:14px 16px 12px;min-height:64px}
+.stage-sub{font-size:12.5px;color:var(--ink-3);margin-top:4px;max-width:62ch;min-height:34px}
 .stage-ctl{display:flex;align-items:center;gap:10px}
 .clock{font-size:17px;font-weight:600;color:var(--ink);min-width:62px;text-align:right}
 .stage-ctl select{font:inherit;font-size:12.5px;padding:6px 8px;border:1px solid var(--line);
@@ -671,6 +671,9 @@ function playPause(on){
     PLAY.last = 0; PLAY.raf = requestAnimationFrame(tick);
   } else cancelAnimationFrame(PLAY.raf);
   $("playBtn").textContent = PLAY.on ? "Pause" : (PLAY.t>0 ? "Resume" : "Play the evening");
+  $("stageHint").textContent = PLAY.on || PLAY.t>0
+    ? "This is the run the numbers above come from. A space outlined in red holds a patient with nowhere to move on to."
+    : "The same run the numbers come from — one seeded evening, replayed on a clock. A space that looks full is full.";
 }
 
 /* ── the operating window ────────────────────────────────────────────────────
@@ -1236,7 +1239,7 @@ function run(){
   drawLevels(E); drawCriteria(); drawBoard();
   // any change to the lane invalidates the recorded evening — a stage showing one layout while
   // the numbers describe another is worse than no stage
-  if(PLAY.trace){ PLAY.trace = null; playPause(false); PLAY.t = 0; $("stageHint").hidden = false; }
+  if(PLAY.trace){ PLAY.trace = null; playPause(false); PLAY.t = 0; }
   if(!PLAY.trace) drawStageIdle();
   // keep the query string — it carries ?board=, and replacing the URL with a bare hash would
   // drop the shared board from the address bar on the first render
@@ -1262,7 +1265,7 @@ drawPresets(); drawModes(); drawSpaces(); run();
 $("ccAll").onclick  = () => { PICK = new Set(CC.map(x=>x.i)); run() };
 $("ccNone").onclick = () => { PICK = new Set(); run() };
 $("ccLow").onclick  = () => { PICK = new Set(CC.filter(x=>x.w<=0.25).map(x=>x.i)); run() };
-$("playBtn").onclick = () => { $("stageHint").hidden = true; playPause() };
+$("playBtn").onclick = () => playPause();
 $("speedSel").onchange = e => { PLAY.speed = +e.target.value };
 drawStageIdle();
 $("add").onclick = addEntry;
