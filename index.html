@@ -141,6 +141,36 @@ input[type=range]:focus-visible{outline:2px solid var(--hold);outline-offset:3px
 .cc-m{font-size:11.5px;color:var(--ink-3)}
 .dim{color:var(--ink-3)}
 .crit-f{padding:0 16px 14px;font-size:12px;color:var(--ink-3);max-width:88ch}
+.stage-h{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap;
+  padding:14px 16px 12px}
+.stage-sub{font-size:12.5px;color:var(--ink-3);margin-top:4px;max-width:62ch}
+.stage-ctl{display:flex;align-items:center;gap:10px}
+.clock{font-size:17px;font-weight:600;color:var(--ink);min-width:62px;text-align:right}
+.stage-ctl select{font:inherit;font-size:12.5px;padding:6px 8px;border:1px solid var(--line);
+  border-radius:7px;background:var(--surface-2);color:var(--ink-2)}
+.stage-ctl button{all:unset;cursor:pointer;font-size:12.5px;font-weight:600;padding:8px 14px;
+  border-radius:7px;background:var(--hold);color:#fff;min-width:122px;text-align:center}
+.stage-ctl button:focus-visible,.stage-ctl select:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.stage-bar{height:3px;background:var(--line-soft);margin:0 16px}
+.stage-bar span{display:block;height:100%;background:var(--hold);width:0}
+.stage-body{display:grid;grid-template-columns:1.15fr 1fr 1fr .6fr;gap:18px;padding:16px}
+@media (max-width:860px){.stage-body{grid-template-columns:1fr 1fr}}
+.zone-h{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);margin-bottom:9px}
+.wait-pool{display:flex;flex-wrap:wrap;gap:5px;align-content:flex-start;min-height:74px}
+.slots{display:flex;flex-wrap:wrap;gap:6px}
+.slot{width:28px;height:28px;border-radius:7px;border:1.5px dashed var(--line);
+  display:flex;align-items:center;justify-content:center}
+.slot.full{border-style:solid;border-color:var(--hold);background:var(--hold-wash)}
+.slot.jam{border-color:var(--breach);background:var(--breach-wash)}
+.pt{width:13px;height:13px;border-radius:50%;background:var(--hold);display:block;position:relative}
+.pt.wait{background:var(--ink-3);opacity:.55}
+.pt.tst::after{content:"";position:absolute;inset:4px;border-radius:50%;background:var(--surface)}
+.slot.jam .pt{background:var(--breach)}
+.more{font-size:11px;color:var(--ink-3);align-self:center}
+.none{font-size:12px;color:var(--ink-3)}
+.tally .big{font-family:"IBM Plex Mono",monospace;font-size:24px;font-weight:600}
+.tally .warnv{color:var(--breach)}
+.stage-f{padding:0 16px 14px;font-size:12px;color:var(--ink-3)}
 .board{margin-top:22px}
 .board-h{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;
   padding:14px 16px 12px;border-bottom:1px solid var(--line-soft);flex-wrap:wrap}
@@ -247,6 +277,46 @@ on class="panel">
         <div class="ahint">Today's fast track runs roughly 10:00&ndash;21:00. Arrivals peak at
           19:00&ndash;20:00; the longest waits are at 22:00&ndash;23:00, as it closes.</div>
       </div>
+    </section>
+
+    <section class="panel stage" style="margin-top:14px">
+      <div class="stage-h">
+        <div><div class="eyebrow">One evening, played out</div>
+          <div class="stage-sub" id="stageHint">The same run the numbers come from — one seeded
+            evening, replayed on a clock. A space that looks full is full.</div></div>
+        <div class="stage-ctl">
+          <span class="clock num" id="stageClock">--:--</span>
+          <select id="speedSel" aria-label="playback speed">
+            <option value="30">slow</option>
+            <option value="60" selected>1 min / sec</option>
+            <option value="120">fast</option>
+            <option value="300">very fast</option>
+          </select>
+          <button type="button" id="playBtn" class="primary">Play the evening</button>
+        </div>
+      </div>
+      <div class="stage-bar"><span id="stageBar"></span></div>
+      <div class="stage-body">
+        <div class="zone">
+          <div class="zone-h">Waiting to be seen <b class="num" id="stageWaitN">0</b></div>
+          <div class="wait-pool" id="stageWait"></div>
+        </div>
+        <div class="zone">
+          <div class="zone-h">Being assessed</div>
+          <div class="slots" id="stageA"></div>
+        </div>
+        <div class="zone">
+          <div class="zone-h">Second area — results &amp; discharge</div>
+          <div class="slots" id="stageB"></div>
+        </div>
+        <div class="zone tally">
+          <div class="zone-h">Left</div><div class="big num" id="stageGone">0</div>
+          <div class="zone-h" style="margin-top:10px">Sent to main dept</div>
+          <div class="big num warnv" id="stageSent">0</div>
+        </div>
+      </div>
+      <div class="stage-f">A filled circle is a patient; the small inner dot marks the half who
+        need a test. A space outlined in red holds someone with nowhere to move on to.</div>
     </section>
 
     <section class="panel" style="margin-top:14px">
@@ -427,7 +497,13 @@ Heap.prototype.pop=function(){const a=this.a,top=a[0],last=a.pop();if(a.length){
    anyone still queueing goes to the main department. */
 function sim(cfg){
   const {A, R, lam, asw, now, res, pooled, assessMin, fastDischarge, shr=D.shr,
-         floor=D.floor, days=600, seeds=[11,12,13,14]} = cfg;
+         floor=D.floor, days=600, seeds=[11,12,13,14], trace} = cfg;
+  // `trace` records one evening, patient by patient, so the animation plays the SAME run the
+  // numbers come from rather than a decorative loop of its own. Slots are tracked only here —
+  // the maths never needs to know which chair, only how many are free.
+  const T = trace ? [] : null;
+  const freeA = [], freeB = [];
+  if(T){ for(let i=A-1;i>=0;i--) freeA.push(i); for(let i=R-1;i>=0;i--) freeB.push(i) }
   const H = lam.length, CLOSE = H*60;
   let wa=0, waN=0, wr=0, wrN=0, blocked=0, nw=0, seen=0, arrN=0, divN=0, divWait=0;
   const hs=new Float64Array(H), hn=new Float64Array(H), divH=new Float64Array(H);
@@ -441,41 +517,58 @@ function sim(cfg){
       const ev=new Heap(); for(let i=0;i<arr.length;i++) ev.push([arr[i],0,i]);
       ev.push([CLOSE,-1,-1]);
       const qa=[], qr=[], second=new Float64Array(arr.length);
+      const slotA = T ? new Int16Array(arr.length).fill(-1) : null;
+      const slotB = T ? new Int16Array(arr.length).fill(-1) : null;
       let ab=0, rb=0;
       const hb = t => Math.min(H-1, (t/60)|0);
       const rec = (tag,w,dv) => { const tt=w+floor; if(!dv){wa+=tt;waN++} hs[hb(arr[tag])]+=tt; hn[hb(arr[tag])]++ };
 
       const startA = (t,tag) => { ab++;
+        if(T){ const s=freeA.pop(); slotA[tag]=s; T.push({t, id:tag, ev:"assess", slot:s}) }
         const w = r()<shr;
+        if(T) for(let i=T.length-1;i>=0;i--) if(T[i].id===tag && T[i].ev==="arrive"){ T[i].test=w; break }
         const total = w ? pick(r,asw)+pick(r,res) : pick(r,now);
         if(pooled){ second[tag]=0; ev.push([t+total,1,tag]); return }
         if(!w && !fastDischarge){ second[tag]=0; ev.push([t+total,1,tag]); return }
         const a = Math.min(assessMin ?? D.g.asw, total-1);
         second[tag] = Math.max(1, total-a);
         ev.push([t+a,1,tag]) };
-      const startB = (t,tag) => { rb++; ev.push([t+second[tag],2,tag]) };
+      const startB = (t,tag) => { rb++;
+        if(T){ const s=freeB.pop(); slotB[tag]=s; T.push({t, id:tag, ev:"second", slot:s}) }
+        ev.push([t+second[tag],2,tag]) };
       const takeNext = t => { if(!qa.length || ab>=A) return;
         const q=qa.shift(); rec(q[1], t-q[0]); startA(t,q[1]) };
 
       while(ev.a.length){
         const e=ev.pop(), t=e[0], kind=e[1], tag=e[2];
         if(kind===-1){ for(const q of qa){ divN++; divWait += CLOSE-q[0]+floor; divH[hb(arr[q[1]])]++;
-                                           rec(q[1], CLOSE-q[0], true) } qa.length=0; continue }
-        if(kind===0){ if(ab<A){ rec(tag,0); startA(t,tag) } else qa.push([t,tag]) }
+                                           rec(q[1], CLOSE-q[0], true);
+                                           if(T) T.push({t, id:q[1], ev:"divert"}) }
+                       qa.length=0; if(T) T.push({t, ev:"close"}); continue }
+        if(kind===0){ if(T) T.push({t, id:tag, ev:"arrive", test: null});
+                      if(ab<A){ rec(tag,0); startA(t,tag) } else qa.push([t,tag]) }
         else if(kind===1){
           seen++;
-          if(!second[tag]){ ab--; takeNext(t); continue }        // never moved on
+          if(!second[tag]){ ab--;
+            if(T){ freeA.push(slotA[tag]); T.push({t, id:tag, ev:"leave"}) }
+            takeNext(t); continue }                                 // never moved on
           nw++;
-          if(rb<R){ ab--; wrN++; startB(t,tag); takeNext(t) }
-          else { qr.push([t,tag]); blocked++ }                   // nowhere to move to
+          if(rb<R){ ab--; if(T) freeA.push(slotA[tag]);
+                    wrN++; startB(t,tag); takeNext(t) }
+          else { qr.push([t,tag]); blocked++;
+                 if(T) T.push({t, id:tag, ev:"stuck"}) }             // nowhere to move to
         } else {
           rb--;
-          if(qr.length){ const q=qr.shift(); wr += t-q[0]; wrN++; ab--; startB(t,q[1]); takeNext(t) }
+          if(T){ freeB.push(slotB[tag]); T.push({t, id:tag, ev:"leave"}) }
+          if(qr.length){ const q=qr.shift(); wr += t-q[0]; wrN++; ab--;
+                         if(T) freeA.push(slotA[q[1]]);
+                         startB(t,q[1]); takeNext(t) }
           else takeNext(t);
         }
       }
     }
   }
+  if(T) return {trace:T, A, R};
   const runs = days*seeds.length;
   if(!arrN) return {wa:0, perArrival:0, wr:0, stuck:0, byHour:new Array(H).fill(0), worst:0,
                     worstIdx:0, seen:0, arrived:0, diverted:0, divByHour:new Array(H).fill(0),
@@ -487,6 +580,97 @@ function sim(cfg){
           seen: seen/runs, arrived: arrN/runs, diverted: divN/runs,
           divByHour: [...divH].map(v=>v/runs),
           divPct: 100*divN/arrN, saturated: divN/arrN > 0.02};
+}
+
+/* ── playing one evening ──────────────────────────────────────────────────────
+   The same simulation, one seed, one day, replayed on a clock. Nothing here is decorative: the
+   dots move when that patient actually moved in the run the numbers come from, and a space that
+   looks full IS full. Watching it is the fastest way to see why a layout fails — a jammed second
+   area shows up as assessment spaces that stop turning over, which no summary figure conveys. */
+const PLAY = {on:false, t:0, speed:60, raf:0, trace:null, A:0, R:0, last:0};
+
+function buildTrace(){
+  const m = modeOf(), lvl = LEVELS[S.level], f = S.cyc/D.T_A, mx = mix();
+  const hours = winHours(), fac = lvl.pts/D.day_mean;
+  const lam = hours.map(h => D.lam24[h]*fac*mx.share);
+  const out = sim({A:S.A, R:m.hasR?S.R:0, pooled:m.id==="pooled", assessMin:S.assess,
+                   fastDischarge:S.fastDischarge, shr:mx.shr, lam,
+                   asw:scale(D.asw, f*mx.fa), now:scale(D.now, f*mx.fo), res:scale(D.res, mx.fr),
+                   days:1, seeds:[11 + (S.start*7 + S.len) % 97], trace:true});
+  PLAY.trace = out.trace; PLAY.A = out.A; PLAY.R = out.R; PLAY.t = 0;
+  drawStage();
+}
+
+function stageState(t){
+  const A = new Array(PLAY.A).fill(null), B = new Array(PLAY.R).fill(null);
+  const where = new Map(), test = new Map();
+  let waiting = 0, gone = 0, sent = 0, stuck = new Set();
+  for(const e of PLAY.trace){
+    if(e.t > t) break;
+    if(e.ev === "arrive"){ waiting++; test.set(e.id, e.test) }
+    else if(e.ev === "assess"){ waiting--; A[e.slot] = e.id; where.set(e.id, ["A", e.slot]); stuck.delete(e.id) }
+    else if(e.ev === "second"){ const w = where.get(e.id); if(w && w[0]==="A") A[w[1]] = null;
+                                B[e.slot] = e.id; where.set(e.id, ["B", e.slot]); stuck.delete(e.id) }
+    else if(e.ev === "stuck"){ stuck.add(e.id) }
+    else if(e.ev === "leave"){ const w = where.get(e.id);
+                               if(w) (w[0]==="A"?A:B)[w[1]] = null;
+                               where.delete(e.id); gone++ }
+    else if(e.ev === "divert"){ waiting--; sent++ }
+  }
+  return {A, B, waiting, gone, sent, stuck, test};
+}
+
+function dot(id, st, extra){
+  if(id === null) return `<span class="slot"></span>`;
+  return `<span class="slot full${st.stuck.has(id)?" jam":""}">
+    <span class="pt${st.test.get(id)?" tst":""}"></span></span>`;
+}
+
+function drawStageIdle(){
+  const m = modeOf();
+  $("stageClock").textContent = "--:--";
+  $("stageWait").innerHTML = ""; $("stageWaitN").textContent = "0";
+  $("stageA").innerHTML = new Array(S.A).fill(`<span class="slot"></span>`).join("");
+  $("stageB").innerHTML = m.hasR ? new Array(S.R).fill(`<span class="slot"></span>`).join("")
+    : `<span class="none">nobody moves in this layout</span>`;
+  $("stageGone").textContent = "0"; $("stageSent").textContent = "0";
+  $("stageBar").style.width = "0%";
+}
+
+function drawStage(){
+  if(!PLAY.trace) return;
+  const st = stageState(PLAY.t);
+  const clock = (h => `${String((S.start + Math.floor(h/60)) % 24).padStart(2,"0")}:${String(Math.floor(h%60)).padStart(2,"0")}`)(PLAY.t);
+  const m = modeOf();
+  $("stageClock").textContent = clock;
+  $("stageWait").innerHTML = new Array(Math.min(st.waiting, 24)).fill(`<span class="pt wait"></span>`).join("")
+    + (st.waiting > 24 ? `<span class="more">+${st.waiting-24}</span>` : "");
+  $("stageWaitN").textContent = st.waiting;
+  $("stageA").innerHTML = st.A.map(id => dot(id, st)).join("");
+  $("stageB").innerHTML = m.hasR ? st.B.map(id => dot(id, st)).join("")
+    : `<span class="none">nobody moves in this layout</span>`;
+  $("stageGone").textContent = st.gone;
+  $("stageSent").textContent = st.sent;
+  $("stageBar").style.width = (100*PLAY.t/(S.len*60)).toFixed(1) + "%";
+}
+
+function tick(ts){
+  if(!PLAY.on) return;
+  const dt = PLAY.last ? (ts - PLAY.last)/1000 : 0;
+  PLAY.last = ts;
+  PLAY.t += dt * PLAY.speed;
+  if(PLAY.t >= S.len*60){ PLAY.t = S.len*60; playPause(false); drawStage(); return }
+  drawStage();
+  PLAY.raf = requestAnimationFrame(tick);
+}
+
+function playPause(on){
+  PLAY.on = on === undefined ? !PLAY.on : on;
+  if(PLAY.on){
+    if(!PLAY.trace || PLAY.t >= S.len*60){ buildTrace(); PLAY.t = 0 }
+    PLAY.last = 0; PLAY.raf = requestAnimationFrame(tick);
+  } else cancelAnimationFrame(PLAY.raf);
+  $("playBtn").textContent = PLAY.on ? "Pause" : (PLAY.t>0 ? "Resume" : "Play the evening");
 }
 
 /* ── the operating window ────────────────────────────────────────────────────
@@ -1050,6 +1234,10 @@ function run(){
     <b class="num">${_B.mean.toFixed(1)}</b> min across the day, best at ${_lo}:00
     (${_B.m24[_lo].toFixed(0)}) and worst at ${_hi}:00 (${_B.m24[_hi].toFixed(0)}).`;
   drawLevels(E); drawCriteria(); drawBoard();
+  // any change to the lane invalidates the recorded evening — a stage showing one layout while
+  // the numbers describe another is worse than no stage
+  if(PLAY.trace){ PLAY.trace = null; playPause(false); PLAY.t = 0; $("stageHint").hidden = false; }
+  if(!PLAY.trace) drawStageIdle();
   // keep the query string — it carries ?board=, and replacing the URL with a bare hash would
   // drop the shared board from the address bar on the first render
   history.replaceState(null, "", location.pathname + location.search + "#" +
@@ -1074,7 +1262,9 @@ drawPresets(); drawModes(); drawSpaces(); run();
 $("ccAll").onclick  = () => { PICK = new Set(CC.map(x=>x.i)); run() };
 $("ccNone").onclick = () => { PICK = new Set(); run() };
 $("ccLow").onclick  = () => { PICK = new Set(CC.filter(x=>x.w<=0.25).map(x=>x.i)); run() };
-$("barSeg").querySelectorAll("[data-bar]").forEach(bt=>bt.onclick=()=>{ S.bar=bt.dataset.bar; run() });
+$("playBtn").onclick = () => { $("stageHint").hidden = true; playPause() };
+$("speedSel").onchange = e => { PLAY.speed = +e.target.value };
+drawStageIdle();
 $("add").onclick = addEntry;
 $("who").onkeydown = e => { if(e.key==="Enter") addEntry() };
 $("share").onclick = () => {
