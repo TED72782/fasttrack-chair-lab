@@ -531,7 +531,7 @@ Heap.prototype.pop=function(){const a=this.a,top=a[0],last=a.pop();if(a.length){
 
    `fastDischarge=false` is the exception the data forces us to offer. A patient who needs no test
    has no order to time from, and may simply not be movable; then they hold the assessment space
-   for their whole visit — 86 min measured, LONGER than the 47 measured to a test patient's
+   for their whole visit — D.g.now measured, LONGER than the D.g.asw - D.pom measured to a test patient's
    first order (72 with the assumed 25 after it).
 
    People waiting to be seen queue in the main waiting room, not in either area, so a queue can
@@ -818,9 +818,10 @@ let PICK = new Set(CC.map(x=>x.i));                 // everyone, until someone n
    ⚠ It assumes the main department's wait is unaffected by the lane. Taking work out of it
    should improve it, so if anything this UNDERSTATES what excluding people costs. */
 /* ⚠ WHAT THE BAR ACTUALLY IS. This was labelled "no lane at all" and that was wrong: it is
-   measured on TODAY, and today already has a fast track. The Orca pod takes 65-68% of these
-   patients until 18:00, then 54% at 20:00, 15% at 21:00, 7% at 22:00 — and the whole hourly
-   escalation in the pooled curve is that pod closing. Orca patients wait a flat 31-45 min at
+   measured on TODAY, and today already has a fast track. The Orca pod takes the podlo-podhi %
+   quoted in the prose (live tokens — do not copy figures into this comment, they rot; the
+   2026-08 cut read 65-68% until 18:00, then 54/15/7% as it wound down) — and the whole hourly
+   escalation in the pooled curve is that pod closing. Orca patients wait the flat band at
    every hour including 22:00; everyone else goes 31 -> 118. So the curve is the STATUS QUO, not
    a lane-free counterfactual, and the two differ by a lot: 58.1 against 80.5.
 
@@ -833,7 +834,7 @@ let PICK = new Set(CC.map(x=>x.i));                 // everyone, until someone n
 /* ⚠ THERE IS ONLY ONE BAR, AND THAT IS DELIBERATE.
    A second one — "a day with no fast track" — was offered here and has been removed, because it
    did not measure what its name claimed. It was built by excluding patients whose care area was
-   the Orca pod (today's fast track, visibly: 0-1% of ESI 4/5 overnight, 65-68% from 11:00 to
+   the Orca pod (today's fast track, visibly: ~0% of ESI 4/5 overnight, the majority through the ftspan token's hours — from 11:00 to
    18:00, 7% by 23:00). Two things sank it:
 
      - 59% of the walkouts in those hours have NO care area recorded at all. A patient who leaves
@@ -945,7 +946,7 @@ const LEVELS = [
 // as acceptable is a judgement for the room, not a line in a chart.
 const S = {mode:"split", A:6, R:4, budget:0, cyc:Math.round(D.T_A), assess:44,
            fastDischarge:false, level:1, bar:"today", start:15, len:8};
-// Measured: mean time from being roomed to the first test being ordered is 44 min. In the
+// Measured: mean roomed-to-first-order is D.g.asw - D.pom (~47 on the 2026-08 cut). In the
 // combined-zone layouts the patient leaves the assessment chair at that point instead of
 // keeping it, so this is the natural starting value — and it is the number that decides
 // whether those layouts work, which is why it is a control and not a constant.
@@ -1012,7 +1013,7 @@ function drawSpaces(){
   }
 }
 
-/* A patient needing no test occupies the assessment space for their whole visit (86 min measured)
+/* A patient needing no test occupies the assessment space for their whole visit (D.g.now measured)
    while a patient needing one leaves it after 72 — so the people who need NOTHING are 55% of the
    assessment load. Whether they can be moved on once seen is therefore a real lever, but it is
    CONDITIONAL ON SOMEWHERE TO MOVE THEM: at 6+4 moving them is 13 min WORSE (they flood a second
