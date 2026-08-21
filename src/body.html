@@ -51,8 +51,8 @@
         <div class="ahours" id="arrHours"></div>
         <div id="winCtl"></div>
         <div class="anote" id="arrNote"></div>
-        <div class="ahint">Today's fast track runs roughly 11:00&ndash;20:00. Arrivals peak at
-          19:00&ndash;20:00; the longest waits are at 22:00&ndash;23:00, as it closes.</div>
+        <div class="ahint">Today's fast track runs roughly {{ftspan}}. Arrivals peak at
+          {{peakspan}}; the longest waits are at {{worstspan}}, as it closes.</div>
       </div>
     </section>
 
@@ -207,7 +207,7 @@
         <li><b>There is no "no fast track" comparison, and there cannot be.</b> The department has
             run one throughout the period measured here, so no lane-free day exists to compare
             against. This page briefly offered one, built by excluding the patients who went
-            through today's pod — it was withdrawn because 59% of the walkouts in those hours have
+            through today's pod — it was withdrawn because {{walkoutpct}}% of the walkouts in those hours have
             no care area recorded at all, so they fell into the "no fast track" group by
             bookkeeping rather than by outcome, and what remained was the pod's overflow rather
             than a counterfactual.</li>
@@ -216,9 +216,9 @@
             against {{mainmean}} rather than {{mean1523}}, because it prices <i>every</i> ESI 4/5 patient of the
             day and the quieter daytime hours are in that average too. Both are today; they
             differ only in which patients they count. But the Orca pod is
-            already taking 65&ndash;68% of them until 18:00, and the whole hourly escalation
+            already taking {{podlo}}&ndash;{{podhi}}% of them until {{poduntil}}:00, and the whole hourly escalation
             &mdash; {{main15}} minutes at 15:00 to {{main22}} at 22:00 &mdash; is that pod closing: its patients
-            wait a flat 31&ndash;45 minutes at every hour, while everyone else goes 31 to 118.
+            wait a flat {{podwlo}}&ndash;{{podwhi}} minutes at every hour, while everyone else goes {{otherlo}} to {{otherhi}}.
             Whether a proposed lane is <i>added</i> to today's pod or <i>replaces</i> it
             therefore changes what it should be compared against, and this page does not try to
             settle that &mdash; for the reason in the bullet above, there is no lane-free bar to
