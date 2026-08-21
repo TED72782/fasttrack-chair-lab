@@ -1087,11 +1087,14 @@ $("share").onclick = () => {
     ()=>{ $("share").textContent="Copy failed — the link is in the address bar"; });
 };
 $("clearBoard").onclick = () => {
-  // ⚠ the shared board is usually the Google Sheet now, not board.json — this named the one
-  // backend most people are NOT on, and read as "you cannot clear it" with no way out
-  if(SHARED){ alert("This is the shared board — everyone on this link sees it, so it cannot be "
-    + "cleared from one browser.\n\nClear it where it lives: delete the rows in the Google Sheet "
-    + "behind the endpoint, or delete board.json next to serve_board.py."); return }
+  // ⚠ named board.json / serve_board.py, which is the one backend the physicians using this are
+  // NOT on — it read as a leaked dev note. The two cases differ: the baked-in group board is
+  // someone's spreadsheet, a pasted endpoint is wherever they put it.
+  if(SHARED){ alert(API === DEFAULT_BOARD
+      ? "This is the group's shared board — everyone on the link sees these entries, so it is "
+      + "not cleared from here. Whoever set up the board can remove rows in its spreadsheet."
+      : "This is a shared board. Clear it wherever it is hosted — this page only reads and adds.");
+    return }
   if(confirm("Clear the board in this browser?")){ saveLocal([]); drawBoard() }
 };
 markShared(); probeShared();

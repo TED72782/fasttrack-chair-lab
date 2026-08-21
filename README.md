@@ -4,9 +4,9 @@ An interactive simulator for the Mary Bridge Children's emergency department fas
 
 **→ [Open the lab](https://ted72782.github.io/ft-lab/)**
 
-Build a lane, run the evening, put it on the board. Every change re-simulates 2,400 evenings in
-your browser. There is no pass mark — the page reports **how long people wait and how many get
-turned away**, and what counts as acceptable is yours to argue about.
+Build a lane, run the evening, put it on the board. Every change re-simulates thousands of
+evenings in your browser. There is no pass mark — the page reports **how long people wait and how
+many get turned away**, and what counts as acceptable is yours to argue about.
 
 ## The score
 
@@ -26,16 +26,22 @@ Accept nobody and you score exactly the bar. There is no way to win by shrinking
 
 ### What the bar is
 
-**Today.** An ESI 4/5 patient waits **50.0 minutes** on average now, across the whole day and by
-the hour they arrive — best at 07:00 (16 min), worst at 23:00 (109). That day-wide 50.0 is the
-number a lane is scored against. The 15:00–23:00 slice alone averages 58.1; the two differ only
-in which patients they count, and the page compares against 50.0 because it prices *every* ESI
-4/5 patient of the day, quiet daytime hours included.
+**Today.** What an ESI 4/5 patient waits now, by the hour they arrive — lowest in the early
+morning, highest late in the evening.
+
+The bar is the figure **across the whole day**, not across the lane's hours. Those are two
+different numbers and the evening one is the larger, because the evening is the worse part of the
+day; a lane compared against the evening alone would be flattered by the comparison. The page
+prices every ESI 4/5 patient of the day, quiet daytime hours included, so it compares against the
+day.
 
 Today already has a fast track: the **Orca pod**, whose hours are plainly visible in the data —
-0–1% of ESI 4/5 overnight, 66–69% from 11:00 to 18:00, tailing off to almost nothing by 23:00. So
-the wait curve's shape is largely that pod opening and closing. Its patients wait a flat 27–45
-minutes at every hour; everyone else climbs from 28 to 118.
+near-zero overnight, the majority of ESI 4/5 through the middle of the day, winding down by late
+evening. So the wait curve's shape is largely that pod opening and closing: its patients wait a
+flat band at every hour while everyone else climbs steeply.
+
+The page carries the current figures for all of this, refreshed from the department database —
+they are deliberately not restated here, because this file is not refreshed with them.
 
 **There is no "no fast track" comparison, and there cannot be one.** The department has run a
 fast track throughout the measured period, so no lane-free day exists. This page briefly offered
@@ -53,8 +59,10 @@ change has to beat.
 
 ### Where that leaves the layouts
 
-A busy day (63 ESI 4/5 patients, 31 of them arriving 15:00–23:00), lane open 15:00–23:00,
-assessment ending at 44 minutes, a no-test patient keeping the space — the page's own defaults:
+One run on the 2026-08-12 cut, at the page's own defaults: a busy day, the lane open 15:00–23:00,
+assessment ending at 44 minutes, a no-test patient keeping the space. Set those and the page
+reproduces it. **The ordering is the finding; the figures move with every data cut** — an earlier
+version of this table was a whole scoring rewrite out of date and had the last row at 110.8.
 
 | lane | takes | min per patient arriving into the lane | score |
 |---|---|---|---|
@@ -110,7 +118,8 @@ assessment time sets — and the best split simply tracks that ratio. At ten spa
 | 60 min | 5+5 | 32.3 | 39.0 |
 | 90 min | 6+4 | 32.8 | 32.8 |
 
-On a typical day, everyone accepted, the second area holding all of them. Two things worth
+On a typical day, everyone accepted, the second area holding all of them — same caveat as
+above, the walk of the optimum is the finding, not the figures. Two things worth
 reading off that table. The optimum walks 2 → 3 → 4 → 5 → 6 as the assessment lengthens, exactly
 in step with the share of the visit each side carries — so back-weighting is
 the *arithmetic* of a short assessment, not a discovery about chairs. And **the achievable score
@@ -136,6 +145,9 @@ time it was never derived with.
 - **6+4** — stays 32.4, moves **46.7**. Moving them is *worse*: they flood a second area that is
   already too small.
 - **6+10** — stays 27.0, moves **25.6**. Moving them is better, because there is somewhere to go.
+
+The two *signs* are what to carry away; both are stable across seed blocks, and both figures move
+with the data.
 
 ## Choosing who the lane accepts
 
