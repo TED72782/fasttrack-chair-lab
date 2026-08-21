@@ -637,13 +637,13 @@ const PLAY = {on:false, t:0, speed:60, raf:0, trace:null, A:0, R:0, last:0,
    what the settings imply, and say on screen how busy it was. "Another evening" steps through the
    rest, because the spread is real and worth seeing — it just should not be what you meet first. */
 function buildTrace(){
-  const m = modeOf(), lvl = LEVELS[S.level], f = S.cyc/D.T_A, mx = mix();
+  const m = modeOf(), lvl = LEVELS[S.level], f = m.id==="pooled" ? S.cyc/D.T_A : 1, mx = mix();
   const hours = winHours(), fac = lvl.pts/D.day_mean;
   const lam = hours.map(h => D.lam24[h]*fac*mx.share);
   const expect = lam.reduce((a,b)=>a+b, 0);
   const base = {A:S.A, R:m.hasR?S.R:0, pooled:m.id==="pooled", assessMin:S.assess,
                 fastDischarge:S.fastDischarge, shr:mx.shr, lam,
-                asw:scale(D.asw, f*mx.fa), now:scale(D.now, f*mx.fo), res:scale(D.res, mx.fr),
+                asw:scale(D.asw, f*mx.fa), now:scale(D.now, f*mx.fo), res:scale(D.res, f*mx.fr),
                 days:1, trace:true};
 
   const runs = [];
@@ -855,8 +855,10 @@ const scale  = (pool,f) => pool.map(x => x*f);
 /* One lane, evaluated. `cfg` is everything a saved board entry carries, so the live page and
    the leaderboard cannot drift apart — they call this same function. */
 function evaluate(cfg, dayTotal){
-  const m = MODES.find(x=>x.id===cfg.mode) || MODES[2];
-  const f = cfg.cyc / D.T_A;
+  /* a board row saved in the four-mode era ('zone', 'rooms') must not crash the page for
+     everyone sharing the board — fall back to split, the nearest surviving semantics */
+  const m = MODES.find(x=>x.id===cfg.mode) || MODES[0];
+  const f = cfg.mode==="pooled" ? cfg.cyc/D.T_A : 1;
   const hours = Array.from({length:cfg.len}, (_,i)=>(cfg.start+i)%24);
   const fac   = dayTotal / D.day_mean;
 
@@ -874,7 +876,7 @@ function evaluate(cfg, dayTotal){
     : sim({A:cfg.A, R:m.hasR?cfg.R:0, pooled:cfg.mode==="pooled", 
            assessMin:cfg.assess, fastDischarge:cfg.fastDischarge, shr:w("w"), lam,
            asw:scale(D.asw, f*w("a")/D.g.asw), now:scale(D.now, f*w("o")/D.g.now),
-           res:scale(D.res, w("r")/D.g.res), days:cfg.days||600, seeds:cfg.seeds||[11,12,13,14]});
+           res:scale(D.res, f*w("r")/D.g.res), days:cfg.days||600, seeds:cfg.seeds||[11,12,13,14]});
 
   // Everyone the lane does not serve is charged the main department for THEIR arrival hour:
   // the whole of every hour outside the window, and the criteria-excluded share of every hour
@@ -1070,6 +1072,7 @@ function syncSpeed(m){
     const pct = Math.round(100 - 100*S.cyc/D.T_A);
     const o = $("cycOut");
     if(o) o.textContent = pct===0 ? "today's pace" : (pct>0 ? pct+"% faster" : (-pct)+"% slower");
+    const s = $("cyc"); if(s && +s.value !== S.cyc) s.value = S.cyc;   // a loaded row moved it, not a drag
     return;
   }
   const o = $("asxOut"); if(o) o.textContent = S.assess + " min";
@@ -1164,7 +1167,7 @@ function scoreOf(cfg, pts){
   // entries saved before the window was adjustable ran the original 15:00-23:00 lane
   const c = {...cfg, start: cfg.start ?? 15, len: cfg.len ?? 8, bar: S.bar, days:300, seeds:[11,12,13]};
   const E = evaluate(c, pts);
-  return {score:E.score, lane:E.o.perArrival, div:E.o.diverted, worst:E.o.worst,
+  return {score:E.score, lane:E.o.perArrival, div:E.o.diverted, divPct:E.o.divPct, worst:E.o.worst,
           cover:E.cover, empty:E.o.idle, spaces: c.A + (E.m.hasR?c.R:0), len: c.len,
           // a 24h lane wraps to "00-00", which reads as a zero-length window
           win: c.len>=24 ? "all day"
@@ -1199,7 +1202,7 @@ function drawBoard(){
   const rows = board().map(e => ({...e, ...scoreOf(e.cfg, pts)}))
                       .sort((x,y)=> x.score-y.score || x.spaces-y.spaces || x.len-y.len);
   $("boardBody").innerHTML = rows.length ? rows.map((r,i)=>{
-    const m = MODES.find(x=>x.id===r.cfg.mode)||MODES[2];
+    const m = MODES.find(x=>x.id===r.cfg.mode)||MODES[0];
     const shape = r.cfg.mode==="pooled" ? `${r.cfg.A} pooled`
                 : `${r.cfg.A}+${r.cfg.R}`;
     const big = r.spaces > most;
@@ -1213,7 +1216,7 @@ function drawBoard(){
            colour fired on every realistic row and carried no information. -->
       <td class="num${r.cover<0.2?" warn":""}">${Math.round(100*r.cover)}%</td>
       <td class="num">${r.empty?"—":r.worst.toFixed(0)}</td>
-      <td class="num${r.div>1?" warn":""}">${r.div.toFixed(1)}</td>
+      <td class="num${r.divPct>2?" warn":""}">${r.div.toFixed(1)}</td>
       <td><button type="button" class="mini" data-load="${r.at}">load</button></td></tr>`;
   }).join("") : `<tr><td colspan="10" class="empty">Nothing saved yet. Build a lane you like, put your
                  name in and add it — the board ranks on delay per arriving patient.</td></tr>`;
@@ -1258,9 +1261,15 @@ function fromHash(){
   const h = decodeURIComponent(location.hash.slice(1)); if(!h) return;
   const p = h.split(","); if(p.length<7) return;
   if(!MODES.some(m=>m.id===p[0])) return;
-  // links made before the target was removed carry an extra field at index 6 — ignore it
+  /* ⚠ 8-field links from the retired-target era are [mode..fd, TARGET, level] — the old
+     15-minute target sits where level now lives, and LEVELS[15] killed the page on load.
+     The guard for this existed once and was dropped in the window rewrite; its comment
+     outlived it. Clamp regardless: a garbage level from ANY malformed link must not brick
+     a page whose first run() happens before a single handler is wired. */
+  const rawLvl = p.length===8 ? +p[7] : +p[6];
+  const lvl = Number.isFinite(rawLvl) ? Math.max(0, Math.min(LEVELS.length-1, rawLvl)) : 1;
   Object.assign(S, {mode:p[0], A:+p[1], R:+p[2], cyc:+p[3], assess:+p[4],
-                    fastDischarge:p[5]==="1", level:+p[6], budget:0,
+                    fastDischarge:p[5]==="1", level:lvl, budget:0,
                     start: p.length>=9 ? +p[7] : 15, len: p.length>=9 ? +p[8] : 8});
   if(p.length>=10) PICK = new Set(p[9].split(".").filter(v=>v!=="").map(Number));
 }
@@ -1346,9 +1355,6 @@ function drawCriteria(){
     : `Nothing selected — the lane takes no one.`;
 }
 
-function drawHours(){
-  $("hours").innerHTML = D.lam.map((_,i)=>`<span>${15+i}</span>`).join("");
-}
 
 /* ⚠ One full recompute is ~16 ms of simulation plus a rebuild of the hero, the bars, the
    criteria list and the chart. A dragged slider fires far faster than that, so the events pile
@@ -1388,7 +1394,8 @@ function run(){
   const mins = S.len*60;
   const mx = mix();
   // what one patient demands of each side, given the assessment time the physician set
-  const perAssess = m.id==="pooled" ? D.hold_all
+  const fPace = m.id==="pooled" ? S.cyc/D.T_A : 1;
+  const perAssess = m.id==="pooled" ? D.hold_all*fPace
     : S.fastDischarge ? S.assess
     : mx.shr*S.assess + (1-mx.shr)*D.g.now*mx.fo;
   const perRes = m.id==="pooled" ? 0

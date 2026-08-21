@@ -22,6 +22,9 @@ doPost({postData:{contents:JSON.stringify({who:'Park',cfg:{mode:'split',A:3,R:2,
 // 3b. a MIDNIGHT lane: start 0 is a legal window, not a missing value
 doPost({postData:{contents:JSON.stringify({who:'Night',cfg:{mode:'split',A:6,R:4,cyc:76,assess:44,
   fastDischarge:true,cc:'0.1',start:0,len:24},at:3000})}});
+// 3c. same lane, fastDischarge FLIPPED — a different lane, must NOT replace the other
+doPost({postData:{contents:JSON.stringify({who:'Park',cfg:{mode:'split',A:3,R:2,cyc:76,assess:30,
+  fastDischarge:false,cc:'0.1.4',start:12,len:6},at:2500})}});
 // 4. exact repeat of #2 — must replace it
 doPost({postData:{contents:JSON.stringify({who:'Park',cfg:{mode:'split',A:3,R:2,cyc:76,assess:30,
   fastDischarge:true,cc:'0.1.4',start:12,len:6},at:2002})}});
@@ -35,6 +38,10 @@ console.log('legacy cc/start/len undefined :', [legacy.cfg.cc,legacy.cfg.start,l
 const full = out.filter(e=>e.who==='Park');
 console.log('criteria survive round trip   :', full.some(e=>e.cfg.cc==='0.1.4') && full.some(e=>e.cfg.cc==='0.1') ? 'yes' : 'FAIL');
 console.log('hours survive round trip      :', full.every(e=>e.cfg.start===12 && e.cfg.len===6) ? 'yes' : 'FAIL');
-console.log('exact repeat replaced, not dup:', full.filter(e=>e.cfg.cc==='0.1.4').length===1 ? 'yes' : 'FAIL');
+console.log('exact repeat replaced, not dup:', full.filter(e=>e.cfg.cc==='0.1.4' && e.cfg.fastDischarge===true).length===1 ? 'yes' : 'FAIL');
 const night = out.find(e=>e.who==='Night');
 console.log('midnight start survives (0)   :', night && night.cfg.start===0 ? 'yes' : 'FAIL got '+(night&&night.cfg.start));
+const fdPair = out.filter(e=>e.who==='Park' && e.cfg.cc==='0.1.4');
+console.log('fd-flip kept as separate row  :', fdPair.length===2 ? 'yes' : 'FAIL got '+fdPair.length+' rows');
+const rej = doPost({postData:{contents:JSON.stringify({who:'X',cfg:{mode:'zone',A:2,R:8},at:1})}});
+console.log('retired mode rejected         :', String(rej).indexOf('error')>=0 ? 'yes' : 'FAIL got '+rej);

@@ -74,7 +74,7 @@ function doPost(e) {
     var b = JSON.parse(e.postData.contents);
     var who = String(b.who || '').slice(0, 28);
     var c = b.cfg || {};
-    var modes = ['split', 'pooled', 'rooms', 'zone'];
+    var modes = ['split', 'pooled'];   // 'rooms'/'zone' retired with the four-mode UI
     if (!who || modes.indexOf(String(c.mode)) < 0) return json_({ error: 'bad entry' });
 
     var sh = sheet_();
@@ -84,6 +84,7 @@ function doPost(e) {
       if (String(rows[i][0]) === who && String(rows[i][1]) === String(c.mode) &&
           Number(rows[i][2]) === Number(c.A) && Number(rows[i][3]) === Number(c.R) &&
           Number(rows[i][4]) === Number(c.cyc) && Number(rows[i][5]) === Number(c.assess) &&
+          (rows[i][6] === true || rows[i][6] === 'TRUE') === (c.fastDischarge === true) &&
           String(rows[i][8] || '') === String(c.cc || '') &&
           Number(rows[i][9] === '' ? 15 : rows[i][9]) === Number(c.start === undefined ? 15 : c.start) &&
           Number(rows[i][10] === '' ? 8 : rows[i][10]) === Number(c.len === undefined ? 8 : c.len)) {
