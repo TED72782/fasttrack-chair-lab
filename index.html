@@ -294,7 +294,7 @@ footer{margin-top:26px;font-size:12.5px;color:var(--ink-3);border-top:1px solid 
         <div class="ahours" id="arrHours"></div>
         <div id="winCtl"></div>
         <div class="anote" id="arrNote"></div>
-        <div class="ahint">Today's fast track runs roughly 10:00&ndash;21:00. Arrivals peak at
+        <div class="ahint">Today's fast track runs roughly 11:00&ndash;20:00. Arrivals peak at
           19:00&ndash;20:00; the longest waits are at 22:00&ndash;23:00, as it closes.</div>
       </div>
     </section>
@@ -416,12 +416,16 @@ footer{margin-top:26px;font-size:12.5px;color:var(--ink-3);border-top:1px solid 
       <ul>
         <li><b>Where the numbers come from.</b> Arrival pattern, how long people occupy a space,
             and the half who need a test are all measured from Mary Bridge ESI 4/5 patients,
-            2025 onward. Nothing here is invented except the one item below.</li>
+            2025 onward. Nothing here is invented except the assumptions flagged in the next
+            item.</li>
         <li><b>Two assumptions, and both are controls rather than constants.</b> The first is
             <b>how long a patient keeps the assessment space before moving on</b> — the slider under
-            Timing. Nothing measures it: what we can measure is the 72 minutes to a test patient's
-            first order, which is not a decision anyone made and does not exist at all for the half
-            who need no test. It is the number that decides the best split, so move it and watch the
+            Timing. Nothing measures it: what we can measure is that a test patient's <b>first
+            order lands 47 minutes</b> after rooming. The 72-minute reference this page also
+            quotes is that 47 plus an <b>assumed 25 minutes</b> after the order &mdash; nothing
+            timestamps when a patient could actually move, so that 25 was chosen, not measured.
+            Neither number is a decision anyone made, and neither exists at all for the half who
+            need no test. It is the number that decides the best split, so move it and watch the
             split move. The second is what happens, in the combined-zone layouts, to the half of
             patients who need no test at all. Nothing measures that either, and it decides whether
             two assessment chairs can work. Try both ways.</li>
@@ -462,8 +466,8 @@ footer{margin-top:26px;font-size:12.5px;color:var(--ink-3);border-top:1px solid 
             therefore changes what it should be compared against, and this page does not try to
             settle that &mdash; for the reason in the bullet above, there is no lane-free bar to
             offer.</li>
-        <li><b>The clock starts at the door.</b> A patient cannot be put anywhere until they are
-            registered and triaged, which takes 8.0 minutes on average here and barely varies
+        <li><b>The clock starts at the door.</b> A patient cannot be put anywhere before
+            registration and the start of triage &mdash; 8.0 minutes on average here, barely varying
             across the evening. That is added to every lane wait, because the figure it is
             compared against &mdash; today's arrival-to-room &mdash; contains it too. Without it
             the lane was being credited with about 8 minutes it never saves.</li>
@@ -525,7 +529,8 @@ Heap.prototype.pop=function(){const a=this.a,top=a[0],last=a.pop();if(a.length){
 
    `fastDischarge=false` is the exception the data forces us to offer. A patient who needs no test
    has no order to time from, and may simply not be movable; then they hold the assessment space
-   for their whole visit — 86 min measured, LONGER than the 72 a test patient holds it.
+   for their whole visit — 86 min measured, LONGER than the 47 measured to a test patient's
+   first order (72 with the assumed 25 after it).
 
    People waiting to be seen queue in the main waiting room, not in either area, so a queue can
    never occupy the space a finishing patient needs to vacate one. The lane closes at CLOSE and
@@ -1022,7 +1027,8 @@ function fdControl(){
     </div>
     <div class="hint">Half of these patients get no test, so nothing in the record marks when they
       are finished being assessed. Keeping the space is what we measure today — ${D.g.now.toFixed(0)}
-      minutes, longer than the ${D.g.asw.toFixed(0)} a test patient holds it.</div></div>`;
+      minutes, longer than a test patient's ${(D.g.asw-D.pom).toFixed(0)} measured to first order
+      (${D.g.asw.toFixed(0)} with the assumed ${D.pom} after it).</div></div>`;
   /* ⚠ There used to be a second slider here, "They move on after". It wrote the SAME S.assess
      as the one above — one number with two handles, and two different ranges (12-86 against
      10-90), so the controls disagreed about their own limits. The engine has a single
@@ -1060,9 +1066,11 @@ function drawSpeed(m){
       <output class="num" id="asxOut"></output></div>
     <input type="range" id="asx" min="10" max="90" step="1" value="${S.assess}">
     <div class="hint">How long a patient keeps an assessment space before moving to the second
-      area. Measured today a test patient holds it ${D.g.asw.toFixed(0)} min — but that is the time
-      to their first ORDER, not a decision anyone made, and it does not exist at all for the half
-      who need no test. It is the number to argue about: the best split follows it.
+      area. Measured today, a test patient's first order lands
+      ${(D.g.asw-D.pom).toFixed(0)} min after rooming; the ${D.g.asw.toFixed(0)}-min reference
+      adds an <b>assumed</b> ${D.pom} min after the order. Neither is a decision anyone made, and
+      neither exists at all for the half who need no test. It is the number to argue about: the
+      best split follows it.
       <span id="asxBoth"></span></div></div>`
     + fdControl();
   $("asx").oninput = e => { S.assess = +e.target.value; syncSpeed(m); requestRun() };
