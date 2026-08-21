@@ -2,7 +2,7 @@
 
 An interactive simulator for the Mary Bridge Children's emergency department fast-track lane.
 
-**→ [Open the lab](https://ted72782.github.io/fasttrack-chair-lab/)**
+**→ [Open the lab](https://ted72782.github.io/ft-lab/)**
 
 Build a lane, run the evening, put it on the board. Every change re-simulates 1,200 evenings in
 your browser. There is no pass mark — the page reports **how long people wait and how many get

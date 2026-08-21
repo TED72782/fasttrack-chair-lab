@@ -21,9 +21,9 @@ const mk=id=>({id,_h:"",_t:"",value:"",hidden:false,style:{},dataset:{},_kids:[]
 const REAL_IDS = new Set(['add', 'apiSave', 'apiUrl', 'arrBars', 'arrHours', 'arrNote', 'asx', 'asxBoth', 'asxOut', 'cycOut', 'spaceTot', 'barNote', 'bars', 'boardBody', 'boardNote', 'boardSetup', 'ccAll', 'ccList', 'ccLow', 'ccNone', 'ccSum', 'ccHint', 'clearBoard', 'cyc', 'hero', 'hours', 'levels', 'load', 'modes', 'playBtn', 'presets', 'reroll', 'setupRow', 'share', 'sharedTag', 'spaceCtl', 'speedCtl', 'speedSel', 'stageA', 'stageB', 'stageBar', 'stageClock', 'stageGone', 'stageHint', 'stageSent', 'stageWait', 'stageWaitN', 'unlock', 'who', 'winCtl', 'wlen', 'wlenOut', 'wstart', 'wstartOut']);
 global.document={getElementById:id=>{ if(!REAL_IDS.has(id)) return null;
   return store[id]||(store[id]=mk(id)) }};
-global.location={origin:"https://ted72782.github.io",pathname:"/fasttrack-chair-lab/",
+global.location={origin:"https://ted72782.github.io",pathname:"/ft-lab/",
   hash:"",protocol:"https:",search:"?board=https%3A%2F%2Fscript.google.com%2Fx%2Fexec",
-  href:"https://ted72782.github.io/fasttrack-chair-lab/?board=https%3A%2F%2Fscript.google.com%2Fx%2Fexec"};
+  href:"https://ted72782.github.io/ft-lab/?board=https%3A%2F%2Fscript.google.com%2Fx%2Fexec"};
 global.history={replaceState(a,b,u){const s=String(u).split("?")[1];location.search=s?"?"+s.split("#")[0]:"";}};
 const LS={}; global.localStorage={getItem:k=>LS[k]??null,setItem:(k,v)=>{LS[k]=v},removeItem:k=>{delete LS[k]}};
 global.navigator={}; global.confirm=()=>true; global.alert=()=>{};

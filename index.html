@@ -1124,11 +1124,16 @@ const board      = () => SHARED ? cache : localBoard();
 // The endpoint can arrive three ways, in this order: a ?board= link (so only ONE person ever
 // sets it up and everyone else just follows their link), whatever was saved here before, or a
 // same-origin /board when the page is being served by serve_board.py on the local network.
+/* The group's shared board, baked in so the plain URL works — no ?board= to paste or lose.
+   It is a bearer address, not a credential: it already travels in every link anyone forwards,
+   and it reaches staff names + chair layouts only, never patient data. ?board= still wins, so
+   a second group can run its own board off the same page. */
+const DEFAULT_BOARD = "https://script.google.com/macros/s/AKfycbx91tZp5wYvxwMoGJhMV2fnHUrV7P6uCo-TrIU8orxauPGErNzqYkKV6fwLWXM6auKC/exec";
 function endpointFromEnv(){
   const q = new URLSearchParams(location.search).get("board");
   if(q){ try{ localStorage.setItem(API_KEY, q) }catch(e){} return q }
   try{ const s = localStorage.getItem(API_KEY); if(s) return s }catch(e){}
-  return location.protocol === "https:" ? null : "board";
+  return location.protocol === "https:" ? DEFAULT_BOARD : "board";
 }
 
 async function probeShared(explicit){
@@ -1273,7 +1278,7 @@ function hashState(){
 function toHash(){
   const c = hashState();
   // carry the shared board along, so a colleague opening this link is joined to it automatically
-  const q = API && API!=="board" ? "?board="+encodeURIComponent(API) : "";
+  const q = API && API!=="board" && API!==DEFAULT_BOARD ? "?board="+encodeURIComponent(API) : "";
   return location.origin + location.pathname + q + "#" + encodeURIComponent(c);
 }
 function fromHash(){
