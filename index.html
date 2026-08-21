@@ -660,10 +660,28 @@ function person(cls, test){
   </svg>`;
 }
 
+/* ⚠ A slot is only rebuilt when its OCCUPANT changes, never on every frame. Rebuilding the whole
+   lane each tick gave every figure a fresh element, which restarted the .22s arrival animation
+   from opacity:0 sixty times a second — the boxes changed colour and the people were invisible
+   until you paused. Keep the key in sync with anything `dot` renders. */
+function slotKey(id, st){
+  return id === null ? "-" : (st.stuck.has(id) ? "j" : "i") + (st.test.get(id) ? "t" : "n") + id;
+}
 function dot(id, st){
-  if(id === null) return `<span class="slot"></span>`;
+  const k = slotKey(id, st);
+  if(id === null) return `<span class="slot" data-k="-"></span>`;
   const jam = st.stuck.has(id);
-  return `<span class="slot full${jam?" jam":""}">${person(jam?"jam":"in", st.test.get(id))}</span>`;
+  return `<span class="slot full${jam?" jam":""}" data-k="${k}">${person(jam?"jam":"in", st.test.get(id))}</span>`;
+}
+function paintSlots(host, ids, st){
+  if(host.childElementCount !== ids.length){
+    host.innerHTML = ids.map(id => dot(id, st)).join("");
+    return;
+  }
+  ids.forEach((id, i) => {
+    const el = host.children[i];
+    if(el.dataset.k !== slotKey(id, st)) el.outerHTML = dot(id, st);
+  });
 }
 
 function drawStageIdle(){
@@ -686,9 +704,9 @@ function drawStage(){
   $("stageWait").innerHTML = new Array(Math.min(st.waiting, 22)).fill(person("wait", false)).join("")
     + (st.waiting > 22 ? `<span class="more">+${st.waiting-22}</span>` : "");
   $("stageWaitN").textContent = st.waiting;
-  $("stageA").innerHTML = st.A.map(id => dot(id, st)).join("");
-  $("stageB").innerHTML = m.hasR ? st.B.map(id => dot(id, st)).join("")
-    : `<span class="none">nobody moves in this layout</span>`;
+  paintSlots($("stageA"), st.A, st);
+  if(m.hasR) paintSlots($("stageB"), st.B, st);
+  else $("stageB").innerHTML = `<span class="none">nobody moves in this layout</span>`;
   $("stageGone").textContent = st.gone;
   $("stageSent").textContent = st.sent;
   $("stageBar").style.width = (100*PLAY.t/(S.len*60)).toFixed(1) + "%";
