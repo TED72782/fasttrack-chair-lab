@@ -376,7 +376,7 @@ footer{margin-top:26px;font-size:12.5px;color:var(--ink-3);border-top:1px solid 
       <div class="board-scroll">
         <table class="board-t">
           <thead><tr><th>#</th><th>who</th><th>lane</th>
-            <th>spaces<br>(physician load)</th><th>hours</th><th>score<br>min/patient</th><th>of the<br>day</th><th>worst<br>hour</th><th>sent to<br>main dept</th><th></th></tr></thead>
+            <th>spaces</th><th>hours</th><th>score<br>min/patient</th><th>of the<br>day</th><th>worst<br>hour</th><th>sent to<br>main dept</th><th></th></tr></thead>
           <tbody id="boardBody"></tbody>
         </table>
       </div>
@@ -528,7 +528,7 @@ function sim(cfg){
   const freeA = [], freeB = [];
   if(T){ for(let i=A-1;i>=0;i--) freeA.push(i); for(let i=R-1;i>=0;i--) freeB.push(i) }
   const H = lam.length, CLOSE = H*60;
-  let wa=0, waN=0, wr=0, wrN=0, blocked=0, nw=0, seen=0, arrN=0, divN=0, divWait=0;
+  let wa=0, waN=0, wr=0, wrN=0, blocked=0, nw=0, seen=0, arrN=0, divN=0, divWait=0, peakSum=0;
   const hs=new Float64Array(H), hn=new Float64Array(H), divH=new Float64Array(H);
 
   for(const sd of seeds){
@@ -542,7 +542,10 @@ function sim(cfg){
       const qa=[], qr=[], second=new Float64Array(arr.length);
       const slotA = T ? new Int16Array(arr.length).fill(-1) : null;
       const slotB = T ? new Int16Array(arr.length).fill(-1) : null;
-      let ab=0, rb=0;
+      let ab=0, rb=0, peak=0;
+      /* ab+rb is every patient occupying a space — including one stuck in assessment with
+         nowhere to move to. That total IS the physician's concurrent load. Capacity is A+R;
+         the peak is what the lane actually reached, which is the honest number to show. */
       const hb = t => Math.min(H-1, (t/60)|0);
       const rec = (tag,w,dv) => { const tt=w+floor; if(!dv){wa+=tt;waN++} hs[hb(arr[tag])]+=tt; hn[hb(arr[tag])]++ };
 
@@ -588,21 +591,24 @@ function sim(cfg){
                          startB(t,q[1]); takeNext(t) }
           else takeNext(t);
         }
+        if(ab+rb > peak) peak = ab+rb;
       }
+      peakSum += peak;
     }
   }
   if(T) return {trace:T, A, R};
   const runs = days*seeds.length;
   if(!arrN) return {wa:0, perArrival:0, wr:0, stuck:0, byHour:new Array(H).fill(0), worst:0,
                     worstIdx:0, seen:0, arrived:0, diverted:0, divByHour:new Array(H).fill(0),
-                    divPct:0, saturated:false, idle:true};
+                    divPct:0, saturated:false, idle:true, peak:0};
   const byHour=[]; for(let h=0;h<H;h++) byHour.push(hn[h] ? hs[h]/hn[h] : 0);
   const worst = Math.max.apply(null, byHour);
   return {wa: wa/waN, perArrival: (wa+wr+divWait)/arrN, wr: nw?wr/nw:0, stuck: nw?100*blocked/nw:0,
           byHour, worst, worstIdx: byHour.indexOf(worst),
           seen: seen/runs, arrived: arrN/runs, diverted: divN/runs,
           divByHour: [...divH].map(v=>v/runs),
-          divPct: 100*divN/arrN, saturated: divN/arrN > 0.02};
+          divPct: 100*divN/arrN, saturated: divN/arrN > 0.02,
+          peak: peakSum/runs};
 }
 
 /* ── playing one evening ──────────────────────────────────────────────────────
@@ -1170,11 +1176,9 @@ function drawBoard(){
   });
   $("boardNote").innerHTML = `Scored on ${LEVELS[S.level].n.toLowerCase()} — ${pts} patients. `
     + `Changing nothing scores <b class="num">${(BARS[S.bar]||BARS.today).mean.toFixed(1)}</b>. `
-    + `Spaces is also the physician load: a full lane is that many patients in hand at once, `
-    + `so it is the most one physician carries, not the average. The score charges for `
-    + `patients, not for space or for open hours — a lane wins by serving more of the day, so `
-    + `compare lanes at the same spaces and the same window. Anything above ${most} is asking `
-    + `for more room than any option on the table.`;
+    + `The score charges for patients, not for space or for open hours — a lane wins by `
+    + `serving more of the day, so compare lanes at the same spaces and the same window. `
+    + `Anything above ${most} spaces is asking for more room than any option on the table.`;
 }
 
 /* ── shareable setup ─────────────────────────────────────────────────────── */
@@ -1320,7 +1324,13 @@ function run(){
     [`${Math.round(100*E.cover)}%`, `of the day's ${lvl.pts} patients go through the lane`,
       E.cover<0.2 ? "is-breach" : ""],
     [o.idle ? "—" : `${o.diverted.toFixed(1)}`, "still waiting when it closes — sent to the main department",
-      o.divPct>2 ? "is-breach" : ""]
+      o.divPct>2 ? "is-breach" : ""],
+    /* Peak concurrent, not the space count: capacity is what you set aside, this is what the
+       lane actually reached. They differ whenever the lane is not full at its busiest. */
+    [o.idle ? "—" : `${o.peak.toFixed(1)}`,
+     o.idle ? "nobody in the lane"
+            : `patients in the lane at once at its busiest — the physician's peak load, of
+               ${S.A + (m.hasR?S.R:0)} spaces`, ""]
   ].map(([v,k,c])=>`<div class="stat ${c}"><div class="v num">${v}</div><div class="k">${k}</div></div>`).join("");
 
   const top = Math.max(6, Math.ceil(o.worst*1.15));
