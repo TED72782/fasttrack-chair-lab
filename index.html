@@ -68,9 +68,12 @@ input[type=range]{width:100%;margin:8px 0 0;accent-color:var(--hold)}
 .total{margin-top:14px;padding-top:12px;border-top:1px solid var(--line-soft);
   font-size:13px;color:var(--ink-2);display:flex;justify-content:space-between}
 
-.hero{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;background:var(--line);
+/* ⚠ FIVE cards since the peak-load card landed; repeat(4) left the fifth on its own row
+   beside three empty line-coloured cells — a broken-looking block in the headline element. */
+.hero{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:1px;background:var(--line);
   border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-bottom:18px}
-@media (max-width:620px){.hero{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:620px){.hero{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .hero .stat:nth-child(5){grid-column:span 2}}   /* 2+2+1 leaves a grey stub; span it */
 .stat{background:var(--surface);padding:14px 16px}
 .stat .v{font-family:"IBM Plex Mono",monospace;font-variant-numeric:tabular-nums;
   font-size:30px;font-weight:600;line-height:1.1;letter-spacing:-.02em}
@@ -1223,6 +1226,11 @@ function drawBoard(){
   $("boardBody").querySelectorAll("[data-load]").forEach(btn=>btn.onclick=()=>{
     const e = board().find(x=>String(x.at)===btn.dataset.load); if(!e) return;
     S.budget=0; Object.assign(S, e.cfg);
+    /* ⚠ SANITIZE THE MODE. evaluate() and drawBoard() already fall back to split for a
+       legacy 'zone'/'rooms' row — but this handler writes cfg.mode straight into live state,
+       and modeOf() returning undefined killed drawSpaces and then EVERY subsequent run()
+       until reload. Same guard fromHash has had all along. */
+    if(!MODES.some(m=>m.id===S.mode)) S.mode = MODES[0].id;
     /* ⚠ The criteria live in PICK, not in S, so Object.assign cannot carry them — loading a row
        used to keep whichever complaints the CURRENT user had selected, and the lane you got back
        was not the lane that was scored. An entry with no cc at all is a pre-criteria row: it ran

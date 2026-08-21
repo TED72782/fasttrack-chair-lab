@@ -31,7 +31,7 @@ doPost({postData:{contents:JSON.stringify({who:'Park',cfg:{mode:'split',A:3,R:2,
 
 const out = read_();
 console.log('header       :', rows[0].join(','));
-console.log('rows on board:', out.length, '(expect 3: legacy + two distinct criteria sets)');
+console.log('rows on board:', out.length, '(expect 5: legacy + two criteria sets + midnight + fd-flip)');
 for(const e of out) console.log('  ', e.who.padEnd(9), 'cc=', String(e.cfg.cc), ' start=', String(e.cfg.start), ' len=', String(e.cfg.len));
 const legacy = out.find(e=>e.who==='Old Row');
 console.log('legacy cc/start/len undefined :', [legacy.cfg.cc,legacy.cfg.start,legacy.cfg.len].every(v=>v===undefined) ? 'yes' : 'FAIL');
