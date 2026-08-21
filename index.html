@@ -363,9 +363,15 @@ on class="panel">
             its wait shorter, which this does not model &mdash; so if anything the score
             understates what excluding patients costs.</li>
         <li><b>Whether narrowing helps depends on the layout, not on a rule.</b> At ten spaces a
-            lane taking everyone beats one taking only the easy complaints, 23 against 44. At six
-            spaces it is the other way round, 104 against 44, because six cannot absorb them.
-            Do not carry either result across to a different footprint.</li>
+            lane taking everyone beats one taking only the easy complaints. At six it is the other
+            way round, because six cannot absorb them. Do not carry either result across to a
+            different footprint.</li>
+        <li><b>The split follows the assessment time — it is not a fixed answer.</b> The best split
+            at ten spaces runs 2+8 if the assessment ends at 20 minutes and 6+4 if it ends at 90,
+            tracking how the visit divides between the two sides. What barely moves is the score
+            you can achieve: about three minutes across that whole range, provided the split
+            matches the time. So the question to settle is when an assessment is finished, not
+            which split is right in the abstract.</li>
         <li><b>There is no pass mark, on purpose.</b> Nothing measured here says how long a
             patient may reasonably wait, so the page does not pretend to know. A line drawn at a
             number nobody can justify turns every comparison into a verdict against it. Compare
@@ -630,7 +636,7 @@ const PRESETS = [
    d:"The larger estate: assessment in a room, then a second area of 10 chairs."},
   {id:"six", n:"Group consensus — 6, split",
    set:{mode:"split", A:4, R:2, budget:6},
-   d:"6 spaces, divided. Opens on 4+2, the best of the four splits. Try the same 6 undivided for comparison."}
+   d:"6 spaces, divided. Which split is best depends entirely on the assessment time — move that slider and watch the best split move with it."}
 ];
 // whole DAYS now, not evenings — the window can sit anywhere, so the day is the only
 // denominator that does not change meaning when you move it
@@ -700,12 +706,15 @@ function drawSpaces(){
   }
 }
 
-/* The single biggest lever in a DIVIDED lane, and it is not a chair. A patient needing no test
-   occupies the assessment space for their whole visit (86 min measured) while a patient needing
-   one leaves it after 72. So the people who need nothing are 55% of the assessment load. Whether
-   they can be moved on once seen halves the worst hour at 6+4 (23 -> 12 min). It barely touches
-   a pooled lane, where the patient keeps one chair either way — so the control is hidden there
-   rather than offered as a lever that does nothing. */
+/* A patient needing no test occupies the assessment space for their whole visit (86 min measured)
+   while a patient needing one leaves it after 72 — so the people who need NOTHING are 55% of the
+   assessment load. Whether they can be moved on once seen is therefore a real lever, but it is
+   CONDITIONAL ON SOMEWHERE TO MOVE THEM: at 6+4 moving them is 13 min WORSE (they flood a second
+   area that cannot hold them), at 6+10 it is 1.4 min better. Sign-stable across seed blocks.
+   An earlier version of this comment claimed it was worth 11 min unconditionally — that was
+   measured when such patients simply left the model. It barely touches a pooled lane, where the
+   patient keeps one space either way, so the control is hidden there rather than offered as a
+   lever that cannot move. */
 function fdControl(){
   return `<div class="ctl"><div class="ctl-top"><label>A patient who needs no test</label></div>
     <div class="seg" role="group">

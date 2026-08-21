@@ -85,21 +85,37 @@ Measured today, a patient needing a test holds it 72 minutes, but that is the ti
 *order*, not a decision anyone made. It is the number to argue about: it sets how fast the
 assessment side turns over, and how much load lands in the second area.
 
-### The second area has to be the bigger one
+### The split follows the assessment time
 
-Once it holds everyone — results **and** discharge pending — most of a visit happens there. At a
-45-minute assessment, a patient spends ~45 min in an assessment space and ~70 in the second area.
-So the best splits are back-weighted, and heavily. Typical day, against today's 50.0:
+Once the second area holds everyone, the visit divides between the two sides in a ratio the
+assessment time sets — and the best split simply tracks that ratio. At ten spaces:
 
-| total spaces | best split | score | for comparison |
+| assessment ends at | best split | best score | 6+4 scores |
 |---|---|---|---|
-| 6 | **2+4** | 69.1 | 4+2 scores 98 · 5+1 scores 153 |
-| 10 | **4+6** | 31.5 | 6+4 scores 46 · 7+3 scores 68 |
-| 14 | **6+8** | 26.1 | |
-| 18 | **7+11** | 25.4 | |
+| 20 min | 2+8 | 30.4 | 63.7 |
+| 45 min | 4+6 | 31.5 | 45.7 |
+| 60 min | 5+5 | 32.3 | 39.0 |
+| 90 min | 6+4 | 32.7 | 32.7 |
 
-Every proposal on the table so far — 6+4, 7+3, 4+2 — is front-weighted, which is the wrong way
-round once discharge-pending shares the second area.
+Two things worth reading off that table. The optimum walks 2 → 3 → 4 → 5 → 6 as the assessment
+lengthens, exactly in step with the share of the visit each side carries — so back-weighting is
+the *arithmetic* of a short assessment, not a discovery about chairs. And **the achievable score
+never leaves a three-minute band.** Matching the split to your assessment time is what matters;
+which pair you land on barely does.
+
+So the question to settle is *when an assessment is finished* — which nothing in the record marks
+— not which split is right in the abstract.
+
+### This does not overturn the 6+4 in the scoping deck
+
+The deck's 6+4 was derived when the second area held **only** the patients needing a test. Under
+those semantics it is the best split of ten (32.40, against 5+5 at 32.46 and 4+6 at 39.46). It
+answered a different question and answered it correctly.
+
+Comparing the two best cases: old semantics 32.40, new semantics 31.49 — the whole
+re-specification is worth **0.9 minutes per patient**. An earlier version of this file said 6+4
+was "15 minutes worse", which came from scoring the deck's split under a rule *and* an assessment
+time it was never derived with.
 
 ### Whether a no-test patient can be moved depends on where there is room
 
