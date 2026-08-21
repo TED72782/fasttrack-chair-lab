@@ -376,7 +376,7 @@ footer{margin-top:26px;font-size:12.5px;color:var(--ink-3);border-top:1px solid 
       <div class="board-scroll">
         <table class="board-t">
           <thead><tr><th>#</th><th>who</th><th>lane</th>
-            <th>spaces</th><th>hours</th><th>score<br>min/patient</th><th>of the<br>day</th><th>worst<br>hour</th><th>sent to<br>main dept</th><th></th></tr></thead>
+            <th>spaces<br>(physician load)</th><th>hours</th><th>score<br>min/patient</th><th>of the<br>day</th><th>worst<br>hour</th><th>sent to<br>main dept</th><th></th></tr></thead>
           <tbody id="boardBody"></tbody>
         </table>
       </div>
@@ -1170,9 +1170,11 @@ function drawBoard(){
   });
   $("boardNote").innerHTML = `Scored on ${LEVELS[S.level].n.toLowerCase()} — ${pts} patients. `
     + `Changing nothing scores <b class="num">${(BARS[S.bar]||BARS.today).mean.toFixed(1)}</b>. `
-    + `The score charges for patients, not for space or for open hours — a lane wins by `
-    + `serving more of the day, so compare lanes at the same spaces and the same window. `
-    + `Anything above ${most} spaces is asking for more room than any option on the table.`;
+    + `Spaces is also the physician load: a full lane is that many patients in hand at once, `
+    + `so it is the most one physician carries, not the average. The score charges for `
+    + `patients, not for space or for open hours — a lane wins by serving more of the day, so `
+    + `compare lanes at the same spaces and the same window. Anything above ${most} is asking `
+    + `for more room than any option on the table.`;
 }
 
 /* ── shareable setup ─────────────────────────────────────────────────────── */
