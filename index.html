@@ -94,7 +94,12 @@ input[type=range]{width:100%;margin:8px 0 0;accent-color:var(--hold)}
 .ahours{display:grid;grid-template-columns:repeat(24,1fr);gap:2px;margin-top:6px}
 .ahours span{font-family:"IBM Plex Mono",monospace;font-size:10px;color:var(--ink-3);text-align:center}
 .ahours span.on{color:var(--hold);font-weight:600}
-.anote{margin-top:10px;font-size:12.5px;color:var(--ink-2)}
+.wctl{display:grid;grid-template-columns:1fr 1fr;gap:10px 22px;margin-top:14px;
+  padding-top:14px;border-top:1px solid var(--line-soft)}
+.wctl .ctl{margin-top:0}
+@media (max-width:620px){.wctl{grid-template-columns:1fr}}
+.anote{margin-top:12px;font-size:12.5px;color:var(--ink-2)}
+.ahint{margin-top:6px;font-size:12px;color:var(--ink-3)}
 .chart{padding:16px 16px 10px}
 .bars{display:grid;grid-template-columns:repeat(8,1fr);gap:6px;align-items:end;
   height:230px;position:relative;margin-top:26px}
@@ -219,11 +224,6 @@ footer{margin-top:26px;font-size:12.5px;color:var(--ink-3);border-top:1px solid 
     </section>
 
     <section class="panel" style="margin-top:14px">
-      <div class="panel-h"><div class="eyebrow">3 · Hours</div></div>
-      <div class="panel-b" id="winCtl"></div>
-    </section>
-
-    <section class="panel" style="margin-top:14px">
       <div class="panel-h"><div class="eyebrow">4 · How fast the lane runs</div></div>
       <div class="panel-b">
         <div id="speedCtl"></div>
@@ -242,7 +242,10 @@ on class="panel">
         <div class="eyebrow">ESI 4/5 arrivals across the day · the lane's hours picked out</div>
         <div class="abars" id="arrBars"></div>
         <div class="ahours" id="arrHours"></div>
+        <div id="winCtl"></div>
         <div class="anote" id="arrNote"></div>
+        <div class="ahint">Today's fast track runs roughly 10:00&ndash;21:00. Arrivals peak at
+          19:00&ndash;20:00; the longest waits are at 22:00&ndash;23:00, as it closes.</div>
       </div>
     </section>
 
@@ -901,19 +904,34 @@ function fromHash(){
                     start: p.length>=9 ? +p[7] : 15, len: p.length>=9 ? +p[8] : 8});
 }
 
+/* ⚠ BUILT ONCE, THEN ONLY THE READOUTS CHANGE. These sliders sit next to the chart they drive,
+   so they are dragged rather than clicked — and re-rendering the input inside its own oninput
+   handler destroys the element mid-drag, which stops the drag dead after one step. run() calls
+   syncWindow(), never drawWindow(). */
+let winBuilt = false;
 function drawWindow(){
-  const end = (S.start + S.len) % 24;
+  if(winBuilt) return;
   $("winCtl").innerHTML = `
-    <div class="ctl"><div class="ctl-top"><label for="wstart">Opens at</label>
-      <output class="num">${String(S.start).padStart(2,"0")}:00</output></div>
-      <input type="range" id="wstart" min="0" max="23" step="1" value="${S.start}"></div>
-    <div class="ctl"><div class="ctl-top"><label for="wlen">Open for</label>
-      <output class="num">${S.len} h &nbsp;&rarr;&nbsp; ${String(end).padStart(2,"0")}:00</output></div>
-      <input type="range" id="wlen" min="2" max="16" step="1" value="${S.len}">
-      <div class="hint">Today's fast track runs roughly 10:00&ndash;21:00. Arrivals peak at
-        19:00&ndash;20:00; the longest waits are at 22:00&ndash;23:00.</div></div>`;
+    <div class="wctl">
+      <div class="ctl"><div class="ctl-top"><label for="wstart">Opens at</label>
+        <output class="num" id="wstartOut"></output></div>
+        <input type="range" id="wstart" min="0" max="23" step="1" value="${S.start}"></div>
+      <div class="ctl"><div class="ctl-top"><label for="wlen">Open for</label>
+        <output class="num" id="wlenOut"></output></div>
+        <input type="range" id="wlen" min="2" max="24" step="1" value="${S.len}"></div>
+    </div>`;
   $("wstart").oninput = e => { S.start = +e.target.value; run() };
   $("wlen").oninput   = e => { S.len   = +e.target.value; run() };
+  winBuilt = true;
+}
+
+function syncWindow(){
+  const end = (S.start + S.len) % 24;
+  $("wstartOut").textContent = String(S.start).padStart(2,"0") + ":00";
+  $("wlenOut").innerHTML = `${S.len} h &nbsp;&rarr;&nbsp; ${String(end).padStart(2,"0")}:00`;
+  const a=$("wstart"), b=$("wlen");
+  if(a && +a.value !== S.start) a.value = S.start;      // a preset or a link moved it, not a drag
+  if(b && +b.value !== S.len)   b.value = S.len;
 }
 
 // The arrival curve for the whole day with the lane's hours picked out. This is the chart the
@@ -968,7 +986,7 @@ function run(){
   const cfg = {mode:S.mode, A:S.A, R:S.R, cyc:S.cyc, assess:S.assess, fastDischarge:S.fastDischarge,
                cc:[...PICK].sort((a,b)=>a-b).join("."), start:S.start, len:S.len, bar:S.bar};
   const E = evaluate(cfg, lvl.pts), o = E.o;
-  drawSpeed(m); drawWindow();
+  drawSpeed(m); drawWindow(); syncWindow();
   $("speedCtl").querySelectorAll("[data-fd]").forEach(bt=>bt.onclick=()=>{
     S.fastDischarge = bt.dataset.fd==="1"; run() });
   const _ax=$("asx2"); if(_ax) _ax.oninput = e => { S.assess = +e.target.value; run() };
