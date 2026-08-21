@@ -1037,7 +1037,11 @@ $("share").onclick = () => {
     ()=>{ $("share").textContent="Copy failed — the link is in the address bar"; });
 };
 $("clearBoard").onclick = () => {
-  if(SHARED){ alert("This is the shared board. Delete board.json next to serve_board.py to reset it."); return }
+  if(SHARED){ alert(API === DEFAULT_BOARD
+      ? "This is the group's shared board — everyone on the link sees these entries, so it is "
+      + "not cleared from here. Whoever set up the board can remove rows in its spreadsheet."
+      : "This is a shared board. Clear it wherever it is hosted — this page only reads and adds.");
+    return }
   if(confirm("Clear the board in this browser?")){ saveLocal([]); drawBoard() }
 };
 markShared(); probeShared();

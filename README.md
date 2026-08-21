@@ -4,8 +4,8 @@ An interactive simulator for the Mary Bridge Children's emergency department fas
 
 **→ [Open the lab](https://ted72782.github.io/ft-lab/)**
 
-Build a lane, run the evening, put it on the board. Every change re-simulates 1,200 evenings in
-your browser. There is no pass mark — the page reports **how long people wait and how many get
+Build a lane, run the evening, put it on the board. Every change re-simulates thousands of
+evenings in your browser. There is no pass mark — the page reports **how long people wait and how many get
 turned away**, and what counts as acceptable is yours to argue about.
 
 ## The score
@@ -25,9 +25,12 @@ Accept nobody and you score exactly the bar. There is no way to win by shrinking
 hour they arrive — best at 07:00 (16 min), worst at 23:00 (109).
 
 Today already has a fast track: the **Orca pod**, whose hours are plainly visible in the data —
-0–1% of ESI 4/5 overnight, 65–68% from 11:00 to 18:00, 40% by 21:00, 7% by 23:00. So the wait
-curve's shape is largely that pod opening and closing. Its patients wait a flat 31–45 minutes at
-every hour; everyone else climbs from 31 to 118.
+near-zero overnight, the majority of ESI 4/5 through the middle of the day, winding down by late
+evening. So the wait curve's shape is largely that pod opening and closing: its patients wait a
+flat band at every hour while everyone else climbs steeply.
+
+The page carries the current figures for all of this, refreshed from the department database —
+they are deliberately not restated here, because this file is not refreshed with them.
 
 **There is no "no fast track" comparison, and there cannot be one.** The department has run a
 fast track throughout the measured period, so no lane-free day exists. This page briefly offered
