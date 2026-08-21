@@ -39,7 +39,10 @@ header h1{font-size:clamp(28px,4.2vw,40px);letter-spacing:-.02em;margin:6px 0 8p
 header p{margin:0;color:var(--ink-2);max-width:64ch}
 
 .layout{display:grid;grid-template-columns:320px minmax(0,1fr);gap:22px;align-items:start}
-@media (max-width:900px){.layout{grid-template-columns:1fr}}
+/* ⚠ minmax(0,…), not bare 1fr: a plain 1fr track floors at min-content, and the leaderboard's
+   ten nowrap columns prop the whole page open on a phone — sideways scroll on everything. The
+   desktop template already used minmax(0,1fr); the mobile override had dropped it. */
+@media (max-width:900px){.layout{grid-template-columns:minmax(0,1fr)}}
 
 .panel{background:var(--surface);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow)}
 .panel-h{padding:14px 16px 0}
