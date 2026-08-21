@@ -149,7 +149,8 @@ input[type=range]:focus-visible{outline:2px solid var(--hold);outline-offset:3px
 .stage-ctl select{font:inherit;font-size:12.5px;padding:6px 8px;border:1px solid var(--line);
   border-radius:7px;background:var(--surface-2);color:var(--ink-2)}
 .stage-ctl button{all:unset;cursor:pointer;font-size:12.5px;font-weight:600;padding:8px 14px;
-  border-radius:7px;background:var(--hold);color:#fff;min-width:122px;text-align:center}
+  border-radius:7px;background:var(--surface-2);border:1px solid var(--line);color:var(--ink-2);text-align:center}
+.stage-ctl button.primary{background:var(--hold);border-color:var(--hold);color:#fff;min-width:122px}
 .stage-ctl button:focus-visible,.stage-ctl select:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
 .stage-bar{height:3px;background:var(--line-soft);margin:0 16px}
 .stage-bar span{display:block;height:100%;background:var(--hold);width:0}
@@ -292,6 +293,7 @@ on class="panel">
             <option value="120">fast</option>
             <option value="300">very fast</option>
           </select>
+          <button type="button" id="reroll" hidden>Another evening</button>
           <button type="button" id="playBtn" class="primary">Play the evening</button>
         </div>
       </div>
@@ -587,17 +589,37 @@ function sim(cfg){
    dots move when that patient actually moved in the run the numbers come from, and a space that
    looks full IS full. Watching it is the fastest way to see why a layout fails — a jammed second
    area shows up as assessment spaces that stop turning over, which no summary figure conveys. */
-const PLAY = {on:false, t:0, speed:60, raf:0, trace:null, A:0, R:0, last:0};
+const PLAY = {on:false, t:0, speed:60, raf:0, trace:null, A:0, R:0, last:0,
+              runs:null, pick:0, n:0, expect:0};
 
+/* ⚠ THE SEED IS CHOSEN, NOT HASHED. An arbitrary seed gives an arbitrary evening, and evenings
+   vary enormously: across 40 seeds at the default settings the arrival count runs 13 to 47 around
+   a mean of 26.5. The first hash tried here landed on 42 arrivals — the third busiest of forty —
+   so the very first thing anyone saw was a jam the headline numbers do not predict.
+
+   So: sample a handful of candidate evenings and play the one whose arrival count is closest to
+   what the settings imply, and say on screen how busy it was. "Another evening" steps through the
+   rest, because the spread is real and worth seeing — it just should not be what you meet first. */
 function buildTrace(){
   const m = modeOf(), lvl = LEVELS[S.level], f = S.cyc/D.T_A, mx = mix();
   const hours = winHours(), fac = lvl.pts/D.day_mean;
   const lam = hours.map(h => D.lam24[h]*fac*mx.share);
-  const out = sim({A:S.A, R:m.hasR?S.R:0, pooled:m.id==="pooled", assessMin:S.assess,
-                   fastDischarge:S.fastDischarge, shr:mx.shr, lam,
-                   asw:scale(D.asw, f*mx.fa), now:scale(D.now, f*mx.fo), res:scale(D.res, mx.fr),
-                   days:1, seeds:[11 + (S.start*7 + S.len) % 97], trace:true});
-  PLAY.trace = out.trace; PLAY.A = out.A; PLAY.R = out.R; PLAY.t = 0;
+  const expect = lam.reduce((a,b)=>a+b, 0);
+  const base = {A:S.A, R:m.hasR?S.R:0, pooled:m.id==="pooled", assessMin:S.assess,
+                fastDischarge:S.fastDischarge, shr:mx.shr, lam,
+                asw:scale(D.asw, f*mx.fa), now:scale(D.now, f*mx.fo), res:scale(D.res, mx.fr),
+                days:1, trace:true};
+
+  const runs = [];
+  for(let i=0;i<9;i++){
+    const out = sim({...base, seeds:[41+i*13]});
+    runs.push({out, n: out.trace.filter(e=>e.ev==="arrive").length});
+  }
+  runs.sort((a,b)=>Math.abs(a.n-expect)-Math.abs(b.n-expect));   // typical first, then outwards
+  PLAY.runs = runs; PLAY.pick = PLAY.pick % runs.length;
+  const chosen = runs[PLAY.pick];
+  PLAY.trace = chosen.out.trace; PLAY.A = chosen.out.A; PLAY.R = chosen.out.R;
+  PLAY.n = chosen.n; PLAY.expect = expect; PLAY.t = 0;
   drawStage();
 }
 
@@ -652,6 +674,10 @@ function drawStage(){
   $("stageGone").textContent = st.gone;
   $("stageSent").textContent = st.sent;
   $("stageBar").style.width = (100*PLAY.t/(S.len*60)).toFixed(1) + "%";
+  const busy = PLAY.n > PLAY.expect*1.15 ? "a busy one" : PLAY.n < PLAY.expect*0.85 ? "a quiet one" : "a typical one";
+  $("stageHint").innerHTML = `This evening brought <b class="num">${PLAY.n}</b> patients into the lane
+    against a typical <b class="num">${PLAY.expect.toFixed(1)}</b> — ${busy}. A space outlined in red
+    holds a patient with nowhere to move on to.`;
 }
 
 function tick(ts){
@@ -671,9 +697,7 @@ function playPause(on){
     PLAY.last = 0; PLAY.raf = requestAnimationFrame(tick);
   } else cancelAnimationFrame(PLAY.raf);
   $("playBtn").textContent = PLAY.on ? "Pause" : (PLAY.t>0 ? "Resume" : "Play the evening");
-  $("stageHint").textContent = PLAY.on || PLAY.t>0
-    ? "This is the run the numbers above come from. A space outlined in red holds a patient with nowhere to move on to."
-    : "The same run the numbers come from — one seeded evening, replayed on a clock. A space that looks full is full.";
+  $("reroll").hidden = !PLAY.trace;
 }
 
 /* ── the operating window ────────────────────────────────────────────────────
@@ -1239,8 +1263,10 @@ function run(){
   drawLevels(E); drawCriteria(); drawBoard();
   // any change to the lane invalidates the recorded evening — a stage showing one layout while
   // the numbers describe another is worse than no stage
-  if(PLAY.trace){ PLAY.trace = null; playPause(false); PLAY.t = 0; }
-  if(!PLAY.trace) drawStageIdle();
+  if(PLAY.trace){ PLAY.trace = null; PLAY.runs = null; PLAY.pick = 0; playPause(false); PLAY.t = 0; }
+  if(!PLAY.trace){ drawStageIdle(); $("reroll").hidden = true;
+    $("stageHint").textContent = "The same run the numbers come from — one seeded evening, replayed "
+      + "on a clock. A space that looks full is full."; }
   // keep the query string — it carries ?board=, and replacing the URL with a bare hash would
   // drop the shared board from the address bar on the first render
   history.replaceState(null, "", location.pathname + location.search + "#" +
@@ -1267,6 +1293,8 @@ $("ccNone").onclick = () => { PICK = new Set(); run() };
 $("ccLow").onclick  = () => { PICK = new Set(CC.filter(x=>x.w<=0.25).map(x=>x.i)); run() };
 $("playBtn").onclick = () => playPause();
 $("speedSel").onchange = e => { PLAY.speed = +e.target.value };
+$("reroll").onclick = () => { if(!PLAY.runs) return;
+  PLAY.pick = (PLAY.pick + 1) % PLAY.runs.length; playPause(false); buildTrace(); };
 drawStageIdle();
 $("add").onclick = addEntry;
 $("who").onkeydown = e => { if(e.key==="Enter") addEntry() };
