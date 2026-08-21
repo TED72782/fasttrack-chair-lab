@@ -229,6 +229,9 @@ input[type=range]:focus-visible{outline:2px solid var(--hold);outline-offset:3px
 .note ul{margin:0;padding-left:18px} .note li{margin:5px 0}
 .note b{color:var(--ink);font-weight:600}
 footer{margin-top:26px;font-size:12.5px;color:var(--ink-3);border-top:1px solid var(--line);padding-top:14px}
+/* its own line: run into the sentence above and "…by taking fewer. shared board — everyone
+   using this link sees the same list" reads as one claim about scoring */
+.board-tag{display:block;margin-top:6px;font-style:italic}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 <div class="wrap">
@@ -377,8 +380,8 @@ footer{margin-top:26px;font-size:12.5px;color:var(--ink-3);border-top:1px solid 
       <div class="board-f">
         <span>Ranked on <b>minutes of delay per ESI 4/5 patient arriving in the window</b>,
           whoever ends up treating them. Patients the lane does not take are charged today's
-          main-department wait, so no lane can score well by taking fewer.
-          <span id="sharedTag"></span></span>
+          main-department wait, so no lane can score well by taking fewer.</span>
+        <span id="sharedTag" class="board-tag"></span>
         <span class="board-actions">
           <a href="#" id="boardSetup" class="link">Shared board</a>
           <button type="button" id="clearBoard" class="mini">Clear board</button>
