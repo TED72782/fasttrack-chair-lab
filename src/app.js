@@ -625,7 +625,14 @@ const DEFAULT_BOARD = "https://script.google.com/macros/s/AKfycbx91tZp5wYvxwMoGJ
 function endpointFromEnv(){
   const q = new URLSearchParams(location.search).get("board");
   if(q) return q;                                  // a link's board wins, for this visit only
-  try{ const s = localStorage.getItem(API_KEY); if(s) return s }catch(e){}  // typed in the setup row
+  try{
+    const s = localStorage.getItem(API_KEY);
+    // Anyone who opened the pre-2026-08-21 link had the address auto-persisted, which now reads
+    // as a deliberate choice and would outlive a future redeploy. A stored copy of the CURRENT
+    // default carries no information — drop it, so those browsers follow the page again.
+    if(s === DEFAULT_BOARD){ localStorage.removeItem(API_KEY); return DEFAULT_BOARD }
+    if(s) return s;                                                     // typed in the setup row
+  }catch(e){}
   return location.protocol === "https:" ? DEFAULT_BOARD : "board";
 }
 
