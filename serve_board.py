@@ -59,14 +59,37 @@ class Handler(SimpleHTTPRequestHandler):
             # Accept only the shape the page sends. Anything else is ignored rather than stored —
             # this is on a shared network, and the board should not become an echo of whatever
             # gets posted at it.
+            #
+            # ⚠ EVERY FIELD THE PAGE SENDS MUST BE STORED — the same rule the Apps Script backend
+            # carries at the top of shared-board.gs, and this file was the copy that still broke
+            # it. Keeping only the first six keys dropped `cc`, `start` and `len`, so a lane saved
+            # from narrowed criteria or a moved window came back off this board as an
+            # everyone-15:00-23:00 lane: ranked against a configuration nobody chose, and not
+            # reproducible by its own load button. Adding a control to the page means adding a
+            # key here.
+            cfg_in = e.get("cfg") or {}
             entry = {"who": str(e.get("who", ""))[:28],
-                     "cfg": {k: e.get("cfg", {}).get(k) for k in
-                             ("mode", "A", "R", "cyc", "assess", "fastDischarge")},
+                     "cfg": {k: cfg_in.get(k) for k in
+                             ("mode", "A", "R", "cyc", "assess", "fastDischarge",
+                              "cc", "start", "len")},
                      "at": int(e.get("at", 0))}
-            if not entry["who"] or entry["cfg"]["mode"] not in ("split", "pooled", "rooms", "zone"):
+            # 'rooms'/'zone' retired with the four-mode UI; shared-board.gs already rejects them
+            if not entry["who"] or entry["cfg"]["mode"] not in ("split", "pooled"):
                 return self.send_error(400)
+
+            # One row per person per distinct lane. A row written before this file stored the
+            # window ran the original 15:00-23:00 lane, which is how the page reads it back — so
+            # compare on that basis, or re-adding an old lane appends a twin instead of
+            # refreshing it.
+            def lane(c):
+                c = c or {}
+                return {k: c.get(k) for k in ("mode", "A", "R", "cyc", "assess", "fastDischarge")} | {
+                    "cc": c.get("cc") or "",
+                    "start": 15 if c.get("start") in (None, "") else c.get("start"),
+                    "len": 8 if c.get("len") in (None, "") else c.get("len")}
+            here = lane(entry["cfg"])
             board = [x for x in read()
-                     if not (x.get("who") == entry["who"] and x.get("cfg") == entry["cfg"])]
+                     if not (x.get("who") == entry["who"] and lane(x.get("cfg")) == here)]
             board.append(entry)
             BOARD.write_text(json.dumps(board[-MAX_ENTRIES:], indent=1))
             return self._json(board)

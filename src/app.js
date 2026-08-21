@@ -115,7 +115,7 @@ function sim(cfg){
                     divPct:0, saturated:false, idle:true, peak:0};
   const byHour=[]; for(let h=0;h<H;h++) byHour.push(hn[h] ? hs[h]/hn[h] : 0);
   const worst = Math.max.apply(null, byHour);
-  return {wa: wa/waN, perArrival: (wa+wr+divWait)/arrN, wr: nw?wr/nw:0, stuck: nw?100*blocked/nw:0,
+  return {wa: waN ? wa/waN : 0, perArrival: (wa+wr+divWait)/arrN, wr: nw?wr/nw:0, stuck: nw?100*blocked/nw:0,
           byHour, worst, worstIdx: byHour.indexOf(worst),
           seen: seen/runs, arrived: arrN/runs, diverted: divN/runs,
           divByHour: [...divH].map(v=>v/runs),
@@ -312,11 +312,11 @@ let PICK = new Set(CC.map(x=>x.i));                 // everyone, until someone n
    should improve it, so if anything this UNDERSTATES what excluding people costs. */
 /* ⚠ WHAT THE BAR ACTUALLY IS. This was labelled "no lane at all" and that was wrong: it is
    measured on TODAY, and today already has a fast track. The Orca pod takes the podlo-podhi %
-   quoted in the prose (live tokens — do not copy figures into this comment, they rot; the
-   2026-08 cut read 65-68% until 18:00, then 54/15/7% as it wound down) — and the whole hourly
-   escalation in the pooled curve is that pod closing. Orca patients wait the flat band at
-   every hour including 22:00; everyone else goes 31 -> 118. So the curve is the STATUS QUO, not
-   a lane-free counterfactual, and the two differ by a lot: 58.1 against 80.5.
+   quoted in the prose (live build tokens — deliberately NOT restated here: the copy that used
+   to sit in this comment had already rotted a cut behind the data it described) — and the whole
+   hourly escalation in the pooled curve is that pod closing. Orca patients wait the flat band at
+   every hour including 22:00; everyone else climbs across the otherlo-otherhi range. So the curve
+   is the STATUS QUO, not a lane-free counterfactual, and the two differ by a lot: 58.1 vs 80.5.
 
    Which is the right bar depends on something no model settles — whether the proposed lane is
    ADDED to today's pod or REPLACES it. So it is a control, not a constant.
@@ -327,8 +327,8 @@ let PICK = new Set(CC.map(x=>x.i));                 // everyone, until someone n
 /* ⚠ THERE IS ONLY ONE BAR, AND THAT IS DELIBERATE.
    A second one — "a day with no fast track" — was offered here and has been removed, because it
    did not measure what its name claimed. It was built by excluding patients whose care area was
-   the Orca pod (today's fast track, visibly: ~0% of ESI 4/5 overnight, the majority through the ftspan token's hours — from 11:00 to
-   18:00, 7% by 23:00). Two things sank it:
+   the Orca pod (today's fast track, visibly: ~0% of ESI 4/5 overnight, the majority through
+   the hours the ftspan token names, tailing off to almost nothing by 23:00). Two things sank it:
 
      - 59% of the walkouts in those hours have NO care area recorded at all. A patient who leaves
        before being placed cannot be labelled Orca, so every one of them fell into the
@@ -439,6 +439,20 @@ const LEVELS = [
 // as acceptable is a judgement for the room, not a line in a chart.
 const S = {mode:"split", A:6, R:4, budget:0, cyc:Math.round(D.T_A), assess:44,
            fastDischarge:false, level:1, bar:"today", start:15, len:8};
+
+/* ⚠ EVERY NUMBER THAT REACHES THE ENGINE IS CLAMPED ON THE WAY IN. Two of them arrive from
+   outside this page and neither can be trusted: the '#' link (people edit them, and chat
+   clients truncate them — a link cut mid-field gives A = NaN) and a shared board row (a Google
+   Sheet anyone in the room can retype). A bad number there is not a wrong answer, it is a dead
+   page: drawStageIdle() does `new Array(S.A)`, and new Array(NaN) — or (-3), or (6.5) — throws
+   RangeError, which happened before a single button was wired, so Add / Play / Copy link were
+   all inert. Limits mirror the sliders, so a clamped link lands somewhere the UI can show. */
+const LIM = {A:[1,14], R:[1,16], cyc:[55,115], assess:[10,90], start:[0,23], len:[2,24]};
+function lim(k, v, dflt){
+  const n = Math.round(+v);
+  if(!Number.isFinite(n)) return dflt;
+  return Math.min(LIM[k][1], Math.max(LIM[k][0], n));
+}
 // Measured: mean roomed-to-first-order is D.g.asw - D.pom (~47 on the 2026-08 cut). In the
 // combined-zone layouts the patient leaves the assessment chair at that point instead of
 // keeping it, so this is the natural starting value — and it is the number that decides
@@ -509,8 +523,10 @@ function drawSpaces(){
 /* A patient needing no test occupies the assessment space for their whole visit (D.g.now measured)
    while a patient needing one leaves it after 72 — so the people who need NOTHING are 55% of the
    assessment load. Whether they can be moved on once seen is therefore a real lever, but it is
-   CONDITIONAL ON SOMEWHERE TO MOVE THEM: at 6+4 moving them is 13 min WORSE (they flood a second
-   area that cannot hold them), at 6+10 it is 1.4 min better. Sign-stable across seed blocks.
+   CONDITIONAL ON SOMEWHERE TO MOVE THEM: on a typical day at assess 44, 6+4 scores 32.4 keeping
+   the space against 46.7 moving them (they flood a second area that cannot hold them), while
+   6+10 goes 27.0 -> 25.6. Sign-stable across seed blocks — the SIGNS are the finding, the
+   figures move with every data cut.
    An earlier version of this comment claimed it was worth 11 min unconditionally — that was
    measured when such patients simply left the model. It barely touches a pooled lane, where the
    patient keeps one space either way, so the control is hidden there rather than offered as a
@@ -633,7 +649,14 @@ function endpointFromEnv(){
     if(s === DEFAULT_BOARD){ localStorage.removeItem(API_KEY); return DEFAULT_BOARD }
     if(s) return s;                                                     // typed in the setup row
   }catch(e){}
-  return location.protocol === "https:" ? DEFAULT_BOARD : "board";
+  // ⚠ ONLY PROBE SOMEWHERE A BOARD COULD ACTUALLY BE. The README tells people they can open
+  // index.html straight off disk with no server — and on file:// the relative "board" fetch is
+  // blocked by the URL scheme, so that reader got a red console error and a leaderboard that
+  // announced itself "unreachable" when there was nothing to reach. No endpoint is the honest
+  // state there: this browser only.
+  return location.protocol === "https:" ? DEFAULT_BOARD
+       : location.protocol === "http:"  ? "board"
+       : null;
 }
 
 async function probeShared(explicit){
@@ -682,15 +705,37 @@ function setEndpoint(url){
   drawBoard();
 }
 
+/* One board row, read back into a lane this page can actually run. ⚠ SCORING AND LOADING MUST
+   READ A ROW THE SAME WAY. The load button used to Object.assign(cfg) straight into S, which
+   left S.start/S.len untouched for a pre-window row — so the row was RANKED as the original
+   15:00-23:00 lane and LOADED as whatever window you happened to be looking at. Both go through
+   here now. Numbers are clamped for the reason at LIM: a row is a spreadsheet cell someone in
+   the room can retype, and a blank or a typo must not reach the engine as NaN. */
+function sane(cfg){
+  const m = MODES.some(x=>x.id===cfg.mode) ? cfg.mode : MODES[0].id;   // 'zone'/'rooms' retired
+  return {mode:m, A:lim("A",cfg.A,6), R:lim("R",cfg.R,4),
+          cyc:lim("cyc",cfg.cyc,Math.round(D.T_A)), assess:lim("assess",cfg.assess,44),
+          fastDischarge: cfg.fastDischarge===true,
+          // entries saved before the window was adjustable ran the original 15:00-23:00 lane
+          start:lim("start",cfg.start,15), len:lim("len",cfg.len,8), cc:cfg.cc};
+}
+/* ⚠ A ROW IS ONLY RE-SCORED WHEN ITS ANSWER CAN HAVE CHANGED. Each call simulates 900 evenings
+   (~13 ms), and drawBoard() re-runs EVERY row — a board that has collected a hundred lanes over
+   a few sessions froze the page for over a second each time the day or the bar moved. Only the
+   row, the day and the bar are inputs, so the result keys on exactly those. */
+const scoreCache = new Map();
 function scoreOf(cfg, pts){
-  // entries saved before the window was adjustable ran the original 15:00-23:00 lane
-  const c = {...cfg, start: cfg.start ?? 15, len: cfg.len ?? 8, bar: S.bar, days:300, seeds:[11,12,13]};
+  const c = {...sane(cfg), bar: S.bar, days:300, seeds:[11,12,13]};
+  const ck = pts + "|" + S.bar + "|" + JSON.stringify(c);
+  if(scoreCache.has(ck)) return scoreCache.get(ck);
   const E = evaluate(c, pts);
-  return {score:E.score, lane:E.o.perArrival, div:E.o.diverted, divPct:E.o.divPct, worst:E.o.worst,
-          cover:E.cover, empty:E.o.idle, spaces: c.A + (E.m.hasR?c.R:0), len: c.len,
+  const out = {cfg:c, score:E.score, lane:E.o.perArrival, div:E.o.diverted, divPct:E.o.divPct,
+          worst:E.o.worst, cover:E.cover, empty:E.o.idle, spaces: c.A + (E.m.hasR?c.R:0), len: c.len,
           // a 24h lane wraps to "00-00", which reads as a zero-length window
           win: c.len>=24 ? "all day"
              : `${String(c.start).padStart(2,"0")}-${String((c.start+c.len)%24).padStart(2,"0")}`};
+  scoreCache.set(ck, out);
+  return out;
 }
 
 async function addEntry(){
@@ -721,7 +766,8 @@ function drawBoard(){
   const rows = board().map(e => ({...e, ...scoreOf(e.cfg, pts)}))
                       .sort((x,y)=> x.score-y.score || x.spaces-y.spaces || x.len-y.len);
   $("boardBody").innerHTML = rows.length ? rows.map((r,i)=>{
-    const m = MODES.find(x=>x.id===r.cfg.mode)||MODES[0];
+    // r.cfg is the SANITISED cfg scoreOf ran — a legacy 'zone' row must not print a shape its
+    // own score was never computed from
     const shape = r.cfg.mode==="pooled" ? `${r.cfg.A} pooled`
                 : `${r.cfg.A}+${r.cfg.R}`;
     const big = r.spaces > most;
@@ -741,19 +787,22 @@ function drawBoard(){
                  name in and add it — the board ranks on delay per arriving patient.</td></tr>`;
   $("boardBody").querySelectorAll("[data-load]").forEach(btn=>btn.onclick=()=>{
     const e = board().find(x=>String(x.at)===btn.dataset.load); if(!e) return;
-    S.budget=0; Object.assign(S, e.cfg);
-    /* ⚠ SANITIZE THE MODE. evaluate() and drawBoard() already fall back to split for a
-       legacy 'zone'/'rooms' row — but this handler writes cfg.mode straight into live state,
-       and modeOf() returning undefined killed drawSpaces and then EVERY subsequent run()
-       until reload. Same guard fromHash has had all along. */
-    if(!MODES.some(m=>m.id===S.mode)) S.mode = MODES[0].id;
+    /* ⚠ sane() IS THE ONLY READING OF A ROW. It clamps, it falls back to split for a legacy
+       'zone'/'rooms' row (modeOf() returning undefined killed drawSpaces and then every
+       subsequent run() until reload), and it supplies the 15:00-23:00 window a pre-window row
+       was scored with. This handler used to do none of that on its own. */
+    const c = sane(e.cfg);
+    S.budget=0; Object.assign(S, c);
     /* ⚠ The criteria live in PICK, not in S, so Object.assign cannot carry them — loading a row
        used to keep whichever complaints the CURRENT user had selected, and the lane you got back
        was not the lane that was scored. An entry with no cc at all is a pre-criteria row: it ran
-       on everyone, which is what `evaluate` assumes for it too. */
-    PICK = e.cfg.cc === undefined || e.cfg.cc === ""
+       on everyone, which is what `evaluate` assumes for it too. An entry with cc:"" is NOT that
+       row — it is a lane that was deliberately given no complaints, and evaluate scores it as
+       taking nobody. Reading "" as everyone here handed back a different lane than the one
+       ranked above it. */
+    PICK = c.cc === undefined
          ? new Set(CC.map(x=>x.i))
-         : new Set(String(e.cfg.cc).split(".").filter(v=>v!=="").map(Number));
+         : new Set(String(c.cc).split(".").filter(v=>v!=="").map(Number));
     drawModes(); drawSpaces(); drawWindow(); run();
   });
   $("boardNote").innerHTML = `Scored on ${LEVELS[S.level].n.toLowerCase()} — ${pts} patients. `
@@ -792,9 +841,10 @@ function fromHash(){
      a page whose first run() happens before a single handler is wired. */
   const rawLvl = p.length===8 ? +p[7] : +p[6];
   const lvl = Number.isFinite(rawLvl) ? Math.max(0, Math.min(LEVELS.length-1, rawLvl)) : 1;
-  Object.assign(S, {mode:p[0], A:+p[1], R:+p[2], cyc:+p[3], assess:+p[4],
-                    fastDischarge:p[5]==="1", level:lvl, budget:0,
-                    start: p.length>=9 ? +p[7] : 15, len: p.length>=9 ? +p[8] : 8});
+  Object.assign(S, {mode:p[0], A:lim("A",p[1],6), R:lim("R",p[2],4), cyc:lim("cyc",p[3],Math.round(D.T_A)),
+                    assess:lim("assess",p[4],44), fastDischarge:p[5]==="1", level:lvl, budget:0,
+                    start: p.length>=9 ? lim("start",p[7],15) : 15,
+                    len:   p.length>=9 ? lim("len",p[8],8)    : 8});
   if(p.length>=10) PICK = new Set(p[9].split(".").filter(v=>v!=="").map(Number));
 }
 
@@ -1037,7 +1087,11 @@ $("share").onclick = () => {
     ()=>{ $("share").textContent="Copy failed — the link is in the address bar"; });
 };
 $("clearBoard").onclick = () => {
-  if(SHARED){ alert("This is the shared board. Delete board.json next to serve_board.py to reset it."); return }
+  // ⚠ the shared board is usually the Google Sheet now, not board.json — this named the one
+  // backend most people are NOT on, and read as "you cannot clear it" with no way out
+  if(SHARED){ alert("This is the shared board — everyone on this link sees it, so it cannot be "
+    + "cleared from one browser.\n\nClear it where it lives: delete the rows in the Google Sheet "
+    + "behind the endpoint, or delete board.json next to serve_board.py."); return }
   if(confirm("Clear the board in this browser?")){ saveLocal([]); drawBoard() }
 };
 markShared(); probeShared();

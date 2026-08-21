@@ -41,14 +41,43 @@ setTimeout(()=>{
   saveLocal([{who:"legacy", at: 42, cfg:{mode:"zone",A:2,R:8,cyc:76,assess:44,fastDischarge:true}}]);
   SHARED=false; drawBoard();
   let zOk=true, zMsg="";
+  S.start=3; S.len=20; S.level=1;                    // park the live lane far from the saved one
+  const rowScore = scoreOf(board()[0].cfg, LEVELS[S.level].pts).score;
   try{
     const e=board().find(x=>String(x.at)==="42");
-    S.budget=0; Object.assign(S, e.cfg);
-    if(!MODES.some(m=>m.id===S.mode)) S.mode = MODES[0].id;   // mirrors the shipped handler
+    S.budget=0; Object.assign(S, sane(e.cfg));       // mirrors the shipped handler
+    PICK = sane(e.cfg).cc === undefined ? new Set(CC.map(x=>x.i))
+         : new Set(String(sane(e.cfg).cc).split(".").filter(v=>v!=="").map(Number));
     drawModes(); drawSpaces(); drawWindow(); run(); S.A=5; run();
   }catch(err){ zOk=false; zMsg=err.message }
   console.log("legacy zone row loads       :", zOk ? "yes (as "+S.mode+")" : "FAIL — "+zMsg);
-  S.mode="split"; S.A=6; S.R=4; saveLocal([]);
+  /* ⚠ LOADING A ROW MUST GIVE BACK THE LANE THAT WAS RANKED. A row saved before the window was
+     adjustable carries no start/len, and Object.assign(cfg) left whatever the current user was
+     looking at in place — so the row was SCORED as the 15:00-23:00 lane and LOADED as a 20-hour
+     one. sane() supplies the same defaults to both sides. */
+  S.A=2; run();
+  console.log("legacy load restores 15-23  :", S.start===15 && S.len===8 ? "yes"
+              : "FAIL — got "+S.start+"/"+S.len);
+  const live = evaluate({mode:S.mode,A:S.A,R:S.R,cyc:S.cyc,assess:S.assess,
+                         fastDischarge:S.fastDischarge, cc:[...PICK].sort((a,b)=>a-b).join("."),
+                         start:S.start, len:S.len, bar:S.bar}, LEVELS[S.level].pts).score;
+  console.log("loaded lane reproduces score:", Math.abs(live-rowScore) < 1.5
+              ? "yes ("+live.toFixed(1)+" vs "+rowScore.toFixed(1)+")"
+              : "FAIL — "+live.toFixed(1)+" live vs "+rowScore.toFixed(1)+" on the board");
+
+  /* ⚠ A LINK IS NOT TRUSTED INPUT. People edit them and chat clients truncate them; a NaN
+     reaching new Array(S.A) in drawStageIdle threw before a single handler was wired, so Add /
+     Play / Copy link were all dead on a page that otherwise looked fine. */
+  let hOk = true, hMsg = "";
+  for(const h of ["split,x,4,76,44,0,1,15,8", "split,-3,4,76,44,0,1,15,8", "split,,,,,,,,",
+                  "split,6,4,76,44,0,1,15,", "split,6.5,4,76,44,0,1,99,999"]){
+    location.hash = "#" + h;
+    try{ fromHash(); drawSpaces(); drawStageIdle(); run() }
+    catch(err){ hOk=false; hMsg = h + " -> " + err.message; break }
+  }
+  console.log("malformed links survive     :", hOk ? "yes (clamped)" : "FAIL — "+hMsg);
+
+  location.hash = ""; S.mode="split"; S.A=6; S.R=4; S.start=15; S.len=8; saveLocal([]);
 
   console.log("\nsample markup:", A.slice(A.indexOf("<span class=\"slot full"), A.indexOf("<span class=\"slot full")+230).replace(/\s+/g," "));
 },60);
