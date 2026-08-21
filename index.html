@@ -1161,7 +1161,10 @@ function drawBoard(){
       <td class="num${big?" warn":""}">${r.spaces}</td>
       <td class="num">${r.win}<span class="sub"> · ${r.len}h</span></td>
       <td class="num"><b>${r.score.toFixed(1)}</b></td>
-      <td class="num${r.cover<0.999?" warn":""}">${Math.round(100*r.cover)}%</td>
+      <!-- ⚠ threshold matches the hero card. It was <0.999, which flagged every lane that did
+           not run 24 hours: the scoped 15-23 lane tops out at 49% by construction, so the
+           colour fired on every realistic row and carried no information. -->
+      <td class="num${r.cover<0.2?" warn":""}">${Math.round(100*r.cover)}%</td>
       <td class="num">${r.empty?"—":r.worst.toFixed(0)}</td>
       <td class="num${r.div>1?" warn":""}">${r.div.toFixed(1)}</td>
       <td><button type="button" class="mini" data-load="${r.at}">load</button></td></tr>`;
