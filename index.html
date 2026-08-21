@@ -140,6 +140,7 @@ input[type=range]:focus-visible{outline:2px solid var(--hold);outline-offset:3px
 .cc.on .cc-n{color:var(--ink)}
 .cc-m{font-size:11.5px;color:var(--ink-3)}
 .dim{color:var(--ink-3)}
+.crit-hint{font-size:12.5px;color:var(--ink-3);margin:2px 0 10px}
 .crit-f{padding:0 16px 14px;font-size:12px;color:var(--ink-3);max-width:88ch}
 .stage-h{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;
   padding:14px 16px 12px;min-height:64px}
@@ -354,6 +355,7 @@ footer{margin-top:26px;font-size:12.5px;color:var(--ink-3);border-top:1px solid 
           <button type="button" id="ccNone" class="mini">Clear</button>
         </div>
       </div>
+      <div class="crit-hint" id="ccHint"></div>
       <div class="crit-list" id="ccList"></div>
       <div class="crit-f">Chief complaints as triage records them, grouped by our shared
         normaliser so <i>Febrile</i> and <i>Fever</i> are one complaint rather than two.
@@ -1304,11 +1306,19 @@ function drawCriteria(){
   const mx = mix();
   const fac = LEVELS[S.level].pts / D.day_mean;
   const pts = winHours().reduce((a,h)=>a + D.lam24[h]*fac, 0);   // arrivals inside the hours
+  /* The counts are per-day AND per-window, so both need saying once — a reader seeing "4.4"
+     beside Fever cannot otherwise tell whether that is a day, a shift, or a year. */
+  const hint = $("ccHint");
+  if(hint) hint.innerHTML = `Counts are patients arriving between
+    <b class="num">${String(S.start).padStart(2,"0")}:00</b> and
+    <b class="num">${String((S.start+S.len)%24).padStart(2,"0")}:00</b>
+    on ${LEVELS[S.level].n.toLowerCase()} — <b class="num">${pts.toFixed(1)}</b> in total.
+    Tap a complaint to take it or leave it.`;
   $("ccList").innerHTML = CC.map(x=>{
     const on = PICK.has(x.i);
     return `<button type="button" class="cc${on?" on":""}" data-cc="${x.i}" aria-pressed="${on}">
       <span class="cc-n">${x.n}</span>
-      <span class="cc-m"><b class="num">${(pts*x.s).toFixed(1)}</b> in the hours
+      <span class="cc-m"><b class="num">${(pts*x.s).toFixed(1)}</b> arrive while you are open
         · <span class="num">${Math.round(100*x.w)}%</span> need a test</span></button>`;
   }).join("");
   $("ccList").querySelectorAll("[data-cc]").forEach(btn=>btn.onclick=()=>{
