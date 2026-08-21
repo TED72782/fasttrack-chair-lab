@@ -73,31 +73,39 @@ to build, not about six spaces as such.
 It assumes the main department's wait is unaffected by the lane. Taking work out of it should
 make that shorter, so if anything this understates what excluding patients costs.
 
-## The patient who needs no test
+## The two layouts
 
-Half of these patients get no test at all — and they are the **heavier** user of the scarce side:
+| | |
+|---|---|
+| **Assessment spaces + a second area** | Assessed in one space, then moved to a second area to wait for a result **or to be discharged**. |
+| **One group, patient stays put** | A patient takes a space on arrival and keeps it until they leave. Nobody moves. |
 
-| | holds the assessment space | then |
-|---|---|---|
-| needs a test | 72 min | 77 min in a results chair |
-| **needs no test** | **86 min** | that is the whole visit |
+**You set the assessment time** — how long a patient keeps an assessment space before moving on.
+Measured today, a patient needing a test holds it 72 minutes, but that is the time to their first
+*order*, not a decision anyone made. It is the number to argue about: it sets how fast the
+assessment side turns over, and how much load lands in the second area.
 
-So the people who need nothing are **55% of the assessment load**. Nothing in the record marks
-when they are finished being assessed — there is no order to time from — so whether they can be
-moved on once seen is a control, not a constant.
+### The second area has to be the bigger one
 
-In a **divided** lane it is worth more than a chair or two. Typical day, against today's 50.0:
+Once it holds everyone — results **and** discharge pending — most of a visit happens there. At a
+45-minute assessment, a patient spends ~45 min in an assessment space and ~70 in the second area.
+So the best splits are back-weighted, and heavily. Typical day, against today's 50.0:
 
-| | keeps the space | moves on at 44 min |
-|---|---|---|
-| 6+4 divided | 31.7 | **28.2** |
-| 4+2 divided | 65.6 | **54.6** |
-| 10 pooled | 26.8 | 26.8 |
-| 8 rooms + 10 chairs | 25.9 | 25.4 |
+| total spaces | best split | score | for comparison |
+|---|---|---|---|
+| 6 | **2+4** | 69.1 | 4+2 scores 98 · 5+1 scores 153 |
+| 10 | **4+6** | 31.5 | 6+4 scores 46 · 7+3 scores 68 |
+| 14 | **6+8** | 26.1 | |
+| 18 | **7+11** | 25.4 | |
 
-It does almost nothing to a **pooled** lane, because there the patient keeps one chair either way
-— shortening their stay is just shortening the visit. The control is hidden for that layout
-rather than offered as a lever that cannot move.
+Every proposal on the table so far — 6+4, 7+3, 4+2 — is front-weighted, which is the wrong way
+round once discharge-pending shares the second area.
+
+### Whether a no-test patient can be moved depends on where there is room
+
+- **6+4** — stays 32.2, moves **45.7**. Moving them is *worse*: they flood a second area that is
+  already too small.
+- **6+10** — stays 27.0, moves **25.6**. Moving them is better, because there is somewhere to go.
 
 ## Choosing who the lane accepts
 

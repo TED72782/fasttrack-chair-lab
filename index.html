@@ -398,125 +398,88 @@ Heap.prototype.push=function(v){const a=this.a;a.push(v);let i=a.length-1;while(
 Heap.prototype.pop=function(){const a=this.a,top=a[0],last=a.pop();if(a.length){a[0]=last;let i=0;for(;;){const l=2*i+1,rr=l+1;let m=i;
   if(l<a.length&&cmp(a[l],a[m])<0)m=l; if(rr<a.length&&cmp(a[rr],a[m])<0)m=rr; if(m===i)break; const t=a[i];a[i]=a[m];a[m]=t;i=m}}return top};
 
-function sim(cfg){
-  const {A,R,lam,asw,now,res,pooled,zone,assessMin,fastDischarge,shr=D.shr,
-         floor=D.floor, days=600,seeds=[11,12,13,14]}=cfg,
-        H=lam.length, CLOSE=H*60;
-  let wa=0,waN=0,wr=0,wrN=0,blocked=0,nw=0,seen=0,arrN=0,divN=0,divWait=0;
-  const divH=new Float64Array(lam.length);
-  const hs=new Float64Array(H), hn=new Float64Array(H);
-  for(const sd of seeds){const r=mulberry32(sd);
-    for(let d=0;d<days;d++){
-      const arr=[];
-      for(let h=0;h<H;h++){let t=h*60;for(;;){t+=expo(r,lam[h]/60);if(t>=(h+1)*60)break;arr.push(t)}}
-      arr.sort((x,y)=>x-y); arrN+=arr.length;
-      const ev=new Heap(); for(let i=0;i<arr.length;i++)ev.push([arr[i],0,i]);
-      // ⚠ THE LANE CLOSES. Without this the simulation serves its backlog in unbounded
-      // overtime — on a 26-patient evening at 4+2 it ran until 09:04 the NEXT MORNING and
-      // spent 45% of its service hours outside its own window. Every "worst hour" then landed
-      // at 22:00 in every configuration, which reads as a demand peak and is nothing of the
-      // kind: it is the overtime bucket. Anyone still waiting for a space at 23:00 goes to the
-      // main department instead, which is what would actually happen.
-      ev.push([CLOSE, -1, -1]);
-      const zdur=new Float64Array(arr.length);
-      const qa=[],qr=[],need=new Uint8Array(arr.length); let ab=0,rb=0;
-      const seated=new Uint8Array(arr.length);   // combined zone: is this waiter using a chair?
-      const hb=t=>Math.min(H-1,(t/60)|0);
-      const rec=(tag,w,dv)=>{const t=w+floor;
-        if(!dv){wa+=t;waN++} hs[hb(arr[tag])]+=t; hn[hb(arr[tag])]++;};
+/* ── the lane, simulated ──────────────────────────────────────────────────────
+   Two shapes, and only two:
 
-      if(zone){
-        // ── Combined fast-track waiting + results-pending zone.
-        //
-        // ⚠ THIRD version of this branch. The first hard-blocked the zone against BOTH queues —
-        // waiters sat in it too — which deadlocks by construction: a patient queueing for an
-        // assessment chair could occupy the very seat a finishing patient needed to vacate one.
-        // The second "fixed" that by making the zone soft (nobody ever blocked). That was worse
-        // and it took a crosscheck to see why: with a soft zone the number of zone chairs has
-        // NO effect at all — R=0 and R=1000 return bit-identical waits — so it scored "2
-        // assessment chairs with unlimited overflow" while the rival layouts had every chair
-        // binding. Eight of the ten spaces in the proposal were inert.
-        //
-        // This version removes the circular wait the honest way: people waiting to be SEEN queue
-        // in the main waiting room, not in the zone, so they cannot hold the resource a finishing
-        // patient needs. The zone hard-caps results-pending patients only, and blocks exactly the
-        // way the divided layout's results chairs do — which is what makes the two comparable.
-        const startA=(t,tag)=>{ab++;
-          const w = r()<shr; need[tag]=w?1:0;
-          if(!w && !fastDischarge){ ev.push([t+pick(r,now),1,tag]); zdur[tag]=0; return }
-          const total = w ? pick(r,asw)+pick(r,res) : pick(r,now);
-          const a = Math.min(assessMin, total-1);
-          ev.push([t+a,1,tag]); zdur[tag]=w?Math.max(1,total-a):0};
-        const startZ=(t,tag)=>{rb++;ev.push([t+zdur[tag],2,tag])};
-        const takeNext=t=>{ if(!qa.length||ab>=A)return;
-          const q=qa.shift(); rec(q[1],t-q[0]); startA(t,q[1]) };
-        while(ev.a.length){
-          const e=ev.pop(), t=e[0], kind=e[1], tag=e[2];
-          if(kind===-1){ for(const q of qa){divN++; divWait+=CLOSE-q[0]+floor; divH[hb(arr[q[1]])]++; rec(q[1],CLOSE-q[0],true)}
-                          qa.length=0; continue }
-          if(kind===0){ if(ab<A){rec(tag,0);startA(t,tag)} else qa.push([t,tag]) }
-          else if(kind===1){
-            seen++;
-            if(!need[tag]){ ab--; takeNext(t); continue }   // no test — assessed and gone
-            nw++;
-            if(rb<R){ ab--; wrN++; startZ(t,tag); takeNext(t) }
-            else { qr.push([t,tag]); blocked++; }           // holds the assessment chair
-          } else {
-            rb--;
-            if(qr.length){const q=qr.shift(); wr+=t-q[0]; wrN++; ab--; startZ(t,q[1]); takeNext(t)}
-            else takeNext(t);
-          }
-        }
-      } else {
-        const startA=(t,tag)=>{ab++;const w=r()<shr;need[tag]=w?1:0;
-          // ⚠ A patient who needs NO test holds the assessment space for their WHOLE visit —
-          // measured 86 min against 72 for a patient who does. They are the heavier user of the
-          // scarce side, and 55% of its load. `fastDischarge` is the question of whether they
-          // can be moved on once seen; in a divided lane it is worth more than a chair or two.
-          const nw = pick(r,now);
-          const dur = pooled ? (w ? pick(r,asw)+pick(r,res) : nw)
-                    : w ? pick(r,asw)
-                    : (fastDischarge ? Math.min(assessMin, nw) : nw);
-          ev.push([t+dur,1,tag])};
-        const startR=(t,tag)=>{rb++;ev.push([t+pick(r,res),2,tag])};
-        while(ev.a.length){
-          const e=ev.pop(), t=e[0], kind=e[1], tag=e[2];
-          if(kind===-1){ for(const q of qa){divN++; divWait+=CLOSE-q[0]+floor; divH[hb(arr[q[1]])]++; rec(q[1],CLOSE-q[0],true)}
-                          qa.length=0; continue }
-          if(kind===0){ if(ab<A){rec(tag,0);startA(t,tag)} else qa.push([t,tag]) }
-          else if(kind===1){
-            seen++;
-            if(pooled||!need[tag]){ab--}
-            else{ nw++;
-              if(rb<R){ab--;wrN++;startR(t,tag)} else {qr.push([t,tag]);blocked++;continue} }
-            if(qa.length){const q=qa.shift();rec(q[1],t-q[0]);startA(t,q[1])}
-          } else {
-            rb--;
-            if(qr.length){const q=qr.shift();wr+=t-q[0];wrN++;ab--;startR(t,q[1]);
-              if(qa.length){const p=qa.shift();rec(p[1],t-p[0]);startA(t,p[1])}}
-          }
+     POOLED   one group of spaces; a patient takes one on arrival and keeps it until they leave.
+     MOVING   A assessment spaces + R in a second area. Everyone leaves the assessment space at
+              `assessMin` — the point a physician calls the assessment done — and spends the rest
+              of their measured visit in the second area, whether that is waiting on a result or
+              waiting to be discharged. The second area is hard-capped: a patient with nowhere to
+              go keeps the assessment space, which is the failure a split is meant to avoid and
+              the reason the second area's size matters.
+
+   `fastDischarge=false` is the exception the data forces us to offer. A patient who needs no test
+   has no order to time from, and may simply not be movable; then they hold the assessment space
+   for their whole visit — 86 min measured, LONGER than the 72 a test patient holds it.
+
+   People waiting to be seen queue in the main waiting room, not in either area, so a queue can
+   never occupy the space a finishing patient needs to vacate one. The lane closes at CLOSE and
+   anyone still queueing goes to the main department. */
+function sim(cfg){
+  const {A, R, lam, asw, now, res, pooled, assessMin, fastDischarge, shr=D.shr,
+         floor=D.floor, days=600, seeds=[11,12,13,14]} = cfg;
+  const H = lam.length, CLOSE = H*60;
+  let wa=0, waN=0, wr=0, wrN=0, blocked=0, nw=0, seen=0, arrN=0, divN=0, divWait=0;
+  const hs=new Float64Array(H), hn=new Float64Array(H), divH=new Float64Array(H);
+
+  for(const sd of seeds){
+    const r = mulberry32(sd);
+    for(let d=0; d<days; d++){
+      const arr=[];
+      for(let h=0;h<H;h++){ let t=h*60; for(;;){ t+=expo(r,lam[h]/60); if(t>=(h+1)*60) break; arr.push(t) } }
+      arr.sort((x,y)=>x-y); arrN += arr.length;
+      const ev=new Heap(); for(let i=0;i<arr.length;i++) ev.push([arr[i],0,i]);
+      ev.push([CLOSE,-1,-1]);
+      const qa=[], qr=[], second=new Float64Array(arr.length);
+      let ab=0, rb=0;
+      const hb = t => Math.min(H-1, (t/60)|0);
+      const rec = (tag,w,dv) => { const tt=w+floor; if(!dv){wa+=tt;waN++} hs[hb(arr[tag])]+=tt; hn[hb(arr[tag])]++ };
+
+      const startA = (t,tag) => { ab++;
+        const w = r()<shr;
+        const total = w ? pick(r,asw)+pick(r,res) : pick(r,now);
+        if(pooled){ second[tag]=0; ev.push([t+total,1,tag]); return }
+        if(!w && !fastDischarge){ second[tag]=0; ev.push([t+total,1,tag]); return }
+        const a = Math.min(assessMin ?? D.g.asw, total-1);
+        second[tag] = Math.max(1, total-a);
+        ev.push([t+a,1,tag]) };
+      const startB = (t,tag) => { rb++; ev.push([t+second[tag],2,tag]) };
+      const takeNext = t => { if(!qa.length || ab>=A) return;
+        const q=qa.shift(); rec(q[1], t-q[0]); startA(t,q[1]) };
+
+      while(ev.a.length){
+        const e=ev.pop(), t=e[0], kind=e[1], tag=e[2];
+        if(kind===-1){ for(const q of qa){ divN++; divWait += CLOSE-q[0]+floor; divH[hb(arr[q[1]])]++;
+                                           rec(q[1], CLOSE-q[0], true) } qa.length=0; continue }
+        if(kind===0){ if(ab<A){ rec(tag,0); startA(t,tag) } else qa.push([t,tag]) }
+        else if(kind===1){
+          seen++;
+          if(!second[tag]){ ab--; takeNext(t); continue }        // never moved on
+          nw++;
+          if(rb<R){ ab--; wrN++; startB(t,tag); takeNext(t) }
+          else { qr.push([t,tag]); blocked++ }                   // nowhere to move to
+        } else {
+          rb--;
+          if(qr.length){ const q=qr.shift(); wr += t-q[0]; wrN++; ab--; startB(t,q[1]); takeNext(t) }
+          else takeNext(t);
         }
       }
     }
   }
-  const byHour=[]; for(let h=0;h<H;h++)byHour.push(hn[h]?hs[h]/hn[h]:0);
-  const worst=Math.max.apply(null,byHour);
-  const runs=days*seeds.length;
-  // a lane that accepts nobody has no wait to average: 0/0. Report it rather than print NaN.
+  const runs = days*seeds.length;
   if(!arrN) return {wa:0, perArrival:0, wr:0, stuck:0, byHour:new Array(H).fill(0), worst:0,
-                    worstHour:15, seen:0, arrived:0, diverted:0, divPct:0, saturated:false, idle:true};
-  // Minutes of delay carried by the average patient who walked through the door — the only
-  // wait figure that cannot be improved by sending someone home.
-  const perArrival = (wa + wr + divWait) / arrN;
-  return {wa:wa/waN, perArrival, wr:nw?wr/nw:0, stuck:nw?100*blocked/nw:0, byHour, worst,
-          worstIdx:byHour.indexOf(worst),
-          seen:seen/runs, arrived:arrN/runs, diverted:divN/runs,
-          divByHour:[...divH].map(v=>v/runs),
-          divPct: arrN? 100*divN/arrN : 0, saturated: divN/arrN > 0.02,
-          };
+                    worstIdx:0, seen:0, arrived:0, diverted:0, divByHour:new Array(H).fill(0),
+                    divPct:0, saturated:false, idle:true};
+  const byHour=[]; for(let h=0;h<H;h++) byHour.push(hn[h] ? hs[h]/hn[h] : 0);
+  const worst = Math.max.apply(null, byHour);
+  return {wa: wa/waN, perArrival: (wa+wr+divWait)/arrN, wr: nw?wr/nw:0, stuck: nw?100*blocked/nw:0,
+          byHour, worst, worstIdx: byHour.indexOf(worst),
+          seen: seen/runs, arrived: arrN/runs, diverted: divN/runs,
+          divByHour: [...divH].map(v=>v/runs),
+          divPct: 100*divN/arrN, saturated: divN/arrN > 0.02};
 }
 
-/* ── scaling helpers ─────────────────────────────────────────────────────── */
 /* ── the operating window ────────────────────────────────────────────────────
    The lane used to be nailed to 15:00-23:00. It is now a start hour and a length, because
    WHERE you put the window turns out to matter more than how you split the chairs — and the
@@ -622,7 +585,7 @@ function evaluate(cfg, dayTotal){
   const o = accepted < 0.05 ? {idle:true, perArrival:0, wa:0, wr:0, stuck:0, worst:0, worstIdx:0,
                                byHour:hours.map(()=>0), diverted:0, divByHour:hours.map(()=>0),
                                arrived:0, seen:0, divPct:0}
-    : sim({A:cfg.A, R:m.hasR?cfg.R:0, pooled:cfg.mode==="pooled", zone:!!m.zone,
+    : sim({A:cfg.A, R:m.hasR?cfg.R:0, pooled:cfg.mode==="pooled", 
            assessMin:cfg.assess, fastDischarge:cfg.fastDischarge, shr:w("w"), lam,
            asw:scale(D.asw, f*w("a")/D.g.asw), now:scale(D.now, f*w("o")/D.g.now),
            res:scale(D.res, w("r")/D.g.res), days:cfg.days||600, seeds:cfg.seeds||[11,12,13,14]});
@@ -647,21 +610,24 @@ function evaluate(cfg, dayTotal){
 
 /* ── state ───────────────────────────────────────────────────────────────── */
 const MODES = [
-  {id:"rooms",  t:"8 rooms + results chairs",  s:"Assessment in a room, then move to a chair to wait for results.", fixedA:true, hasR:true},
-  {id:"pooled", t:"Chairs, patient stays put", s:"One group of chairs. Status changes in place; nobody moves.",     hasR:false},
-  {id:"split",  t:"Chairs, divided",           s:"Some chairs for assessment, the rest for results-waiting.",       hasR:true},
-  {id:"zone",   t:"Assessment chairs + one combined zone",
-                s:"A few chairs to be seen in; everyone else — waiting to be seen AND waiting on results — shares one zone.",
-                hasR:true, zone:true}
+  {id:"split",  t:"Assessment spaces + a second area",
+                s:"Assessed in one space, then moved to a second area to wait for results or to be discharged.",
+                hasR:true},
+  {id:"pooled", t:"One group, patient stays put",
+                s:"A patient takes a space on arrival and keeps it until they leave. Nobody moves.",
+                hasR:false}
 ];
 // Named layouts the group has put forward. Each is a full setting, not a hint.
 const PRESETS = [
   {id:"mikelong", n:"The Mike Long Play",
-   set:{mode:"zone", A:2, R:8, assess:44, fastDischarge:true},
+   set:{mode:"split", A:2, R:8, assess:44, fastDischarge:true},
    d:"2 assessment chairs; the other 8 are one combined fast-track waiting and results-pending zone."},
   {id:"park", n:"The Park Attack",
    set:{mode:"split", A:3, R:2, budget:5},
    d:"5 spaces in total, split between assessment and results-pending however you like — move one and the other follows."},
+  {id:"rooms", n:"8 rooms + 10 chairs",
+   set:{mode:"split", A:8, R:10, fastDischarge:true},
+   d:"The larger estate: assessment in a room, then a second area of 10 chairs."},
   {id:"six", n:"Group consensus — 6, split",
    set:{mode:"split", A:4, R:2, budget:6},
    d:"6 spaces, divided. Opens on 4+2, the best of the four splits. Try the same 6 undivided for comparison."}
@@ -706,10 +672,8 @@ function drawModes(){
 
 function drawSpaces(){
   const m=modeOf(), rows=[];
-  rows.push(ctl("A", m.id==="pooled"?"Chairs in the group":"Assessment chairs",
-                S.A, m.id==="rooms"?8:1, m.id==="rooms"?8:14, m.id==="rooms"));
-  if(m.hasR) rows.push(ctl("R", m.zone?"Chairs in the combined zone":"Results-waiting chairs",
-                           S.R, 1, 14, false));
+  rows.push(ctl("A", m.id==="pooled" ? "Spaces in the group" : "Assessment spaces", S.A, 1, 14, false));
+  if(m.hasR) rows.push(ctl("R", "Second area — results &amp; discharge pending", S.R, 1, 16, false));
   const tot = S.A + (m.hasR?S.R:0);
   rows.push(`<div class="total"><span>Spaces in use</span><b class="num">${tot}${S.budget?" of "+S.budget:""}</b></div>`);
   $("spaceCtl").innerHTML = rows.join("");
@@ -893,7 +857,7 @@ function drawBoard(){
   $("boardBody").innerHTML = rows.length ? rows.map((r,i)=>{
     const m = MODES.find(x=>x.id===r.cfg.mode)||MODES[2];
     const shape = r.cfg.mode==="pooled" ? `${r.cfg.A} pooled`
-                : m.zone ? `${r.cfg.A}+${r.cfg.R} zone` : `${r.cfg.A}+${r.cfg.R}`;
+                : `${r.cfg.A}+${r.cfg.R}`;
     return `<tr><td class="num">${i+1}</td><td>${r.who}</td>
       <td>${shape}<span class="sub"> · ${r.spaces} spaces · ${r.win}</span></td>
       <td class="num"><b>${r.score.toFixed(1)}</b></td>
@@ -1003,9 +967,14 @@ function run(){
   const winArr = E.hours.reduce((a,h)=>a + D.lam24[h]*(lvl.pts/D.day_mean), 0);
   const mins = S.len*60;
   const mx = mix();
-  const perAssess = m.zone ? (S.fastDischarge ? S.assess : mx.shr*S.assess + (1-mx.shr)*D.g.now*mx.fo)
-                  : m.id==="pooled" ? D.hold_all : S.cyc*mx.fa;
-  const perRes = mx.shr * D.g.res * mx.fr;
+  // what one patient demands of each side, given the assessment time the physician set
+  const perAssess = m.id==="pooled" ? D.hold_all
+    : S.fastDischarge ? S.assess
+    : mx.shr*S.assess + (1-mx.shr)*D.g.now*mx.fo;
+  const perRes = m.id==="pooled" ? 0
+    : S.fastDischarge
+      ? mx.shr*(D.g.asw*mx.fa + D.g.res*mx.fr - S.assess) + (1-mx.shr)*Math.max(0, D.g.now*mx.fo - S.assess)
+      : mx.shr*(D.g.asw*mx.fa + D.g.res*mx.fr - S.assess);
   const sides = [{n:"assessment", load: E.accepted*perAssess/(S.A*mins), cap: S.A*mins/perAssess}];
   if(m.hasR) sides.push({n:"results", load: E.accepted*perRes/(S.R*mins), cap: S.R*mins/perRes});
   const bind = sides.reduce((a,b)=>b.load>a.load?b:a), rho = bind.load;
