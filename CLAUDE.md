@@ -156,8 +156,8 @@ usually to help Ted get one of these unstuck rather than to start editing.
 
 | # | action | owner | why it matters |
 |---|---|---|---|
-| 1 | **Re-push the Apps Script deployment** — Deploy → Manage deployments → New version | Ted, on his laptop | The board schema changed twice on 2026-08-22. Until this is done, Blake lanes save to the shared board **without their exclusion list**. Editing the script does not change what is deployed. |
-| 2 | **Open the live page and check the leaderboard footer** | Ted | It must read *"shared board — everyone using this link sees the same list"*. If it says *unreachable*, every physician silently gets a private board and the group comparison — the whole point — quietly does not happen. |
+| 1 | **Re-push the Apps Script deployment** — Deploy → Manage deployments → New version | Ted, on his laptop | ⚠ **MEASURED 2026-08-22, worse than this line used to say.** The deployed script does not drop the exclusion list — it **rejects the whole row**, `{"error":"bad entry"}`, because `bedfirst` is not in its allowed-mode list. `pushShared` then returns false, so the physician is silently dropped to a browser-local board and the footer flips to *"shared board unreachable"*. **Every Blake lane saved before this redeploy is invisible to the group.** Editing the script does not change what is deployed. |
+| 2 | ~~Open the live page and check the leaderboard footer~~ **DONE 2026-08-22** | — | Verified in Chrome on Ted's laptop: footer reads *"shared board — everyone using this link sees the same list"*, `SHARED === true`, the baked `DEFAULT_BOARD` answers, and the live page serves the bed-first build. Closes open threads 4 and 6. |
 | 3 | **Ask the extract for GU complaint rows + preferred-language / interpreter need** | whoever runs the extract | Turns two slider guesses into measurements. See open threads 2 and 3. |
 | 4 | **Get the residual share from Blake** | Blake | It ships at 0%, which the page says outright is too low. |
 
@@ -196,14 +196,22 @@ and run all three checks before any push, and prefer a browser check for anythin
 
 **Never verified from a sandbox** (the agent proxy denies both hosts, so these need Ted's laptop)
 
-4. **The baked-in shared board** (`DEFAULT_BOARD` in `src/app.js`) has never been reached —
-   `script.google.com` is denied. If it is dead, every physician silently gets a private board.
-   Check the italic line in the leaderboard footer says *"shared board — everyone using this link
-   sees the same list"*.
-5. **The Apps Script deployment needs a new version pushed** (Deploy → Manage deployments → New
-   version). The board schema changed twice on 2026-08-22 (`bedcc`, `bedExtra` replacing a
-   short-lived `bedShare`). Until redeployed, Blake lanes save without their exclusion list.
-6. **The live page** — `*.github.io` is denied too, so it has only ever been verified from the
-   built file and the repo contents.
+4. ~~The baked-in shared board has never been reached~~ **REACHED 2026-08-22.** `DEFAULT_BOARD`
+   answers, `SHARED === true`, the footer reads *"shared board — everyone using this link sees the
+   same list"*, and it returns the three existing rows. Physicians opening the plain link share one
+   board.
+5. **The Apps Script deployment still needs a new version pushed** (Deploy → Manage deployments →
+   New version) — and the failure is not the one this file predicted. Measured against the live
+   endpoint: a `bedfirst` row comes back `{"error":"bad entry"}` and is **rejected entirely**, with
+   or without `bedcc`/`bedExtra`. The cause is `shared-board.gs:87` — `modes` gained `'bedfirst'`
+   in this repo, and the deployment predates it. A rejected POST makes `pushShared` return false,
+   which sets `SHARED=false` and flips the footer to *"shared board unreachable"* for the rest of
+   that visit, so a physician saving a Blake lane loses it from the group's board and gets no error
+   they would recognise. Nothing was written by the test — every attempt was refused, so the board
+   still holds only Ted's three `test*` rows.
+6. ~~The live page has only ever been verified from the built file~~ **VERIFIED IN A BROWSER
+   2026-08-22.** It serves the bed-first build: three modes including *Rooms first, chairs only when
+   rooms are full*, five presets including **The Blake**, and `bedcc`/`bedExtra` present in the
+   shipped bytes.
 7. **The engine-validation table** in `README.md` compares against a model that is not in this
    repo. It is labelled as a port-time record for that reason; do not "refresh" those numbers.
