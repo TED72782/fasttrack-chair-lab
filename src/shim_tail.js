@@ -77,6 +77,31 @@ setTimeout(()=>{
   }
   console.log("malformed links survive     :", hOk ? "yes (clamped)" : "FAIL — "+hMsg);
 
+  /* ⚠ THE BED-FIRST INVARIANT. With nobody bed-required, "a room if free, else a chair" is
+     just one pool of A+R that nobody is ever moved out of — i.e. exactly the pooled lane. If
+     these two ever separate, the placement logic has grown a cost that is not the rule it is
+     supposed to be modelling, and the whole "what does the exclusion list cost" reading of the
+     layout is void. Seed noise between two different RNG streams is the only gap allowed. */
+  const cfgB = {cyc:76, assess:44, fastDischarge:false, start:15, len:8, bar:"today"};
+  const bf0 = evaluate({...cfgB, mode:"bedfirst", A:6, R:4, bedShare:0}, LEVELS[2].pts).score;
+  const pl  = evaluate({...cfgB, mode:"pooled",   A:10, R:0},             LEVELS[2].pts).score;
+  console.log("bed-first at 0% == pooled   :", Math.abs(bf0-pl) < 0.5
+              ? "yes ("+bf0.toFixed(1)+" vs "+pl.toFixed(1)+")"
+              : "FAIL — "+bf0.toFixed(2)+" vs "+pl.toFixed(2));
+  const bfHi = evaluate({...cfgB, mode:"bedfirst", A:2, R:8, bedShare:25}, LEVELS[2].pts).score;
+  const bfLo = evaluate({...cfgB, mode:"bedfirst", A:8, R:2, bedShare:25}, LEVELS[2].pts).score;
+  console.log("scarce rooms cost more      :", bfHi > bfLo + 1
+              ? "yes (2rm "+bfHi.toFixed(1)+" vs 8rm "+bfLo.toFixed(1)+")"
+              : "FAIL — 2rm "+bfHi.toFixed(1)+" vs 8rm "+bfLo.toFixed(1));
+  /* The stage must replay the mode the numbers came from — a mode added to sim() but not to
+     buildTrace() plays a different lane on screen from the one the cards describe. */
+  S.mode="bedfirst"; S.A=6; S.R=4; S.bedShare=25; run(); buildTrace();
+  const bedStuck = PLAY.trace.filter(e=>e.ev==="stuck").length;
+  const bedChair = PLAY.trace.filter(e=>e.ev==="second").length;
+  console.log("stage runs the bed-first run:", bedStuck===0 && bedChair>0
+              ? "yes (chairs used, nobody stuck)"
+              : "FAIL — stuck="+bedStuck+" chair="+bedChair);
+
   location.hash = ""; S.mode="split"; S.A=6; S.R=4; S.start=15; S.len=8; saveLocal([]);
 
   console.log("\nsample markup:", A.slice(A.indexOf("<span class=\"slot full"), A.indexOf("<span class=\"slot full")+230).replace(/\s+/g," "));

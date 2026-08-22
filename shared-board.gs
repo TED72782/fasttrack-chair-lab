@@ -6,8 +6,8 @@
  * into the lab page. Nothing else to configure.
  *
  * The sheet becomes the board: one row per lane, columns who / mode / A / R / cyc / assess /
- * fastDischarge / at / cc / start / len. Sort or annotate it freely — the page only ever reads
- * these columns.
+ * fastDischarge / at / cc / start / len / bedShare. Sort or annotate it freely — the page only
+ * ever reads these columns.
  *
  * ⚠ cc IS WRITTEN AS TEXT ON PURPOSE. A Sheet parses what it is handed: appendRow('0.10')
  * stores the NUMBER 0.1, and reading it back gives "0.1" — complaints {0,10} silently become
@@ -23,7 +23,7 @@
 
 var SHEET = 'board';
 var HEAD = ['who', 'mode', 'A', 'R', 'cyc', 'assess', 'fastDischarge', 'at',
-            'cc', 'start', 'len'];
+            'cc', 'start', 'len', 'bedShare'];
 
 function sheet_() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -48,6 +48,7 @@ function read_() {
   for (var i = 1; i < rows.length; i++) {
     var r = rows[i];
     if (!r[0]) continue;
+    while (r.length < HEAD.length) r.push('');   // a narrower legacy sheet reads short
     out.push({
       who: String(r[0]).slice(0, 28),
       // a v1 row has no cc/start/len: leaving them undefined is exactly how the page reads
@@ -56,7 +57,9 @@ function read_() {
              cyc: Number(r[4]), assess: Number(r[5]), fastDischarge: r[6] === true || r[6] === 'TRUE',
              cc: r[8] === '' || r[8] === undefined ? undefined : String(r[8]).replace(/^'/, ''),
              start: r[9] === '' || r[9] === undefined ? undefined : Number(r[9]),
-             len: r[10] === '' || r[10] === undefined ? undefined : Number(r[10]) },
+             len: r[10] === '' || r[10] === undefined ? undefined : Number(r[10]),
+             // pre-bed-first rows have no share, and were not that layout: undefined, not 0
+             bedShare: r[11] === '' || r[11] === undefined ? undefined : Number(r[11]) },
       at: Number(r[7]) || 0
     });
   }
@@ -79,7 +82,7 @@ function doPost(e) {
     var b = JSON.parse(e.postData.contents);
     var who = String(b.who || '').slice(0, 28);
     var c = b.cfg || {};
-    var modes = ['split', 'pooled'];   // 'rooms'/'zone' retired with the four-mode UI
+    var modes = ['split', 'pooled', 'bedfirst'];   // 'rooms'/'zone' retired with the four-mode UI
     if (!who || modes.indexOf(String(c.mode)) < 0) return json_({ error: 'bad entry' });
 
     var sh = sheet_();
@@ -92,7 +95,9 @@ function doPost(e) {
           (rows[i][6] === true || rows[i][6] === 'TRUE') === (c.fastDischarge === true) &&
           String(rows[i][8] || '').replace(/^'/, '') === String(c.cc || '') &&
           Number(rows[i][9] === '' ? 15 : rows[i][9]) === Number(c.start === undefined ? 15 : c.start) &&
-          Number(rows[i][10] === '' ? 8 : rows[i][10]) === Number(c.len === undefined ? 8 : c.len)) {
+          Number(rows[i][10] === '' ? 8 : rows[i][10]) === Number(c.len === undefined ? 8 : c.len) &&
+          String(rows[i][11] === undefined ? '' : rows[i][11]) ===
+            String(c.bedShare === undefined || c.bedShare === null ? '' : c.bedShare)) {
         sh.deleteRow(i + 1);
       }
     }
@@ -101,7 +106,9 @@ function doPost(e) {
                   Number(b.at) || Date.now(),
                   c.cc === undefined || c.cc === '' ? '' : "'" + String(c.cc),
                   c.start === undefined || c.start === null || c.start === '' ? 15 : Number(c.start),
-                  c.len === undefined || c.len === null || c.len === '' ? 8 : Number(c.len)]);
+                  c.len === undefined || c.len === null || c.len === '' ? 8 : Number(c.len),
+                  c.bedShare === undefined || c.bedShare === null || c.bedShare === '' ? ''
+                    : Number(c.bedShare)]);
     return json_(read_());
   } catch (err) {
     return json_({ error: String(err) });

@@ -71,10 +71,10 @@ class Handler(SimpleHTTPRequestHandler):
             entry = {"who": str(e.get("who", ""))[:28],
                      "cfg": {k: cfg_in.get(k) for k in
                              ("mode", "A", "R", "cyc", "assess", "fastDischarge",
-                              "cc", "start", "len")},
+                              "cc", "start", "len", "bedShare")},
                      "at": int(e.get("at", 0))}
             # 'rooms'/'zone' retired with the four-mode UI; shared-board.gs already rejects them
-            if not entry["who"] or entry["cfg"]["mode"] not in ("split", "pooled"):
+            if not entry["who"] or entry["cfg"]["mode"] not in ("split", "pooled", "bedfirst"):
                 return self.send_error(400)
 
             # One row per person per distinct lane. A row written before this file stored the
@@ -86,7 +86,8 @@ class Handler(SimpleHTTPRequestHandler):
                 return {k: c.get(k) for k in ("mode", "A", "R", "cyc", "assess", "fastDischarge")} | {
                     "cc": c.get("cc") or "",
                     "start": 15 if c.get("start") in (None, "") else c.get("start"),
-                    "len": 8 if c.get("len") in (None, "") else c.get("len")}
+                    "len": 8 if c.get("len") in (None, "") else c.get("len"),
+                    "bedShare": c.get("bedShare")}
             here = lane(entry["cfg"])
             board = [x for x in read()
                      if not (x.get("who") == entry["who"] and lane(x.get("cfg")) == here)]

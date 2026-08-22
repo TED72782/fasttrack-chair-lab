@@ -31,8 +31,8 @@ Heap.prototype.pop=function(){const a=this.a,top=a[0],last=a.pop();if(a.length){
    never occupy the space a finishing patient needs to vacate one. The lane closes at CLOSE and
    anyone still queueing goes to the main department. */
 function sim(cfg){
-  const {A, R, lam, asw, now, res, pooled, assessMin, fastDischarge, shr=D.shr,
-         floor=D.floor, days=600, seeds=[11,12,13,14], trace} = cfg;
+  const {A, R, lam, asw, now, res, pooled, bedFirst, bedShare=0, assessMin, fastDischarge,
+         shr=D.shr, floor=D.floor, days=600, seeds=[11,12,13,14], trace} = cfg;
   // `trace` records one evening, patient by patient, so the animation plays the SAME run the
   // numbers come from rather than a decorative loop of its own. Slots are tracked only here —
   // the maths never needs to know which chair, only how many are free.
@@ -52,6 +52,9 @@ function sim(cfg){
       const ev=new Heap(); for(let i=0;i<arr.length;i++) ev.push([arr[i],0,i]);
       ev.push([CLOSE,-1,-1]);
       const qa=[], qr=[], second=new Float64Array(arr.length);
+      // BED-FIRST only: set at arrival, because it is a triage decision — this patient cannot be
+      // put in a chair for their initial evaluation, whatever the queue looks like.
+      const bedReq = bedFirst ? new Uint8Array(arr.length) : null;
       const slotA = T ? new Int16Array(arr.length).fill(-1) : null;
       const slotB = T ? new Int16Array(arr.length).fill(-1) : null;
       let ab=0, rb=0, peak=0;
@@ -77,12 +80,55 @@ function sim(cfg){
       const takeNext = t => { if(!qa.length || ab>=A) return;
         const q=qa.shift(); rec(q[1], t-q[0]); startA(t,q[1]) };
 
+      /* ── BED-FIRST ────────────────────────────────────────────────────────────────────────
+         A third shape, and it is neither of the other two. A room is the DEFAULT, not a stage:
+         a patient takes one if one is free and keeps it until they leave. Chairs are overflow —
+         reached only when every room is full — and a share of patients cannot use one at all,
+         because their evaluation needs a door. Nobody is ever moved, which is the point: the
+         proposal is explicitly about not shuffling patients for the sake of process.
+
+         So the two pools are not a sequence, they are a preference with an eligibility rule,
+         and that is the whole of the difference. Set the bed-required share to zero and this
+         collapses exactly onto the pooled lane with A+R spaces — which is the right sanity
+         check, and also the honest statement of what the constraint costs. */
+      const draw = tag => { const w = r()<shr;
+        if(T) for(let i=T.length-1;i>=0;i--) if(T[i].id===tag && T[i].ev==="arrive"){ T[i].test=w; break }
+        return w ? pick(r,asw)+pick(r,res) : pick(r,now) };
+      const startBed = (t,tag) => { ab++;
+        if(T){ const s=freeA.pop(); slotA[tag]=s; T.push({t, id:tag, ev:"assess", slot:s}) }
+        second[tag]=0; ev.push([t+draw(tag),1,tag]) };
+      const startChair = (t,tag) => { rb++;
+        if(T){ const s=freeB.pop(); slotB[tag]=s; T.push({t, id:tag, ev:"second", slot:s}) }
+        ev.push([t+draw(tag),2,tag]) };
+      const takeBed = t => { if(!qa.length || ab>=A) return false;
+        const q=qa.shift(); rec(q[1], t-q[0]); startBed(t,q[1]); return true };
+      const takeChair = t => { if(rb>=R) return false;
+        // a bed-required patient waits for a door; the next person who can use a chair takes it
+        const i = qa.findIndex(q => !bedReq[q[1]]);
+        if(i<0) return false;
+        const q=qa.splice(i,1)[0]; rec(q[1], t-q[0]); startChair(t,q[1]); return true };
+      /* Rooms first, every time. takeBed only fires while a room is free, so by the time
+         takeChair is reached the rooms ARE full — the "chairs only at zero room capacity" rule
+         falls out of the order rather than needing a threshold of its own. */
+      const drain = t => { for(;;){ if(takeBed(t)) continue; if(takeChair(t)) continue; break } };
+
       while(ev.a.length){
         const e=ev.pop(), t=e[0], kind=e[1], tag=e[2];
         if(kind===-1){ for(const q of qa){ divN++; divWait += CLOSE-q[0]+floor; divH[hb(arr[q[1]])]++;
                                            rec(q[1], CLOSE-q[0], true);
                                            if(T) T.push({t, id:q[1], ev:"divert"}) }
                        qa.length=0; if(T) T.push({t, ev:"close"}); continue }
+        if(bedFirst){
+          if(kind===0){ if(T) T.push({t, id:tag, ev:"arrive", test: null});
+                        bedReq[tag] = r() < bedShare ? 1 : 0;
+                        qa.push([t,tag]); drain(t) }        // queue then drain, so nobody jumps
+          else { seen++;
+                 if(kind===1){ ab--; if(T){ freeA.push(slotA[tag]); T.push({t, id:tag, ev:"leave"}) } }
+                 else        { rb--; if(T){ freeB.push(slotB[tag]); T.push({t, id:tag, ev:"leave"}) } }
+                 drain(t) }
+          if(ab+rb > peak) peak = ab+rb;
+          continue;
+        }
         if(kind===0){ if(T) T.push({t, id:tag, ev:"arrive", test: null});
                       if(ab<A){ rec(tag,0); startA(t,tag) } else qa.push([t,tag]) }
         else if(kind===1){
@@ -140,11 +186,16 @@ const PLAY = {on:false, t:0, speed:60, raf:0, trace:null, A:0, R:0, last:0,
    what the settings imply, and say on screen how busy it was. "Another evening" steps through the
    rest, because the spread is real and worth seeing — it just should not be what you meet first. */
 function buildTrace(){
-  const m = modeOf(), lvl = LEVELS[S.level], f = m.id==="pooled" ? S.cyc/D.T_A : 1, mx = mix();
+  const m = modeOf(), lvl = LEVELS[S.level], mx = mix();
+  const f = (m.id==="pooled" || m.id==="bedfirst") ? S.cyc/D.T_A : 1;
   const hours = winHours(), fac = lvl.pts/D.day_mean;
   const lam = hours.map(h => D.lam24[h]*fac*mx.share);
   const expect = lam.reduce((a,b)=>a+b, 0);
-  const base = {A:S.A, R:m.hasR?S.R:0, pooled:m.id==="pooled", assessMin:S.assess,
+  /* ⚠ THE STAGE MUST RUN THE SAME MODEL AS THE NUMBERS. Everything the engine branches on has
+     to be listed here — a mode added to sim() and not to this line plays a DIFFERENT lane on
+     screen from the one the cards describe, which is worse than showing no lane at all. */
+  const base = {A:S.A, R:m.hasR?S.R:0, pooled:m.id==="pooled",
+                bedFirst:m.id==="bedfirst", bedShare:(S.bedShare||0)/100, assessMin:S.assess,
                 fastDischarge:S.fastDischarge, shr:mx.shr, lam,
                 asw:scale(D.asw, f*mx.fa), now:scale(D.now, f*mx.fo), res:scale(D.res, f*mx.fr),
                 days:1, trace:true};
@@ -216,8 +267,28 @@ function paintSlots(host, ids, st){
   });
 }
 
+/* The two zones mean different things in each layout, and an unlabelled "second area" holding
+   overflow chairs reads as the results area it is not. */
+function labelStage(m){
+  const ah = $("stageAH"), bh = $("stageBH");
+  if(ah) ah.textContent = m.id==="bedfirst" ? "In a room" : m.id==="pooled" ? "In a space" : "Being assessed";
+  if(bh) bh.textContent = m.id==="bedfirst" ? "In an overflow chair" : "Second area — results & discharge";
+  /* ⚠ "outlined in red" only exists where a patient can be BLOCKED mid-visit, which needs a
+     second area to be blocked out of. In the two layouts where nobody is ever moved it can
+     never fire, and promising it sent people hunting for a state the run cannot reach. */
+  const ft = $("stageFoot");
+  if(ft) ft.innerHTML = `Each figure is a patient; the dot on the shoulder marks the half who
+    need a test.` + (m.id==="split"
+      ? ` A space outlined in red holds someone with nowhere to move on to.`
+      : m.id==="bedfirst"
+        ? ` Rooms fill first — a chair is only ever taken once every room is full, and the
+            patients who must have a room wait for one rather than take a chair.`
+        : ` Nobody is moved in this layout, so a space is held for the whole visit.`);
+}
+
 function drawStageIdle(){
   const m = modeOf();
+  labelStage(m);
   $("stageClock").textContent = "--:--";
   $("stageWait").innerHTML = ""; $("stageWaitN").textContent = "0";
   $("stageA").innerHTML = new Array(S.A).fill(`<span class="slot"></span>`).join("");
@@ -236,6 +307,7 @@ function drawStage(){
   $("stageWait").innerHTML = new Array(Math.min(st.waiting, 22)).fill(person("wait", false)).join("")
     + (st.waiting > 22 ? `<span class="more">+${st.waiting-22}</span>` : "");
   $("stageWaitN").textContent = st.waiting;
+  labelStage(m);
   paintSlots($("stageA"), st.A, st);
   if(m.hasR) paintSlots($("stageB"), st.B, st);
   else $("stageB").innerHTML = `<span class="none">nobody moves in this layout</span>`;
@@ -244,8 +316,11 @@ function drawStage(){
   $("stageBar").style.width = (100*PLAY.t/(S.len*60)).toFixed(1) + "%";
   const busy = PLAY.n > PLAY.expect*1.15 ? "a busy one" : PLAY.n < PLAY.expect*0.85 ? "a quiet one" : "a typical one";
   $("stageHint").innerHTML = `This evening brought <b class="num">${PLAY.n}</b> patients into the lane
-    against a typical <b class="num">${PLAY.expect.toFixed(1)}</b> — ${busy}. A space outlined in red
-    holds a patient with nowhere to move on to.`;
+    against a typical <b class="num">${PLAY.expect.toFixed(1)}</b> — ${busy}.` + (m.id==="split"
+      ? ` A space outlined in red holds a patient with nowhere to move on to.`
+      : m.id==="bedfirst"
+        ? ` Watch the rooms fill before a single chair is used.`
+        : ``);
 }
 
 function tick(ts){
@@ -362,7 +437,7 @@ function evaluate(cfg, dayTotal){
   /* a board row saved in the four-mode era ('zone', 'rooms') must not crash the page for
      everyone sharing the board — fall back to split, the nearest surviving semantics */
   const m = MODES.find(x=>x.id===cfg.mode) || MODES[0];
-  const f = cfg.mode==="pooled" ? cfg.cyc/D.T_A : 1;
+  const f = (cfg.mode==="pooled" || cfg.mode==="bedfirst") ? cfg.cyc/D.T_A : 1;
   const hours = Array.from({length:cfg.len}, (_,i)=>(cfg.start+i)%24);
   const fac   = dayTotal / D.day_mean;
 
@@ -377,7 +452,8 @@ function evaluate(cfg, dayTotal){
   const o = accepted < 0.05 ? {idle:true, perArrival:0, wa:0, wr:0, stuck:0, worst:0, worstIdx:0,
                                byHour:hours.map(()=>0), diverted:0, divByHour:hours.map(()=>0),
                                arrived:0, seen:0, divPct:0}
-    : sim({A:cfg.A, R:m.hasR?cfg.R:0, pooled:cfg.mode==="pooled", 
+    : sim({A:cfg.A, R:m.hasR?cfg.R:0, pooled:cfg.mode==="pooled",
+           bedFirst:cfg.mode==="bedfirst", bedShare:(cfg.bedShare ?? 0)/100,
            assessMin:cfg.assess, fastDischarge:cfg.fastDischarge, shr:w("w"), lam,
            asw:scale(D.asw, f*w("a")/D.g.asw), now:scale(D.now, f*w("o")/D.g.now),
            res:scale(D.res, f*w("r")/D.g.res), days:cfg.days||600, seeds:cfg.seeds||[11,12,13,14]});
@@ -407,8 +483,25 @@ const MODES = [
                 hasR:true},
   {id:"pooled", t:"One group, patient stays put",
                 s:"A patient takes a space on arrival and keeps it until they leave. Nobody moves.",
-                hasR:false}
+                hasR:false},
+  /* Proposed by Blake. Rooms are the default and chairs are the overflow, with a class of
+     patient who cannot be put in a chair at all. See the bed-first block in sim(). */
+  {id:"bedfirst", t:"Rooms first, chairs only when rooms are full",
+                s:"A room if one is free, a chair only when they are all taken — and some patients need a room either way. Nobody moves.",
+                hasR:true}
 ];
+/* ⚠ WHAT THE CHIEF-COMPLAINT FIELD CAN AND CANNOT SEE. Blake's bed-required list is a clinical
+   rule, not a data field: "abdominal/pelvic pain", "full body exams (rashes)" and "exams of
+   sensitive areas" have complaints behind them, but "sensitive histories", "mental health",
+   "child abuse evaluations" and "families that are highly anxious/demanding/angry" do not — the
+   first two land in the 227-complaint bucket and the last two are a triage judgement nothing in
+   the record marks. So this is the FLOOR of the share, derived from the codable part, and it is
+   a slider for exactly that reason. Derived from the data rather than written down, so it moves
+   with each cut instead of rotting. */
+const BED_CC = ["Abdominal Pain", "Rash", "Dysuria"];
+const BED_DEFAULT = Math.round(100 * D.cc.filter(x=>BED_CC.indexOf(x.n)>=0)
+                                         .reduce((a,x)=>a+x.s, 0));
+
 // Named layouts the group has put forward. Each is a full setting, not a hint.
 const PRESETS = [
   {id:"mikelong", n:"The Mike Long Play",
@@ -420,6 +513,11 @@ const PRESETS = [
   {id:"rooms", n:"8 rooms + 10 chairs",
    set:{mode:"split", A:8, R:10, fastDischarge:true},
    d:"The larger estate: assessment in a room, then a second area of 10 chairs."},
+  /* Blake's proposal, on the SAME ten spaces as the 6+4 split and the 10 pooled, so the only
+     thing that differs between the three is the rule for who goes where. */
+  {id:"blake", n:"The Blake",
+   set:{mode:"bedfirst", A:6, R:4, bedShare:BED_DEFAULT},
+   d:"6 rooms, 4 overflow chairs. A room is the default; chairs are used only once the rooms are full, and the bed-required list never goes vertical."},
   {id:"six", n:"Group consensus — 6, split",
    set:{mode:"split", A:4, R:2, budget:6},
    d:"6 spaces, divided. Which split is best depends entirely on the assessment time — move that slider and watch the best split move with it."}
@@ -438,7 +536,7 @@ const LEVELS = [
 // against it. The page reports how long people wait and how many are turned away; what counts
 // as acceptable is a judgement for the room, not a line in a chart.
 const S = {mode:"split", A:6, R:4, budget:0, cyc:Math.round(D.T_A), assess:44,
-           fastDischarge:false, level:1, bar:"today", start:15, len:8};
+           fastDischarge:false, level:1, bar:"today", start:15, len:8, bedShare:BED_DEFAULT};
 
 /* ⚠ EVERY NUMBER THAT REACHES THE ENGINE IS CLAMPED ON THE WAY IN. Two of them arrive from
    outside this page and neither can be trusted: the '#' link (people edit them, and chat
@@ -447,7 +545,8 @@ const S = {mode:"split", A:6, R:4, budget:0, cyc:Math.round(D.T_A), assess:44,
    page: drawStageIdle() does `new Array(S.A)`, and new Array(NaN) — or (-3), or (6.5) — throws
    RangeError, which happened before a single button was wired, so Add / Play / Copy link were
    all inert. Limits mirror the sliders, so a clamped link lands somewhere the UI can show. */
-const LIM = {A:[1,14], R:[1,16], cyc:[55,115], assess:[10,90], start:[0,23], len:[2,24]};
+const LIM = {A:[1,14], R:[1,16], cyc:[55,115], assess:[10,90], start:[0,23], len:[2,24],
+             bedShare:[0,60]};
 function lim(k, v, dflt){
   const n = Math.round(+v);
   if(!Number.isFinite(n)) return dflt;
@@ -469,7 +568,7 @@ function drawModes(){
        <span class="t">${m.t}</span><br><span class="s">${m.s}</span></button>`).join("");
   $("modes").querySelectorAll("button").forEach(b=>b.onclick=()=>{
     S.mode=b.dataset.m; S.budget=0; const m=modeOf();
-    if(m.id==="pooled"){S.A=Math.min(12,S.A+S.R)}
+  if(m.id==="pooled"){S.A=Math.min(12,S.A+S.R)}
     if(m.id==="split" && S.A+S.R>16){S.A=6;S.R=4}
     drawModes();drawSpaces();run();
   });
@@ -488,8 +587,12 @@ function syncSpaces(){
 
 function drawSpaces(){
   const m=modeOf(), rows=[];
-  rows.push(ctl("A", m.id==="pooled" ? "Spaces in the group" : "Assessment spaces", S.A, 1, 14, false));
-  if(m.hasR) rows.push(ctl("R", "Second area — results &amp; discharge pending", S.R, 1, 16, false));
+  rows.push(ctl("A", m.id==="pooled" ? "Spaces in the group"
+                  : m.id==="bedfirst" ? "ED rooms the lane can use" : "Assessment spaces",
+                S.A, 1, 14, false));
+  if(m.hasR) rows.push(ctl("R", m.id==="bedfirst" ? "Chairs — overflow only"
+                             : "Second area — results &amp; discharge pending",
+                            S.R, 1, 16, false));
   const tot = S.A + (m.hasR?S.R:0);
   rows.push(`<div class="total"><span>Spaces in use</span><b class="num" id="spaceTot">${tot}${S.budget?" of "+S.budget:""}</b></div>`);
   $("spaceCtl").innerHTML = rows.join("");
@@ -557,6 +660,33 @@ function drawSpeed(m){
   const key = m.id + "|" + (S.fastDischarge ? 1 : 0);
   if(key === speedKey) return syncSpeed(m);
   speedKey = key;
+  /* Bed-first holds one space for the whole visit, exactly as pooled does, so it gets the same
+     pace dial — plus the one control the proposal turns on: how many patients cannot be put in
+     a chair at all. There is no assessment-move control here, because nobody moves. */
+  if(m.id==="bedfirst"){
+    host.innerHTML = `<div class="ctl"><div class="ctl-top">
+        <label for="cyc">How fast a space turns over</label>
+        <output class="num" id="cycOut"></output></div>
+      <input type="range" id="cyc" min="55" max="115" step="1" value="${S.cyc}">
+      <div class="hint">Nobody is moved in this layout, so one space &mdash; room or chair &mdash;
+        carries the whole visit, ${Math.round(D.hold_all)} min on average today. A pace, not a
+        duration.</div></div>
+      <div class="ctl"><div class="ctl-top">
+        <label for="bedsh">Must have a room</label>
+        <output class="num" id="bedshOut"></output></div>
+      <input type="range" id="bedsh" min="0" max="60" step="1" value="${S.bedShare}">
+      <div class="hint">The share of patients whose initial evaluation needs a door: a full-body
+        or sensitive-area exam, a sensitive history, a family that needs privacy. They queue for a
+        room and never take a chair. <b>${BED_DEFAULT}%</b> is what the chief-complaint field can
+        actually see (abdominal pain, rash, dysuria) &mdash; a floor, not an estimate. Mental
+        health, child-abuse evaluations and "this family needs a door" are triage judgements
+        nothing in the record marks, so the real number is higher by an amount only the group can
+        put a figure on. At <b>0%</b> this layout is exactly the pooled one over the same total
+        estate &mdash; the gap between them IS the cost of the rule.</div></div>`;
+    $("cyc").oninput   = e => { S.cyc = +e.target.value; syncSpeed(m); requestRun() };
+    $("bedsh").oninput = e => { S.bedShare = +e.target.value; syncSpeed(m); requestRun() };
+    return syncSpeed(m);
+  }
   if(m.id==="pooled"){
 /* ⚠ This dial is a PACE, not a duration. It scales the measured service times by
        cyc/T_A; the space is actually held for the whole visit, which is ~D.hold_all at
@@ -591,6 +721,15 @@ function drawSpeed(m){
 
 /* The cheap half: text only, safe to call on every pointer move. */
 function syncSpeed(m){
+  if(m.id==="bedfirst"){
+    const pct = Math.round(100 - 100*S.cyc/D.T_A);
+    const o = $("cycOut");
+    if(o) o.textContent = pct===0 ? "today's pace" : (pct>0 ? pct+"% faster" : (-pct)+"% slower");
+    const c = $("cyc"); if(c && +c.value !== S.cyc) c.value = S.cyc;
+    const b = $("bedshOut"); if(b) b.textContent = S.bedShare + "% of patients";
+    const bs = $("bedsh"); if(bs && +bs.value !== S.bedShare) bs.value = S.bedShare;
+    return;
+  }
   if(m.id==="pooled"){
     const pct = Math.round(100 - 100*S.cyc/D.T_A);
     const o = $("cycOut");
@@ -716,6 +855,8 @@ function sane(cfg){
   return {mode:m, A:lim("A",cfg.A,6), R:lim("R",cfg.R,4),
           cyc:lim("cyc",cfg.cyc,Math.round(D.T_A)), assess:lim("assess",cfg.assess,44),
           fastDischarge: cfg.fastDischarge===true,
+          // a row saved before bed-first existed has no share; it was not that layout anyway
+          bedShare: lim("bedShare", cfg.bedShare, BED_DEFAULT),
           // entries saved before the window was adjustable ran the original 15:00-23:00 lane
           start:lim("start",cfg.start,15), len:lim("len",cfg.len,8), cc:cfg.cc};
 }
@@ -742,6 +883,7 @@ async function addEntry(){
   const who = ($("who").value||"").trim().slice(0,28);
   if(!who){ $("who").focus(); return }
   const cfg = {mode:S.mode, A:S.A, R:S.R, cyc:S.cyc, assess:S.assess, fastDischarge:S.fastDischarge,
+               bedShare:S.bedShare,
                cc:[...PICK].sort((a,b)=>a-b).join("."), start:S.start, len:S.len};
   const entry = {who, cfg, at: Date.now()};
   if(SHARED){
@@ -769,6 +911,7 @@ function drawBoard(){
     // r.cfg is the SANITISED cfg scoreOf ran — a legacy 'zone' row must not print a shape its
     // own score was never computed from
     const shape = r.cfg.mode==="pooled" ? `${r.cfg.A} pooled`
+                : r.cfg.mode==="bedfirst" ? `${r.cfg.A} rm + ${r.cfg.R} ch`
                 : `${r.cfg.A}+${r.cfg.R}`;
     const big = r.spaces > most;
     return `<tr><td class="num">${i+1}</td><td>${r.who}</td>
@@ -821,7 +964,12 @@ function drawBoard(){
    joined by '.', appended only when narrowed so untouched links keep their old shape. */
 function hashState(){
   const c = [S.mode,S.A,S.R,S.cyc,S.assess,S.fastDischarge?1:0,S.level,S.start,S.len];
-  if(PICK.size < CC.length) c.push([...PICK].sort((x,y)=>x-y).join("."));
+  /* Field 10 is the criteria and field 11 the bed-required share. The share only rides along in
+     the layout that has one, and an empty field 10 holds its place when nothing was narrowed —
+     so a link from any other layout keeps the shape it has always had. */
+  const bs = S.mode==="bedfirst" ? String(S.bedShare) : "";
+  if(PICK.size < CC.length || bs) c.push(PICK.size < CC.length ? [...PICK].sort((x,y)=>x-y).join(".") : "");
+  if(bs) c.push(bs);
   return c.join(",");
 }
 function toHash(){
@@ -845,7 +993,8 @@ function fromHash(){
                     assess:lim("assess",p[4],44), fastDischarge:p[5]==="1", level:lvl, budget:0,
                     start: p.length>=9 ? lim("start",p[7],15) : 15,
                     len:   p.length>=9 ? lim("len",p[8],8)    : 8});
-  if(p.length>=10) PICK = new Set(p[9].split(".").filter(v=>v!=="").map(Number));
+  if(p.length>=10 && p[9] !== "") PICK = new Set(p[9].split(".").filter(v=>v!=="").map(Number));
+  S.bedShare = p.length>=11 ? lim("bedShare", p[10], BED_DEFAULT) : BED_DEFAULT;
 }
 
 /* ⚠ BUILT ONCE, THEN ONLY THE READOUTS CHANGE. These sliders sit next to the chart they drive,
@@ -958,6 +1107,7 @@ function requestRun(){
 function run(){
   const m=modeOf(), lvl=LEVELS[S.level];
   const cfg = {mode:S.mode, A:S.A, R:S.R, cyc:S.cyc, assess:S.assess, fastDischarge:S.fastDischarge,
+               bedShare:S.bedShare,
                cc:[...PICK].sort((a,b)=>a-b).join("."), start:S.start, len:S.len, bar:S.bar};
   const E = evaluate(cfg, lvl.pts), o = E.o;
   drawSpeed(m); drawWindow(); syncWindow();
@@ -968,7 +1118,7 @@ function run(){
   const mins = S.len*60;
   const mx = mix();
   // what one patient demands of each side, given the assessment time the physician set
-  const fPace = m.id==="pooled" ? S.cyc/D.T_A : 1;
+  const fPace = (m.id==="pooled" || m.id==="bedfirst") ? S.cyc/D.T_A : 1;
   const perAssess = m.id==="pooled" ? D.hold_all*fPace
     : S.fastDischarge ? S.assess
     : mx.shr*S.assess + (1-mx.shr)*D.g.now*mx.fo;
@@ -976,10 +1126,25 @@ function run(){
     : S.fastDischarge
       ? mx.shr*(D.g.asw*mx.fa + D.g.res*mx.fr - S.assess) + (1-mx.shr)*Math.max(0, D.g.now*mx.fo - S.assess)
       : mx.shr*(D.g.asw*mx.fa + D.g.res*mx.fr - S.assess);
-  const sides = [{n:"assessment", spaces:S.A, thing:"assessment spaces",
-                  load: E.accepted*perAssess/(S.A*mins), cap: S.A*mins/perAssess}];
-  if(m.hasR) sides.push({n:"results", spaces:S.R, thing:"results chairs",
-                         load: E.accepted*perRes/(S.R*mins), cap: S.R*mins/perRes});
+  /* ⚠ BED-FIRST HAS A DIFFERENT TIGHT SPOT, and reading it as two independent pools would be
+     wrong in both directions. Rooms are not a stage every patient passes through — they are the
+     preferred pool, so the estate is really ONE pool of A+R with a rule attached. What the rule
+     adds is a second constraint on top: the bed-required share can only ever be served by the A
+     rooms. Either can bind, so both are offered and the worse one is named. */
+  const sides = [];
+  if(m.id==="bedfirst"){
+    const hold = D.hold_all*fPace, br = (S.bedShare||0)/100;
+    sides.push({n:"estate", spaces:S.A+S.R, thing:"rooms and chairs together", coming: E.accepted,
+                load: E.accepted*hold/((S.A+S.R)*mins), cap: (S.A+S.R)*mins/hold});
+    if(br > 0) sides.push({n:"rooms", spaces:S.A, coming: E.accepted*br,
+                thing:"rooms, for the patients who cannot be put in a chair",
+                load: E.accepted*br*hold/(S.A*mins), cap: S.A*mins/hold});
+  } else {
+    sides.push({n:"assessment", spaces:S.A, thing:"assessment spaces", coming: E.accepted,
+                load: E.accepted*perAssess/(S.A*mins), cap: S.A*mins/perAssess});
+    if(m.hasR) sides.push({n:"results", spaces:S.R, thing:"results chairs", coming: E.accepted,
+                           load: E.accepted*perRes/(S.R*mins), cap: S.R*mins/perRes});
+  }
   const bind = sides.reduce((a,b)=>b.load>a.load?b:a), rho = bind.load;
 
   if(o.idle){
@@ -991,7 +1156,7 @@ function run(){
     $("load").innerHTML = rho >= 1
       ? `<b>Too many patients for the ${bind.thing}.</b> Across the whole shift they can get
          through about <b class="num">${bind.cap.toFixed(0)}</b> patients, and
-         <b class="num">${E.accepted.toFixed(0)}</b> are coming. The queue never catches up, so
+         <b class="num">${bind.coming.toFixed(0)}</b> are coming. The queue never catches up, so
          people are still waiting when it closes.`
       : `<b>The ${bind.thing} are the tight spot.</b> On average
          <b class="num">${busy.toFixed(1)}</b> of your <b class="num">${bind.spaces}</b> are in use.

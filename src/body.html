@@ -80,11 +80,11 @@
           <div class="wait-pool" id="stageWait"></div>
         </div>
         <div class="zone">
-          <div class="zone-h">Being assessed</div>
+          <div class="zone-h" id="stageAH">Being assessed</div>
           <div class="slots" id="stageA"></div>
         </div>
         <div class="zone">
-          <div class="zone-h">Second area — results &amp; discharge</div>
+          <div class="zone-h" id="stageBH">Second area — results &amp; discharge</div>
           <div class="slots" id="stageB"></div>
         </div>
         <div class="zone tally">
@@ -93,8 +93,7 @@
           <div class="big num warnv" id="stageSent">0</div>
         </div>
       </div>
-      <div class="stage-f">Each figure is a patient; the dot on the shoulder marks the half who
-        need a test. A space outlined in red holds someone with nowhere to move on to.</div>
+      <div class="stage-f" id="stageFoot"></div>
     </section>
 
     <section class="panel" style="margin-top:14px">
@@ -250,6 +249,23 @@
             at all, and half an evening's delay can land in a single hour — which is why the worst
             hour is shown separately. Two layouts a minute or two apart are not reliably in that
             order; rerun them and they can swap.</li>
+        <li><b>The bed-first layout is scored on delay, and that is not the case for it.</b>
+            "Rooms first, chairs only when rooms are full" was proposed for privacy, for a more
+            thorough initial evaluation behind a door, and for cutting the handoffs and forgotten
+            tasks that come from moving a patient mid-visit. <b>None of those are in this model.</b>
+            What the page can tell you is what the rule costs in minutes — and the answer is that
+            it costs very little while there are enough rooms, and a great deal when there are
+            not. Read the score here as "what am I giving up to do this", not as a verdict on
+            whether to do it.</li>
+        <li><b>"Must have a room" is a floor, not a measurement.</b> The share is set from the
+            chief complaints the record can actually see. The rest of the reasons a patient needs
+            a door &mdash; a sensitive history, a mental-health presentation, a child-abuse
+            evaluation, a family that is frightened or angry &mdash; are triage judgements that
+            appear nowhere in the data. So the true share is higher than the default by an amount
+            only the people doing triage can put a number on. Move the slider to yours.</li>
+        <li><b>A room and a chair are treated as taking the same time.</b> If an evaluation behind
+            a door is genuinely faster or more thorough than one in a chair, that is not modelled
+            &mdash; nothing measures it. It would help the bed-first layout if true.</li>
         <li><b>It cannot see the ward.</b> Who is watching a patient waiting on a result, whether an
             open chair is right for a given child, and what happens at 23:00 are all real and none
             of them are in here. If pooling wins on this screen and loses on the floor, the floor

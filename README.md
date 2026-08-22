@@ -94,12 +94,39 @@ to build, not about six spaces as such.
 It assumes the main department's wait is unaffected by the lane. Taking work out of it should
 make that shorter, so if anything this understates what excluding patients costs.
 
-## The two layouts
+## The three layouts
 
 | | |
 |---|---|
 | **Assessment spaces + a second area** | Assessed in one space, then moved to a second area to wait for a result **or to be discharged**. |
 | **One group, patient stays put** | A patient takes a space on arrival and keeps it until they leave. Nobody moves. |
+| **Rooms first, chairs only when rooms are full** | A room if one is free; a chair only once every room is taken. A share of patients cannot use a chair at all. Nobody moves. |
+
+### The Blake
+
+The third layout is Blake's proposal, and it is a rule rather than a shape: **a room is the
+default, not a stage.** Chairs are the flex state, reached only when room capacity hits zero, and
+a bed-required list of presentations never goes vertical at all — a full-body or sensitive-area
+exam, a sensitive history, a family that needs a door. Nobody is moved once placed, which is the
+point: the proposal is explicitly about not shuffling patients for the sake of process.
+
+Two things to know before reading its score.
+
+**Most of what it is for is not in the model.** Privacy, a more thorough evaluation behind a door,
+and fewer handoffs and forgotten tasks are the reasons to do this, and the page prices none of
+them. It measures what the rule *costs* in minutes, which is the question it can answer.
+
+**The bed-required share is a floor, not a measurement.** The default comes from the complaints
+the record can actually see. Mental health, child-abuse evaluations and "this family needs a door"
+are triage judgements that appear nowhere in the data, so the true share is higher by an amount
+only the people doing triage can name. It is a slider for that reason.
+
+Set the share to zero and this layout collapses exactly onto the pooled one over the same
+estate — which is the sanity check, and also the honest statement of what the rule costs. On the
+same ten spaces, the ordering runs: bed-first at the codable share ≈ pooled, both well ahead of
+the 6+4 split. **The rule is close to free while there are enough rooms, and expensive when there
+are not** — a chair-heavy footprint is what it punishes, because the patients who need a door are
+queueing for a shrinking number of them.
 
 **You set the assessment time** — how long a patient keeps an assessment space before moving on.
 Measured today, a patient needing a test holds it 72 minutes, but that is the time to their first
