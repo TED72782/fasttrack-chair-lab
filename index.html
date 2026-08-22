@@ -413,7 +413,7 @@ footer{margin-top:26px;font-size:12.5px;color:var(--ink-3);border-top:1px solid 
       <div class="crit-hint">Presentations that need a door for the initial evaluation, and so
         wait for a room rather than take a chair. Tap a complaint to add or remove it. The three
         ticked to start are the ones Blake named that a chief complaint can actually carry
-        &mdash; abdominal pain, rash, dysuria, and the genital complaints as a group. <b>That is a starting point, not an answer:</b>
+        &mdash; abdominal pain, rash, and the genital complaints as a group. <b>That is a starting point, not an answer:</b>
         this is the list the MD group has to establish and sign off, and it is a clinical
         judgement rather than anything the data can settle.</div>
       <div class="crit-list" id="bedList"></div>
@@ -428,8 +428,9 @@ footer{margin-top:26px;font-size:12.5px;color:var(--ink-3);border-top:1px solid 
         <p><b>Urinary complaints are deliberately not in that group.</b> Dysuria, hematuria and
           urinary frequency or retention &mdash; <b>205 visits, 1.3%</b> &mdash;
           do not usually need a sensitive exam, which is the whole reason the group exists
-          (physicians, 2026-08-22). Dysuria stays ticked on its own, exactly as Blake wrote it;
-          it is on the list for its own reasons, not as a stand-in for a genital exam.</p>
+          (physicians, 2026-08-22). <b>Dysuria has come off the list</b> for the same reason: it was
+          Blake&rsquo;s sensitive-exam entry, and that is the rationale the physicians withdrew. It
+          is still there to tick if the group wants it back on other grounds.</p>
 
         <div class="eyebrow">An interpreter is now measured, not guessed</div>
         <p><b>11.4% of this lane needs an interpreter</b> &mdash; preferred language is
@@ -1267,7 +1268,12 @@ const MODES = [
 
    So the ticked default is the FLOOR of the share, and the rest is a control. Derived from the
    data rather than written down, so it moves with each cut instead of rotting. */
-const BED_CC = ["Abdominal Pain", "Rash", "Dysuria"];
+/* ⚠ DYSURIA WAS HERE AND IS NOT ANY MORE — operator, 2026-08-22, closing the question this file
+   raised when the genital group was split out. It was on Blake's original list as the
+   sensitive-exam entry; the physicians have since said a urinary complaint does not usually need
+   one, which is why urinary sits outside the genital group. Leaving it ticked would have kept the
+   rule under a rationale its own authors had withdrawn. It is still a complaint anyone can tick. */
+const BED_CC = ["Abdominal Pain", "Rash"];
 /* The genital group joins by KEY, not by name: its label carries a member count that moves with
    the data, so a name match would silently un-tick Blake's list the first time a new genital
    complaint appeared. ⚠ Urinary complaints are deliberately NOT in that group — operator,

@@ -160,7 +160,7 @@ usually to help Ted get one of these unstuck rather than to start editing.
 | 2 | ~~Open the live page and check the leaderboard footer~~ **DONE 2026-08-22** | — | Verified in Chrome on Ted's laptop: footer reads *"shared board — everyone using this link sees the same list"*, `SHARED === true`, the baked `DEFAULT_BOARD` answers, and the live page serves the bed-first build. Closes open threads 4 and 6. |
 | 3 | ~~Ask the extract for GU complaint rows + preferred-language~~ **NOT NEEDED — DONE 2026-08-22** | — | Both were already in `quality_deid.db`; `language` has been carried since 2026-08-15. Now measured and shipped. See open threads 2 and 3. |
 | 4 | **Get the residual share from Blake** | Blake | Still 0%, but a smaller question than it was: the two shares that could be measured have been, so it now covers only a sensitive history and a family who needs a door. |
-| 5 | **Decide whether Dysuria stays on the exclusion list** | Blake | It was ticked as the sensitive-exam entry, and the physicians have since said urinary complaints do not usually need a sensitive exam. Left ticked — removing a complaint from his own list is not a call this repo should make silently. |
+| ~~5~~ | ~~Decide whether Dysuria stays on the exclusion list~~ **DECIDED 2026-08-22: OFF** | — | It was Blake's sensitive-exam entry, and the physicians withdrew that rationale when they put urinary complaints outside the genital group. Removed from the ticked default; still tickable if the group wants it back on other grounds. Bed-required goes 9% → 8% of the lane. |
 
 Ted has been distributing the link to physicians, so **regressions are now user-visible**. Rebuild
 and run all three checks before any push, and prefer a browser check for anything touching layout.

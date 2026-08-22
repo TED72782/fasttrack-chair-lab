@@ -621,7 +621,12 @@ const MODES = [
 
    So the ticked default is the FLOOR of the share, and the rest is a control. Derived from the
    data rather than written down, so it moves with each cut instead of rotting. */
-const BED_CC = ["Abdominal Pain", "Rash", "Dysuria"];
+/* ⚠ DYSURIA WAS HERE AND IS NOT ANY MORE — operator, 2026-08-22, closing the question this file
+   raised when the genital group was split out. It was on Blake's original list as the
+   sensitive-exam entry; the physicians have since said a urinary complaint does not usually need
+   one, which is why urinary sits outside the genital group. Leaving it ticked would have kept the
+   rule under a rationale its own authors had withdrawn. It is still a complaint anyone can tick. */
+const BED_CC = ["Abdominal Pain", "Rash"];
 /* The genital group joins by KEY, not by name: its label carries a member count that moves with
    the data, so a name match would silently un-tick Blake's list the first time a new genital
    complaint appeared. ⚠ Urinary complaints are deliberately NOT in that group — operator,
