@@ -39,30 +39,48 @@ wording. Take those at face value and follow them through the model.
 | the extract | whoever pulls the ESI 4/5 data out of the source system |
 | the bar / changing nothing | today's arrangement, 50.0 min |
 
-## Where things stand (2026-08-22)
+## Where we left off (2026-08-22)
 
-Two days of work, all merged to `main` and live. In order:
+**Status: everything is shipped.** All work is merged to `main`, pushed, and live on GitHub
+Pages. Working tree clean, nothing half-finished, no branch waiting to merge. The last thing done
+was a scope correction from Ted (mental health is not ESI 4/5). If Ted says "continue", he means
+one of the **Next actions** below, not unfinished code.
 
-1. **A pre-release bug sweep** (`b85a4ab`). The page had no doctype (quirks mode) and no viewport
-   meta, so every mobile breakpoint in the CSS was dead and phones got the desktop grid scaled
-   down. A malformed `#` link threw before any handler was wired and killed the page. Board rows
-   could load as a different lane than was ranked. Both backends lost fields.
-2. **"The Blake"** (`8453778`) — a third layout mode, `bedfirst`. Not a preset: it is a routing
-   *rule* neither existing mode could express. A room is the default; chairs are overflow used
-   only once rooms are full; some patients cannot use a chair at all; nobody is moved once placed
-   (his anti-churn point). Finding: on the same ten spaces it scores ≈ pooled and well ahead of
-   the 6+4 split, so the rule is close to free — *while there are enough rooms*. It gets expensive
-   fast on a chair-heavy footprint.
-3. **The exclusion list** (`dc029d9`) — Blake's point is that the MD group signs off an *explicit*
-   list, so it is a tickable panel of complaints plus a residual slider, not a hidden number.
-4. **Four scope corrections from Ted**, each of which changed the model (`dda7ffd`, `a03ba12`,
-   `dc75524`, `0899983`): child abuse and mental health are outside the ESI 4/5 population; GU
-   concerns are recorded but hidden in an aggregate bucket; not speaking English belongs on the
-   list and is measurable.
+### What the lab now concludes
 
-**What the score cannot say, and the page says so loudly:** Blake proposed bed-first for privacy,
-thoroughness behind a door, and fewer handoffs. None of that is in the model. It prices what the
-rule *costs* in minutes. Do not let the lab read as a verdict on his argument.
+Re-run before quoting — these move with each data cut. Busy day (63 patients), lane open
+15:00–23:00, assessment ending at 44 min, a no-test patient keeping the space:
+
+| lane, same ten spaces | score |
+|---|---|
+| pooled 10 | 28.9 |
+| **The Blake** — 6 rooms + 4 chairs, Blake's list | **29.2** |
+| split 6+4 | 36.8 |
+| *changing nothing (the bar)* | *50.0* |
+
+**The headline for Blake: his rule is close to free.** Bed-first lands level with the best layout
+the lab had, while delivering the privacy and no-churn benefits the score cannot see. But it
+depends entirely on having rooms — at a flat 25% bed-required, 8 rooms + 2 chairs scores 29.3
+and 2 rooms + 8 chairs scores 39.3. A chair-heavy footprint is what the exclusion list punishes.
+
+**Say this whenever the score comes up:** Blake proposed bed-first for privacy, thoroughness
+behind a door, and fewer handoffs. *None of that is in the model.* It prices what the rule costs
+in minutes. Do not let the lab read as a verdict on his argument — the page says so in three
+places and that framing should survive into the room.
+
+### How it got here
+
+1. **A pre-release bug sweep** (`b85a4ab`). No doctype (quirks mode) and no viewport meta, so
+   every mobile breakpoint was dead code and phones got the desktop grid scaled down. A malformed
+   `#` link threw before any handler was wired and killed the page. Board rows could load as a
+   different lane than was ranked. Both backends silently dropped fields.
+2. **"The Blake"** (`8453778`) — a third mode, `bedfirst`. Not a preset: a routing *rule* neither
+   existing mode could express. Room by default, chairs as overflow, some patients cannot use a
+   chair at all, nobody moved once placed (his anti-churn point).
+3. **The exclusion list** (`dc029d9`) — his point is that the MD group signs off an *explicit*
+   list, so it became a tickable panel plus a residual slider, not a hidden number.
+4. **Four scope corrections from Ted**, each of which changed the model, not just the wording
+   (`dda7ffd`, `a03ba12`, `dc75524`, `0899983`).
 
 ---
 
@@ -130,6 +148,21 @@ bed-required list that never goes vertical; nobody moves).
 Retired modes `zone`/`rooms` survive only as legacy board rows and fall back to `split`.
 
 ---
+
+## Next actions
+
+Nothing is blocked on code. Everything below is blocked on a person, so the useful move is
+usually to help Ted get one of these unstuck rather than to start editing.
+
+| # | action | owner | why it matters |
+|---|---|---|---|
+| 1 | **Re-push the Apps Script deployment** — Deploy → Manage deployments → New version | Ted, on his laptop | The board schema changed twice on 2026-08-22. Until this is done, Blake lanes save to the shared board **without their exclusion list**. Editing the script does not change what is deployed. |
+| 2 | **Open the live page and check the leaderboard footer** | Ted | It must read *"shared board — everyone using this link sees the same list"*. If it says *unreachable*, every physician silently gets a private board and the group comparison — the whole point — quietly does not happen. |
+| 3 | **Ask the extract for GU complaint rows + preferred-language / interpreter need** | whoever runs the extract | Turns two slider guesses into measurements. See open threads 2 and 3. |
+| 4 | **Get the residual share from Blake** | Blake | It ships at 0%, which the page says outright is too low. |
+
+Ted has been distributing the link to physicians, so **regressions are now user-visible**. Rebuild
+and run all three checks before any push, and prefer a browser check for anything touching layout.
 
 ## Open threads (as of 2026-08-22 — re-check before relying on these)
 
