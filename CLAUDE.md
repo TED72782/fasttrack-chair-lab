@@ -156,7 +156,7 @@ usually to help Ted get one of these unstuck rather than to start editing.
 
 | # | action | owner | why it matters |
 |---|---|---|---|
-| 1 | **Re-push the Apps Script deployment** — Deploy → Manage deployments → New version | Ted, on his laptop | ⚠ **MEASURED 2026-08-22, worse than this line used to say.** The deployed script does not drop the exclusion list — it **rejects the whole row**, `{"error":"bad entry"}`, because `bedfirst` is not in its allowed-mode list. `pushShared` then returns false, so the physician is silently dropped to a browser-local board and the footer flips to *"shared board unreachable"*. **Every Blake lane saved before this redeploy is invisible to the group.** Editing the script does not change what is deployed. |
+| 1 | ~~Re-push the Apps Script deployment~~ **DONE 2026-08-22 — Version 7** | — | The project's `Code.gs` was **stale**, so a redeploy alone would have been a no-op: its `HEAD` lacked `bedcc`/`bedExtra` and its `modes` lacked `bedfirst`. The repo's `shared-board.gs` was pasted in, saved, and the EXISTING deployment moved to a new version — same Deployment ID `…6fwLWXM6auKC`, so the address baked into the page is unchanged. Verified live: a Blake lane now saves with `mode: bedfirst`, `bedcc: 2.9.20`, `bedExtra: 0`, and loads back identically. |
 | 2 | ~~Open the live page and check the leaderboard footer~~ **DONE 2026-08-22** | — | Verified in Chrome on Ted's laptop: footer reads *"shared board — everyone using this link sees the same list"*, `SHARED === true`, the baked `DEFAULT_BOARD` answers, and the live page serves the bed-first build. Closes open threads 4 and 6. |
 | 3 | **Ask the extract for GU complaint rows + preferred-language / interpreter need** | whoever runs the extract | Turns two slider guesses into measurements. See open threads 2 and 3. |
 | 4 | **Get the residual share from Blake** | Blake | It ships at 0%, which the page says outright is too low. |
@@ -200,7 +200,11 @@ and run all three checks before any push, and prefer a browser check for anythin
    answers, `SHARED === true`, the footer reads *"shared board — everyone using this link sees the
    same list"*, and it returns the three existing rows. Physicians opening the plain link share one
    board.
-5. **The Apps Script deployment still needs a new version pushed** (Deploy → Manage deployments →
+5. ~~The Apps Script deployment still needs a new version pushed~~ **RESOLVED 2026-08-22, and the
+   cause was one layer deeper than expected: the Apps Script project's own `Code.gs` was stale, not
+   just its deployment. Nobody had ever pasted `shared-board.gs` in — no session could reach
+   `script.google.com`. Redeploying without pasting would have shipped the same rejection and looked
+   like a fix.** Kept below because the failure signature is worth recognising: (Deploy → Manage deployments →
    New version) — and the failure is not the one this file predicted. Measured against the live
    endpoint: a `bedfirst` row comes back `{"error":"bad entry"}` and is **rejected entirely**, with
    or without `bedcc`/`bedExtra`. The cause is `shared-board.gs:87` — `modes` gained `'bedfirst'`
