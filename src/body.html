@@ -158,19 +158,17 @@
           this page ships aggregates only, so it cannot do that on its own. <b>Until then they
           belong in the share below</b>, along with the reasons that will never be codable.</p>
         <div class="eyebrow">And the part no chief complaint can capture</div>
-        <p>Four more reasons a patient needs a door, and <b>none of them is a chief
+        <p>Three more reasons a patient needs a door, and <b>none of them is a chief
           complaint</b>, so no amount of ticking above will find them:</p>
         <ul>
           <li><b>A patient or family who does not speak English</b> &mdash; an interpreted
               evaluation has to be both audible and private, which a chair in an open bay is
               not, and an interpreter often has to be physically placed at the bedside.</li>
           <li><b>A sensitive history</b> &mdash; taken in the open, it is not taken.</li>
-          <li><b>A mental-health presentation</b> &mdash; recorded under many complaints, and
-              often under none of the 24 above.</li>
           <li><b>A family who needs a door</b> &mdash; frightened, angry or simply at the end of
               their patience. A triage judgement made in the moment and written down nowhere.</li>
         </ul>
-        <p><b>The first of those is not like the other three.</b> Preferred language and
+        <p><b>The first of those is not like the other two.</b> Preferred language and
           interpreter need are <i>recorded fields</i> &mdash; they are taken at registration, not
           judged at the bedside &mdash; so that share could be <b>measured rather than guessed</b>.
           It is simply not in this build's extract. Ask for it alongside the GU complaints and
@@ -178,13 +176,18 @@
         <p>Until then the only honest thing the page can do is ask you for the number.
           <b>It starts at zero, which is certainly too low</b> &mdash; the GU complaints and the
           interpreted encounters alone put it above zero.</p>
-        <p><b>Child-abuse evaluations are deliberately not on that list</b>, though Blake names
-          them. They do get coded &mdash; typically as <i>Well Child</i> &mdash; but a concern
-          recognised at triage is not triaged ESI 4/5, and every encounter behind this page is
-          ESI 4/5. Those patients never reach this lane, so counting them here would pad the
-          share with people the lane never sees. The <i>Well Child</i> arrivals in the list above
-          are ordinary low-acuity visits, not this. A concern that surfaces only after rooming is
-          a separate problem, and no triage-time routing rule can act on it either way.</p>
+        <p><b>Two of the reasons Blake names are deliberately absent from all of this:
+          child-abuse evaluations and mental-health presentations.</b> Neither is missing from
+          the data &mdash; they are missing from this <i>population</i>. Every encounter behind
+          this page is ESI 4/5, and neither is triaged there. A child-abuse concern is usually
+          coded as <i>Well Child</i>, so it looks present and is not; recognised at triage, it is
+          triaged up. Mental-health presentations do not reach ESI 4/5 at all. Those patients
+          never arrive in this lane, so counting either here would pad the share with people the
+          lane never sees &mdash; and the <i>Well Child</i> arrivals in the list above are
+          ordinary low-acuity visits, not this.</p>
+        <p>Both still need a door. They are someone else's flow problem, not this lane's. And a
+          concern that surfaces only <i>after</i> rooming is a third case again &mdash; no
+          triage-time routing rule can act on that one either way.</p>
         <div id="bedExtraCtl"></div>
       </div>
       <div class="crit-f">The two parts add up: the complaints you tick, plus this share of
@@ -324,8 +327,8 @@
             whether to do it.</li>
         <li><b>"Must have a room" is a floor, not a measurement.</b> The share is set from the
             chief complaints the record can actually see. The rest of the reasons a patient needs
-            a door &mdash; a sensitive history, a mental-health presentation, a family that is
-            frightened or angry &mdash; are triage judgements that appear nowhere in the data. So the true share is higher than the default by an amount
+            a door &mdash; a sensitive history, a family that is frightened or angry &mdash; are
+            triage judgements that appear nowhere in the data. So the true share is higher than the default by an amount
             only the people doing triage can put a number on. Move the slider to yours.</li>
         <li><b>A room and a chair are treated as taking the same time.</b> If an evaluation behind
             a door is genuinely faster or more thorough than one in a chair, that is not modelled

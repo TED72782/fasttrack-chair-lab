@@ -131,17 +131,19 @@ speak English** needs a door for an interpreted evaluation — preferred languag
 need are recorded at registration, so that share could be measured rather than guessed. Neither is
 in this extract. Ask for both and two slider guesses become numbers.
 
-The remaining reasons — a sensitive history, a mental-health presentation, a family who needs a
-door — **are not chief complaints and never will be**, so no amount of ticking finds them. They get a second control: *plus this share of everyone else*. It starts at zero, which is
+The remaining reasons — a sensitive history, a family who needs a door — **are not chief
+complaints and never will be**, so no amount of ticking finds them. They get a second control: *plus this share of everyone else*. It starts at zero, which is
 certainly too low, and the page says so. Only the people doing triage can put the real number
 on it.
 
-**Child-abuse evaluations are on his list and deliberately not on this one.** They are coded —
-usually as *Well Child* — but a concern recognised at triage is not triaged ESI 4/5, and every
-encounter behind this page is ESI 4/5. Those patients never reach this lane, so counting them
-would pad the share with people it never sees. The *Well Child* arrivals in the data are ordinary
-low-acuity visits. A concern that surfaces only after rooming is a separate problem, and no
-triage-time routing rule can act on it either way.
+**Two of his reasons are deliberately not on this list at all: child-abuse evaluations and
+mental-health presentations.** Neither is missing from the data — they are missing from this
+*population*. Every encounter behind this page is ESI 4/5 and neither is triaged there: a
+child-abuse concern is usually coded as *Well Child*, so it looks present and is not, and is
+triaged up when recognised; mental-health presentations do not reach ESI 4/5 at all. Those
+patients never arrive in this lane, so counting either would pad the share with people it never
+sees. The *Well Child* arrivals in the data are ordinary low-acuity visits. Both still need a
+door — they are simply someone else's flow problem, not this lane's.
 
 Set the share to zero and this layout collapses exactly onto the pooled one over the same
 estate — which is the sanity check, and also the honest statement of what the rule costs. On the

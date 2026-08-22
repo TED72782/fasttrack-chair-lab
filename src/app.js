@@ -497,9 +497,8 @@ const MODES = [
 ];
 /* ⚠ WHAT THE CHIEF-COMPLAINT FIELD CAN AND CANNOT SEE. Blake's bed-required list is a clinical
    rule, not a data field: "abdominal/pelvic pain", "full body exams (rashes)" and "exams of
-   sensitive areas" have complaints behind them; "sensitive histories" and "families that are
-   highly anxious/demanding/angry" are a triage judgement nothing in the record marks, and a
-   mental-health presentation is spread across complaints rather than carried by one.
+   sensitive areas" have complaints behind them, while "sensitive histories" and "families that
+   are highly anxious/demanding/angry" are a triage judgement nothing in the record marks.
 
    ⚠ TWO DIFFERENT KINDS OF MISSING, AND ONLY ONE IS PERMANENT. Two of the reasons a patient
    needs a door are recorded somewhere and merely absent from THIS extract:
@@ -512,11 +511,12 @@ const MODES = [
    measurements. A sensitive history and an angry family are not fixable by any cut. The page
    says which is which, because one kind is somebody's next job and the other never will be.
 
-   ⚠ CHILD ABUSE IS NOT MISSING, IT IS OUT OF SCOPE. It is coded — usually as Well Child — but a
-   concern recognised at triage is not triaged ESI 4/5, and every encounter behind this page is
-   ESI 4/5. Those patients are not in this population at all, so they must not be added to the
-   share: doing so would charge the lane for people it never sees. The Well Child rows that ARE
-   here are ordinary low-acuity visits.
+   ⚠ TWO OF BLAKE'S REASONS ARE NOT MISSING, THEY ARE OUT OF SCOPE — child abuse and mental
+   health. Every encounter behind this page is ESI 4/5 and neither is triaged there: a child-abuse
+   concern is usually coded as Well Child (so it looks present and is not) and is triaged up when
+   recognised, and mental-health presentations do not reach ESI 4/5 at all (confirmed by the
+   physicians, 2026-08-22). Neither may be added to the share — doing so charges the lane for
+   people it never sees. The Well Child rows that ARE here are ordinary low-acuity visits.
 
    So the ticked default is the FLOOR of the share, and the rest is a control. Derived from the
    data rather than written down, so it moves with each cut instead of rotting. */

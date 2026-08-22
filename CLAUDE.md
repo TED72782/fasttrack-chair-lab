@@ -69,22 +69,27 @@ Retired modes `zone`/`rooms` survive only as legacy board rows and fall back to 
 
 ## Open threads (as of 2026-08-22 — re-check before relying on these)
 
+**Settled — do not reopen without new information**
+
+- **Child abuse** and **mental health** are both *outside this population*, not merely uncoded.
+  Every encounter here is ESI 4/5 and neither is triaged there; a child-abuse concern is usually
+  coded as `Well Child`, so it looks present and is not. Neither may be added to the bed-required
+  share — that would charge the lane for people it never sees. Both confirmed by the physicians
+  on 2026-08-22; `git log --grep="uncoded reason for a room"` has both.
+
 **Questions out to the physicians**
 
-1. **Mental-health presentations** — do they reach ESI 4/5, or are they triaged up the way
-   child-abuse concerns are? If triaged up they are outside this population entirely and should
-   come off the bed-required reasons, exactly as child abuse did (`dda7ffd`).
-2. **The residual share** ("plus this share of everyone else") ships at **0%**, which the page
+1. **The residual share** ("plus this share of everyone else") ships at **0%**, which the page
    says outright is too low. Only triage can put the real number on it. Blake is the source.
 
 **Work needing data nobody here has**
 
-3. **GU complaints must be broken out of the 227-complaint bucket.** They *are* recorded at
+2. **GU complaints must be broken out of the 227-complaint bucket.** They *are* recorded at
    triage, but this build surfaces only `Dysuria`; genital/scrotal/testicular/vaginal, hematuria
    and frequency are inside `Everything else`, a single button worth 25% of volume. Until the
    extract gives them their own rows, Blake's "exams of sensitive areas" cannot be expressed as a
    list. Needs the complaint names + volumes from whoever runs the extract (`a03ba12`).
-4. **Preferred language / interpreter need is not in the extract either.** It is a registration
+3. **Preferred language / interpreter need is not in the extract either.** It is a registration
    field, not a bedside judgement, so the non-English share is *measurable* — it is simply absent.
    Ask for it in the same breath as the GU complaints; both turn a slider guess into a number.
    Note the model routes these patients to a room but still gives them an average visit, so it
@@ -92,14 +97,14 @@ Retired modes `zone`/`rooms` survive only as legacy board rows and fall back to 
 
 **Never verified from a sandbox**
 
-5. **The baked-in shared board** (`DEFAULT_BOARD` in `src/app.js`) has never been reached — the
+4. **The baked-in shared board** (`DEFAULT_BOARD` in `src/app.js`) has never been reached — the
    agent proxy denies `script.google.com`. If it is dead, every physician silently gets a private
    board. Check the italic line in the leaderboard footer says *"shared board — everyone using
    this link sees the same list"*.
-6. **The Apps Script deployment needs a new version pushed** (Deploy → Manage deployments → New
+5. **The Apps Script deployment needs a new version pushed** (Deploy → Manage deployments → New
    version). The board schema changed twice on 2026-08-22 (`bedcc`, `bedExtra` replacing a
    short-lived `bedShare`). Until redeployed, Blake lanes save without their exclusion list.
-7. **The live page** at `https://ted72782.github.io/ft-lab/` — the proxy denies `*.github.io`
+6. **The live page** at `https://ted72782.github.io/ft-lab/` — the proxy denies `*.github.io`
    too, so it has only ever been verified from the built file and the repo contents.
-8. **The engine-validation table** in `README.md` compares against a model that is not in this
+7. **The engine-validation table** in `README.md` compares against a model that is not in this
    repo. It is labelled as a port-time record for that reason; do not "refresh" those numbers.
