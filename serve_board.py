@@ -72,7 +72,7 @@ class Handler(SimpleHTTPRequestHandler):
                      "cfg": {k: cfg_in.get(k) for k in
                              ("mode", "A", "R", "cyc", "assess", "fastDischarge",
                               "cc", "start", "len", "bedcc", "bedExtra", "bedIntp",
-                              "bedGrp", "turnRoom", "turnChair", "roomsA")},
+                              "bedGrp", "turnRoom", "turnChair", "roomsA", "assessNo")},
                      "at": int(e.get("at", 0))}
             # 'rooms'/'zone' retired with the four-mode UI; shared-board.gs already rejects them
             if not entry["who"] or entry["cfg"]["mode"] not in ("split", "pooled", "bedfirst"):
@@ -91,7 +91,7 @@ class Handler(SimpleHTTPRequestHandler):
                     "bedcc": c.get("bedcc"), "bedExtra": c.get("bedExtra"),
                     "bedIntp": c.get("bedIntp"), "bedGrp": c.get("bedGrp"),
                     "turnRoom": c.get("turnRoom"), "turnChair": c.get("turnChair"),
-                    "roomsA": c.get("roomsA")}
+                    "roomsA": c.get("roomsA"), "assessNo": c.get("assessNo")}
             here = lane(entry["cfg"])
             board = [x for x in read()
                      if not (x.get("who") == entry["who"] and lane(x.get("cfg")) == here)]

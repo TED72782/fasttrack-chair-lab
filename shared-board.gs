@@ -24,7 +24,7 @@
 var SHEET = 'board';
 var HEAD = ['who', 'mode', 'A', 'R', 'cyc', 'assess', 'fastDischarge', 'at',
             'cc', 'start', 'len', 'bedcc', 'bedExtra', 'bedIntp',
-            'bedGrp', 'turnRoom', 'turnChair', 'roomsA'];
+            'bedGrp', 'turnRoom', 'turnChair', 'roomsA', 'assessNo'];
 
 function sheet_() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -74,7 +74,10 @@ function read_() {
              turnRoom: r[15] === '' || r[15] === undefined ? undefined : Number(r[15]),
              turnChair: r[16] === '' || r[16] === undefined ? undefined : Number(r[16]),
              roomsA: r[17] === '' || r[17] === undefined ? undefined
-                     : (r[17] === true || r[17] === 'TRUE') },
+                     : (r[17] === true || r[17] === 'TRUE'),
+             // undefined, not a number: the page falls it back to `assess`, which is what a row
+             // saved before the two halves were split actually meant
+             assessNo: r[18] === '' || r[18] === undefined ? undefined : Number(r[18]) },
       at: Number(r[7]) || 0
     });
   }
@@ -119,7 +122,8 @@ function doPost(e) {
         (rows[i][14] === true || rows[i][14] === 'TRUE') === (c.bedGrp === true) &&
         Number(rows[i][15] || 0) === Number(c.turnRoom || 0) &&
         Number(rows[i][16] || 0) === Number(c.turnChair || 0) &&
-        (rows[i][17] === true || rows[i][17] === 'TRUE') === (c.roomsA === true)) {
+        (rows[i][17] === true || rows[i][17] === 'TRUE') === (c.roomsA === true) &&
+        Number(rows[i][18] || 0) === Number(c.assessNo || 0)) {
         sh.deleteRow(i + 1);
       }
     }
@@ -136,7 +140,8 @@ function doPost(e) {
                   c.bedGrp === true,
                   c.turnRoom === undefined || c.turnRoom === null ? '' : Number(c.turnRoom),
                   c.turnChair === undefined || c.turnChair === null ? '' : Number(c.turnChair),
-                  c.roomsA === true]);
+                  c.roomsA === true,
+                  c.assessNo === undefined || c.assessNo === null ? '' : Number(c.assessNo)]);
     return json_(read_());
   } catch (err) {
     return json_({ error: String(err) });

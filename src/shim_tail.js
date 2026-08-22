@@ -284,6 +284,27 @@ setTimeout(()=>{
      is spent being cleaned. That is a real argument against room-heavy footprints that the page
      could not previously make. */
 
+  /* ── the no-test assessment time ──────────────────────────────────────────
+     Split out 2026-08-22. Half the lane needs no test, and until now they were assigned a figure
+     measured on patients who had an order. It is the largest unmeasured lever in the model. */
+  const nt = an => sim({A:6, R:4, pooled:false, bedFirst:false, assessMin:44, assessNo:an,
+      fastDischarge:true, turnA:1, turnB:1, lam:D.lam, asw:D.asw, now:D.now, res:D.res,
+      days:2000, seeds:[11,12,13,14]});
+  const early = nt(15), late = nt(80);
+  console.log("no-test assessment is its own:", Math.abs(early.perArrival - late.perArrival) > 5
+    ? "yes (15 min -> " + early.perArrival.toFixed(1) + ", 80 min -> " + late.perArrival.toFixed(1) + ")"
+    : "FAIL — inert, the two halves are still sharing one number");
+  /* ⚠ AND THE DIRECTION IS BACKWARDS FROM INTUITION, so it is pinned. Moving no-test patients out
+     EARLIER is worse, not better: they fill the second area, and a patient who cannot move holds
+     the assessment space as well. Measured by `stuck`, not inferred — 63.5% at 15 min against
+     39.1% at 80. If this ever flips, the blocking path has been broken. */
+  console.log("early moves BLOCK, not relieve:", early.stuck > late.stuck && early.perArrival > late.perArrival
+    ? "yes (stuck " + early.stuck.toFixed(0) + "% -> " + late.stuck.toFixed(0) + "%)"
+    : "FAIL — stuck " + early.stuck.toFixed(0) + "% vs " + late.stuck.toFixed(0) + "%");
+  console.log("legacy row shares one figure:", sane({mode:"split", A:6, R:4, cyc:76, assess:60,
+      fastDischarge:true, cc:"0.1"}).assessNo === 60
+    ? "yes (assessNo falls back to assess)" : "FAIL");
+
   location.hash = ""; S.mode="split"; S.A=6; S.R=4; S.start=15; S.len=8; saveLocal([]);
 
   console.log("\nsample markup:", A.slice(A.indexOf("<span class=\"slot full"), A.indexOf("<span class=\"slot full")+230).replace(/\s+/g," "));

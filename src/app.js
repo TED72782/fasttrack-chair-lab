@@ -32,7 +32,7 @@ Heap.prototype.pop=function(){const a=this.a,top=a[0],last=a.pop();if(a.length){
    anyone still queueing goes to the main department. */
 function sim(cfg){
   const {A, R, lam, asw, now, res, pooled, bedFirst, bedShare=0, assessMin, fastDischarge,
-         bedGrp=false, turnA=0, turnB=0,
+         bedGrp=false, turnA=0, turnB=0, assessNo,   // assessNo: the no-test half (see below)
          shr=D.shr, floor=D.floor, days=600, seeds=[11,12,13,14], trace} = cfg;
   // `trace` records one evening, patient by patient, so the animation plays the SAME run the
   // numbers come from rather than a decorative loop of its own. Slots are tracked only here —
@@ -100,7 +100,13 @@ function sim(cfg){
         const total = w ? pick(r,asw)+pick(r,res) : pick(r,now);
         if(pooled){ second[tag]=0; ev.push([t+total,1,tag]); return }
         if(!w && !fastDischarge){ second[tag]=0; ev.push([t+total,1,tag]); return }
-        const a = Math.min(assessMin ?? D.g.asw, total-1);
+        /* ⚠ THE TWO HALVES ARE ASSESSED SEPARATELY. `assessMin` is measured on patients who HAD
+           an order — it is their roomed-to-first-order time — and applying it to a patient who
+           never has one was an assumption, not a measurement. Nothing in the record marks the end
+           of an assessment for someone with no order, so the no-test half is its own control.
+           Measured 2026-08-22 on a 6+4 lane: the score runs 70.0 -> 21.0 across the range, which is
+           an order of magnitude more than the gaps between the layouts this page compares. */
+        const a = Math.min((w ? assessMin : (assessNo ?? assessMin)) ?? D.g.asw, total-1);
         second[tag] = Math.max(1, total-a);
         ev.push([t+a,1,tag]) };
       const startB = (t,tag) => { rb++;
@@ -263,7 +269,7 @@ function buildTrace(){
      to be listed here — a mode added to sim() and not to this line plays a DIFFERENT lane on
      screen from the one the cards describe, which is worse than showing no lane at all. */
   const base = {A:S.A, R:m.hasR?S.R:0, pooled:m.id==="pooled", bedGrp:S.bedGrp, ...turnFor(S),
-                bedFirst:m.id==="bedfirst", bedShare:liveBedShare(), assessMin:S.assess,
+                bedFirst:m.id==="bedfirst", bedShare:liveBedShare(), assessMin:S.assess, assessNo:S.assessNo,
                 fastDischarge:S.fastDischarge, shr:mx.shr, lam,
                 asw:scale(D.asw, f*mx.fa), now:scale(D.now, f*mx.fo), res:scale(D.res, f*mx.fr),
                 days:1, trace:true};
@@ -543,7 +549,7 @@ function evaluate(cfg, dayTotal){
              ? Math.min(1, Math.max(0, (+cfg.bedShare || 0) / 100))
              : bedShareOf(keep, cfg.bedcc === undefined ? new Set(BED_IDS) : idSet(cfg.bedcc),
                           cfg.bedExtra, cfg.bedIntp, cfg.bedGrp),
-           assessMin:cfg.assess, fastDischarge:cfg.fastDischarge, shr:w("w"), lam,
+           assessMin:cfg.assess, assessNo:cfg.assessNo, fastDischarge:cfg.fastDischarge, shr:w("w"), lam,
            asw:scale(D.asw, f*w("a")/D.g.asw), now:scale(D.now, f*w("o")/D.g.now),
            res:scale(D.res, f*w("r")/D.g.res), days:cfg.days||600, seeds:cfg.seeds||[11,12,13,14]});
 
@@ -682,7 +688,7 @@ const LEVELS = [
 // as acceptable is a judgement for the room, not a line in a chart.
 const S = {mode:"split", A:6, R:4, budget:0, cyc:Math.round(D.T_A), assess:44,
            fastDischarge:false, level:1, bar:"today", start:15, len:8, bedExtra:0, bedIntp:true,
-           bedGrp:true, turnRoom:10, turnChair:1, roomsA:false};
+           bedGrp:true, turnRoom:10, turnChair:1, roomsA:false, assessNo:44};
 
 /* ⚠ EVERY NUMBER THAT REACHES THE ENGINE IS CLAMPED ON THE WAY IN. Two of them arrive from
    outside this page and neither can be trusted: the '#' link (people edit them, and chat
@@ -691,8 +697,8 @@ const S = {mode:"split", A:6, R:4, budget:0, cyc:Math.round(D.T_A), assess:44,
    page: drawStageIdle() does `new Array(S.A)`, and new Array(NaN) — or (-3), or (6.5) — throws
    RangeError, which happened before a single button was wired, so Add / Play / Copy link were
    all inert. Limits mirror the sliders, so a clamped link lands somewhere the UI can show. */
-const LIM = {A:[1,14], R:[1,16], cyc:[55,115], assess:[10,90], start:[0,23], len:[2,24],
-             bedExtra:[0,40], turnRoom:[0,30], turnChair:[0,15]};
+const LIM = {A:[1,14], R:[1,16], cyc:[55,115], assess:[10,90], assessNo:[10,90],
+             start:[0,23], len:[2,24], bedExtra:[0,40], turnRoom:[0,30], turnChair:[0,15]};
 function lim(k, v, dflt){
   const n = Math.round(+v);
   if(!Number.isFinite(n)) return dflt;
@@ -837,7 +843,7 @@ function syncTurn(){
 
 function drawSpeed(m){
   const host = $("speedCtl");
-  const key = m.id + "|" + (S.fastDischarge ? 1 : 0);
+  const key = m.id + "|" + (S.fastDischarge ? 1 : 0);   // the no-test slider exists only when on
   if(key === speedKey) return syncSpeed(m);
   speedKey = key;
   /* Bed-first holds one space for the whole visit, exactly as pooled does, so it gets the same
@@ -872,7 +878,7 @@ function drawSpeed(m){
     return syncSpeed(m);
   }
   host.innerHTML = `<div class="ctl"><div class="ctl-top">
-      <label for="asx">Assessment, before they move</label>
+      <label for="asx">Assessment &mdash; a patient needing a test</label>
       <output class="num" id="asxOut"></output></div>
     <input type="range" id="asx" min="10" max="90" step="1" value="${S.assess}">
     <div class="hint">How long a patient keeps an assessment space before moving to the second
@@ -882,13 +888,30 @@ function drawSpeed(m){
       neither exists at all for the half who need no test. It is the number to argue about: the
       best split follows it.
       <span id="asxBoth"></span></div></div>`
-    + fdControl();
+    /* The no-test half is its own control, and only where it can bite: it does nothing unless
+       patients actually move on, so it is drawn under the fastDischarge toggle rather than beside
+       the slider it looks like. Half the lane is no-test, and on a 6+4 lane this number moves the
+       score further than any layout choice does — 70.0 at 5 min to 21.0 if they never move. */
+    + fdControl()
+    + (S.fastDischarge ? `<div class="ctl"><div class="ctl-top">
+        <label for="asn">Assessment &mdash; a patient needing none</label>
+        <output class="num" id="asnOut"></output></div>
+      <input type="range" id="asn" min="10" max="90" step="1" value="${S.assessNo}">
+      <div class="hint">Nothing in the record times this one. A patient with no order has no event
+        between being roomed and leaving, so the ${(D.g.asw-D.pom).toFixed(0)}-min figure above
+        &mdash; measured on patients who DID have an order &mdash; is the wrong number for them and
+        was being used anyway until 2026-08-22. <b>They are ${Math.round(100*(1-D.shr))}% of the
+        lane.</b> Moving them out early is not free: they fill the second area, and a patient who
+        cannot move stays in the assessment space, holding both.</div></div>` : ``);
   $("asx").oninput = e => { S.assess = +e.target.value; syncSpeed(m); requestRun() };
+  if($("asn")) $("asn").oninput = e => { S.assessNo = +e.target.value; syncSpeed(m); requestRun() };
   syncSpeed(m);
 }
 
 /* The cheap half: text only, safe to call on every pointer move. */
 function syncSpeed(m){
+  const an=$("asnOut"); if(an) an.textContent = S.assessNo + " min";
+  const ai=$("asn"); if(ai && +ai.value !== S.assessNo) ai.value = S.assessNo;
   if(m.id==="bedfirst"){
     const pct = Math.round(100 - 100*S.cyc/D.T_A);
     const o = $("cycOut");
@@ -1039,6 +1062,8 @@ function sane(cfg){
              state — those are not in conflict, they are the two different questions "what did
              this row mean when it was saved" and "what should a new lane start at". */
           bedGrp: cfg.bedGrp === true, roomsA: cfg.roomsA === true,
+          // a row saved before the split existed was scored with ONE assessment time for both
+          assessNo: lim("assessNo", cfg.assessNo, lim("assess", cfg.assess, 44)),
           turnRoom: lim("turnRoom", cfg.turnRoom, 0), turnChair: lim("turnChair", cfg.turnChair, 0),
           bedShare: cfg.bedcc === undefined ? cfg.bedShare : undefined,
           // entries saved before the window was adjustable ran the original 15:00-23:00 lane
@@ -1069,6 +1094,7 @@ async function addEntry(){
   const cfg = {mode:S.mode, A:S.A, R:S.R, cyc:S.cyc, assess:S.assess, fastDischarge:S.fastDischarge,
                bedcc:[...BEDPICK].sort((a,b)=>a-b).join("."), bedExtra:S.bedExtra, bedIntp:S.bedIntp,
                bedGrp:S.bedGrp, turnRoom:S.turnRoom, turnChair:S.turnChair, roomsA:S.roomsA,
+               assessNo:S.assessNo,
                cc:[...PICK].sort((a,b)=>a-b).join("."), start:S.start, len:S.len};
   const entry = {who, cfg, at: Date.now()};
   if(SHARED){
@@ -1167,6 +1193,7 @@ function hashState(){
            c.push(S.bedIntp ? "1" : "0"); c.push(S.bedGrp ? "1" : "0") }
   // turnover applies to every layout, so it rides on all links, after the bed-first block
   c.push(String(S.turnRoom)); c.push(String(S.turnChair)); c.push(S.roomsA ? "1" : "0");
+  c.push(String(S.assessNo));
   return c.join(",");
 }
 function toHash(){
@@ -1200,12 +1227,14 @@ function fromHash(){
      present, which is why it is read from the END rather than by index. A link written before
      turnover existed described a lane with none. */
   const min2 = p[0]==="bedfirst" ? 16 : 12;          // links with the turnover pair
-  const tail = p.length >= min2+1 ? p.slice(-3)     // …and the rooms flag after it
-             : p.length >= min2   ? [...p.slice(-2), "0"]
+  const tail = p.length >= min2+2 ? p.slice(-4)     // …rooms flag, then the no-test assessment
+             : p.length >= min2+1 ? [...p.slice(-3), ""]
+             : p.length >= min2   ? [...p.slice(-2), "0", ""]
              : null;
   S.turnRoom  = tail ? lim("turnRoom", tail[0], 0) : 0;
   S.turnChair = tail ? lim("turnChair", tail[1], 0) : 0;
   S.roomsA    = tail ? tail[2] === "1" : false;
+  S.assessNo  = lim("assessNo", tail && tail[3], S.assess);
 }
 
 /* ⚠ BUILT ONCE, THEN ONLY THE READOUTS CHANGE. These sliders sit next to the chart they drive,
@@ -1404,6 +1433,7 @@ function run(){
   const cfg = {mode:S.mode, A:S.A, R:S.R, cyc:S.cyc, assess:S.assess, fastDischarge:S.fastDischarge,
                bedcc:[...BEDPICK].sort((a,b)=>a-b).join("."), bedExtra:S.bedExtra, bedIntp:S.bedIntp,
                bedGrp:S.bedGrp, turnRoom:S.turnRoom, turnChair:S.turnChair, roomsA:S.roomsA,
+               assessNo:S.assessNo,
                cc:[...PICK].sort((a,b)=>a-b).join("."), start:S.start, len:S.len, bar:S.bar};
   const E = evaluate(cfg, lvl.pts), o = E.o;
   drawSpeed(m); drawTurn(); drawWindow(); syncWindow();
@@ -1503,7 +1533,7 @@ function run(){
      move was most of the stutter. Keyed, so they run when they can actually differ. */
   const critKey = `${S.start}|${S.len}|${S.level}|${[...PICK].sort((x,y)=>x-y).join(".")}`;
   if(critKey !== lastCritKey){ lastCritKey = critKey; drawCriteria() }
-  const bedKey = `${S.mode}|${critKey}|${[...BEDPICK].sort((x,y)=>x-y).join(".")}|${S.bedExtra}|${S.bedIntp?1:0}|${S.bedGrp?1:0}|${S.turnRoom}|${S.turnChair}|${S.roomsA?1:0}`;
+  const bedKey = `${S.mode}|${critKey}|${[...BEDPICK].sort((x,y)=>x-y).join(".")}|${S.bedExtra}|${S.bedIntp?1:0}|${S.bedGrp?1:0}|${S.turnRoom}|${S.turnChair}|${S.roomsA?1:0}|${S.assessNo}`;
   if(bedKey !== lastBedKey){ lastBedKey = bedKey; drawBedList() }
   const boardKey = `${S.level}|${S.bar}`;
   if(boardKey !== lastBoardKey){ lastBoardKey = boardKey; drawBoard() }
