@@ -226,6 +226,38 @@ setTimeout(()=>{
     ? "yes (+" + cost.toFixed(2) + " min/patient at 6 spaces)"
     : "FAIL — " + cost.toFixed(2) + " min; grouping is not reaching the queue");
 
+  /* ── turnover + the sibling rule ──────────────────────────────────────────
+     Added 2026-08-22. */
+  const tb = {...base, A:6, R:4, pooled:false, bedFirst:true, bedShare:0.19,
+              days:1200, seeds:[11,12,13,14]};
+  D.grp = GRP;
+  const noTurn = sim({...tb, turnA:0,  turnB:0});
+  const wTurn  = sim({...tb, turnA:10, turnB:1});
+  console.log("turnover costs capacity    :", wTurn.perArrival > noTurn.perArrival
+    ? "yes (" + noTurn.perArrival.toFixed(2) + " -> " + wTurn.perArrival.toFixed(2)
+      + " min/patient at 10/1)"
+    : "FAIL — free at " + wTurn.perArrival.toFixed(2) + " vs " + noTurn.perArrival.toFixed(2));
+  console.log("zero turnover == old engine:", sim({...tb, turnA:0, turnB:0}).perArrival === noTurn.perArrival
+    ? "yes (deterministic)" : "FAIL");
+
+  /* The sibling rule must send families to ROOMS, so it can only cost when rooms are the scarce
+     side. Checked on a room-poor lane, where it has somewhere to bite. */
+  const rp = {...tb, A:3, R:7};
+  const noSib = sim({...rp, turnA:10, turnB:1, bedGrp:false});
+  const wSib  = sim({...rp, turnA:10, turnB:1, bedGrp:true});
+  console.log("sibling rule needs a room  :", wSib.perArrival > noSib.perArrival
+    ? "yes (" + noSib.perArrival.toFixed(2) + " -> " + wSib.perArrival.toFixed(2)
+      + " min/patient at 3 rooms)"
+    : "FAIL — no cost: " + wSib.perArrival.toFixed(2) + " vs " + noSib.perArrival.toFixed(2));
+
+  /* Measured 2026-08-22, bed-first, 19% bed-required, families on, turnover 10/1:
+       8rm+2ch 10.70 -> 12.00 (+1.30) · 6rm+4ch 10.96 -> 11.72 (+0.77)
+       4rm+6ch 11.21 -> 11.86 (+0.65) · 2rm+8ch 14.71 -> 15.69 (+0.98)
+     The cost is largest on the ROOM-HEAVY layout, which is the mechanism behaving correctly: a
+     room carries ten times a chair's turnover, so the more of the estate is rooms the more of it
+     is spent being cleaned. That is a real argument against room-heavy footprints that the page
+     could not previously make. */
+
   location.hash = ""; S.mode="split"; S.A=6; S.R=4; S.start=15; S.len=8; saveLocal([]);
 
   console.log("\nsample markup:", A.slice(A.indexOf("<span class=\"slot full"), A.indexOf("<span class=\"slot full")+230).replace(/\s+/g," "));

@@ -23,7 +23,8 @@
 
 var SHEET = 'board';
 var HEAD = ['who', 'mode', 'A', 'R', 'cyc', 'assess', 'fastDischarge', 'at',
-            'cc', 'start', 'len', 'bedcc', 'bedExtra', 'bedIntp'];
+            'cc', 'start', 'len', 'bedcc', 'bedExtra', 'bedIntp',
+            'bedGrp', 'turnRoom', 'turnChair'];
 
 function sheet_() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -65,7 +66,13 @@ function read_() {
              // a row saved before the interpreter criterion existed was scored WITHOUT it;
              // undefined (not false) so the page applies its own legacy rule, as with bedcc
              bedIntp: r[13] === '' || r[13] === undefined ? undefined
-                      : (r[13] === true || r[13] === 'TRUE') },
+                      : (r[13] === true || r[13] === 'TRUE'),
+             bedGrp: r[14] === '' || r[14] === undefined ? undefined
+                     : (r[14] === true || r[14] === 'TRUE'),
+             // turnover: a row saved before it existed was scored with none, so undefined not 0 —
+             // the page's own legacy rule decides, exactly as it does for bedcc
+             turnRoom: r[15] === '' || r[15] === undefined ? undefined : Number(r[15]),
+             turnChair: r[16] === '' || r[16] === undefined ? undefined : Number(r[16]) },
       at: Number(r[7]) || 0
     });
   }
@@ -106,7 +113,10 @@ function doPost(e) {
             String(c.bedcc === undefined ? '' : c.bedcc) &&
           String(rows[i][12] === undefined ? '' : rows[i][12]) ===
             String(c.bedExtra === undefined || c.bedExtra === null ? '' : c.bedExtra) &&
-          (rows[i][13] === true || rows[i][13] === 'TRUE') === (c.bedIntp === true)) {
+          (rows[i][13] === true || rows[i][13] === 'TRUE') === (c.bedIntp === true) &&
+        (rows[i][14] === true || rows[i][14] === 'TRUE') === (c.bedGrp === true) &&
+        Number(rows[i][15] || 0) === Number(c.turnRoom || 0) &&
+        Number(rows[i][16] || 0) === Number(c.turnChair || 0)) {
         sh.deleteRow(i + 1);
       }
     }
@@ -119,7 +129,10 @@ function doPost(e) {
                   c.bedcc === undefined || c.bedcc === '' ? '' : "'" + String(c.bedcc),
                   c.bedExtra === undefined || c.bedExtra === null || c.bedExtra === '' ? ''
                     : Number(c.bedExtra),
-                  c.bedIntp === true]);
+                  c.bedIntp === true,
+                  c.bedGrp === true,
+                  c.turnRoom === undefined || c.turnRoom === null ? '' : Number(c.turnRoom),
+                  c.turnChair === undefined || c.turnChair === null ? '' : Number(c.turnChair)]);
     return json_(read_());
   } catch (err) {
     return json_({ error: String(err) });

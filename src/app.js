@@ -32,6 +32,7 @@ Heap.prototype.pop=function(){const a=this.a,top=a[0],last=a.pop();if(a.length){
    anyone still queueing goes to the main department. */
 function sim(cfg){
   const {A, R, lam, asw, now, res, pooled, bedFirst, bedShare=0, assessMin, fastDischarge,
+         bedGrp=false, turnA=0, turnB=0,
          shr=D.shr, floor=D.floor, days=600, seeds=[11,12,13,14], trace} = cfg;
   // `trace` records one evening, patient by patient, so the animation plays the SAME run the
   // numbers come from rather than a decorative loop of its own. Slots are tracked only here —
@@ -65,17 +66,17 @@ function sim(cfg){
       const G = D.grp, gmean = G ? G.mean_group_size : 1;
       const gsize = () => { if(!G) return 1; const u = r();
         if(u < G.p4) return 4; if(u < G.p4+G.p3) return 3; if(u < G.p4+G.p3+G.p2) return 2; return 1 };
-      const arr=[], gid=[];
+      const arr=[], gid=[], gsz=[];
       let gnext=0;
       for(let h=0;h<H;h++){ let t=h*60;
         for(;;){ t+=expo(r,(lam[h]/gmean)/60); if(t>=(h+1)*60) break;
                  const g=gsize(), id=gnext++;
-                 for(let k=0;k<g;k++){ arr.push(t); gid.push(id) } } }
+                 for(let k=0;k<g;k++){ arr.push(t); gid.push(id); gsz.push(g) } } }
       // sort arrivals while keeping each patient with its own group id
       const ord = arr.map((_,i)=>i).sort((x,y)=> arr[x]-arr[y] || gid[x]-gid[y]);
-      const arrS = ord.map(i=>arr[i]), gidS = ord.map(i=>gid[i]);
-      arr.length=0; gid.length=0;
-      for(let i=0;i<arrS.length;i++){ arr.push(arrS[i]); gid.push(gidS[i]) }
+      const arrS = ord.map(i=>arr[i]), gidS = ord.map(i=>gid[i]), gszS = ord.map(i=>gsz[i]);
+      arr.length=0; gid.length=0; gsz.length=0;
+      for(let i=0;i<arrS.length;i++){ arr.push(arrS[i]); gid.push(gidS[i]); gsz.push(gszS[i]) }
       arrN += arr.length;
       const ev=new Heap(); for(let i=0;i<arr.length;i++) ev.push([arr[i],0,i]);
       ev.push([CLOSE,-1,-1]);
@@ -105,6 +106,14 @@ function sim(cfg){
       const startB = (t,tag) => { rb++;
         if(T){ const s=freeB.pop(); slotB[tag]=s; T.push({t, id:tag, ev:"second", slot:s}) }
         ev.push([t+second[tag],2,tag]) };
+      /* ⚠ TURNOVER. Cleaning and turning a space takes time, and the lane cannot use it in the
+         meantime. Freeing the counter at departure — which is what this did until 2026-08-22 —
+         quietly gives the lane back capacity it does not have, and the error compounds with
+         throughput: a fast lane turns its spaces over more often, so the faster the layout the
+         more capacity it was being handed. Release is scheduled instead. Set both to 0 and the
+         engine is exactly as it was. */
+      const releaseA = (t,tag) => ev.push([t+turnA,3,tag]);
+      const releaseB = (t,tag) => ev.push([t+turnB,4,tag]);
       /* A family is seated as one party or not at all — operator, 2026-08-22: they walk out
          together. Splitting one sibling into a chair and leaving the other outside with the parent
          is not a thing the department does, and modelling it that way would let a lane look like
@@ -168,11 +177,18 @@ function sim(cfg){
                        qa.length=0; if(T) T.push({t, ev:"close"}); continue }
         if(bedFirst){
           if(kind===0){ if(T) T.push({t, id:tag, ev:"arrive", test: null});
-                        bedReq[tag] = r() < bedShare ? 1 : 0;
+                        /* A family needs a door: siblings go in one room together rather than
+                           into separate chairs across the lane, so arriving with a sibling is a
+                           bed-required rule in its own right and not a share to be added. The
+                           draw is kept for everyone else. */
+                        bedReq[tag] = (bedGrp && gsz[tag] > 1) || r() < bedShare ? 1 : 0;
                         qa.push([t,tag]); drain(t) }        // queue then drain, so nobody jumps
-          else { seen++;
-                 if(kind===1){ ab--; if(T){ freeA.push(slotA[tag]); T.push({t, id:tag, ev:"leave"}) } }
-                 else        { rb--; if(T){ freeB.push(slotB[tag]); T.push({t, id:tag, ev:"leave"}) } }
+          else if(kind===1 || kind===2){ seen++;
+                 if(T) T.push({t, id:tag, ev:"leave"});
+                 if(kind===1) releaseA(t,tag); else releaseB(t,tag) }
+          else { // the space is turned over and usable again
+                 if(kind===3){ ab--; if(T) freeA.push(slotA[tag]) }
+                 else        { rb--; if(T) freeB.push(slotB[tag]) }
                  drain(t) }
           if(ab+rb > peak) peak = ab+rb;
           continue;
@@ -181,20 +197,24 @@ function sim(cfg){
                       qa.push([t,tag]); takeNext(t) }
         else if(kind===1){
           seen++;
-          if(!second[tag]){ ab--;
-            if(T){ freeA.push(slotA[tag]); T.push({t, id:tag, ev:"leave"}) }
-            takeNext(t); continue }                                 // never moved on
+          // ⚠ the assessment space is released on a MOVE too, not only on a departure — it still
+          // has to be turned over before the next patient can use it either way
+          if(!second[tag]){ if(T) T.push({t, id:tag, ev:"leave"});
+            releaseA(t,tag); continue }                             // never moved on
           nw++;
-          if(rb<R){ ab--; if(T) freeA.push(slotA[tag]);
-                    wrN++; startB(t,tag); takeNext(t) }
+          if(rb<R){ wrN++; startB(t,tag); releaseA(t,tag) }
           else { qr.push([t,tag]); blocked++;
                  if(T) T.push({t, id:tag, ev:"stuck"}) }             // nowhere to move to
-        } else {
-          rb--;
-          if(T){ freeB.push(slotB[tag]); T.push({t, id:tag, ev:"leave"}) }
-          if(qr.length){ const q=qr.shift(); wr += t-q[0]; wrN++; ab--;
-                         if(T) freeA.push(slotA[q[1]]);
-                         startB(t,q[1]); takeNext(t) }
+        } else if(kind===2){
+          if(T) T.push({t, id:tag, ev:"leave"});
+          releaseB(t,tag);
+        } else if(kind===3){                                        // assessment space turned over
+          ab--; if(T) freeA.push(slotA[tag]);
+          takeNext(t);
+        } else {                                                    // second-area space turned over
+          rb--; if(T) freeB.push(slotB[tag]);
+          if(qr.length){ const q=qr.shift(); wr += t-q[0]; wrN++;
+                         startB(t,q[1]); releaseA(t,q[1]) }
           else takeNext(t);
         }
         if(ab+rb > peak) peak = ab+rb;
@@ -242,7 +262,7 @@ function buildTrace(){
   /* ⚠ THE STAGE MUST RUN THE SAME MODEL AS THE NUMBERS. Everything the engine branches on has
      to be listed here — a mode added to sim() and not to this line plays a DIFFERENT lane on
      screen from the one the cards describe, which is worse than showing no lane at all. */
-  const base = {A:S.A, R:m.hasR?S.R:0, pooled:m.id==="pooled",
+  const base = {A:S.A, R:m.hasR?S.R:0, pooled:m.id==="pooled", bedGrp:S.bedGrp, ...turnFor(S),
                 bedFirst:m.id==="bedfirst", bedShare:liveBedShare(), assessMin:S.assess,
                 fastDischarge:S.fastDischarge, shr:mx.shr, lam,
                 asw:scale(D.asw, f*mx.fa), now:scale(D.now, f*mx.fo), res:scale(D.res, f*mx.fr),
@@ -479,6 +499,13 @@ function mix(){
 }
 const scale  = (pool,f) => pool.map(x => x*f);
 
+/* Which turnover applies to which pool. A patient is EXAMINED in the assessment pool — a room in
+   the bed-first lane and in "8 rooms + 10 chairs" — so it turns over at the room figure, while the
+   second area and the pooled lane are chairs. In a divided lane whose assessment side is itself
+   chairs this over-charges that pool; set the room slider to the chair figure for that reading. */
+const turnFor = cfg => ({turnA: cfg.mode === "pooled" ? (cfg.turnChair ?? 0) : (cfg.turnRoom ?? 0),
+                         turnB: cfg.turnChair ?? 0});
+
 /* One lane, evaluated. `cfg` is everything a saved board entry carries, so the live page and
    the leaderboard cannot drift apart — they call this same function. */
 function evaluate(cfg, dayTotal){
@@ -500,13 +527,13 @@ function evaluate(cfg, dayTotal){
   const o = accepted < 0.05 ? {idle:true, perArrival:0, wa:0, wr:0, stuck:0, worst:0, worstIdx:0,
                                byHour:hours.map(()=>0), diverted:0, divByHour:hours.map(()=>0),
                                arrived:0, seen:0, divPct:0}
-    : sim({A:cfg.A, R:m.hasR?cfg.R:0, pooled:cfg.mode==="pooled",
+    : sim({A:cfg.A, R:m.hasR?cfg.R:0, pooled:cfg.mode==="pooled", bedGrp:cfg.bedGrp, ...turnFor(cfg),
            bedFirst:cfg.mode==="bedfirst",
            // a row saved during the brief flat-share build carries one number and no list
            bedShare: cfg.bedcc === undefined && cfg.bedShare !== undefined
              ? Math.min(1, Math.max(0, (+cfg.bedShare || 0) / 100))
              : bedShareOf(keep, cfg.bedcc === undefined ? new Set(BED_IDS) : idSet(cfg.bedcc),
-                          cfg.bedExtra, cfg.bedIntp),
+                          cfg.bedExtra, cfg.bedIntp, cfg.bedGrp),
            assessMin:cfg.assess, fastDischarge:cfg.fastDischarge, shr:w("w"), lam,
            asw:scale(D.asw, f*w("a")/D.g.asw), now:scale(D.now, f*w("o")/D.g.now),
            res:scale(D.res, f*w("r")/D.g.res), days:cfg.days||600, seeds:cfg.seeds||[11,12,13,14]});
@@ -584,7 +611,7 @@ let BEDPICK = new Set(BED_IDS);            // which complaints must have a room
    the extra applies to whoever is left after the ticked complaints are taken out.
 
    Computed from a cfg rather than from live state, so a board row scores on ITS OWN list. */
-function bedShareOf(keep, bedKeep, extra, intp){
+function bedShareOf(keep, bedKeep, extra, intp, grp){
   const sel = CC.filter(x=>keep.has(x.i)), tot = sel.reduce((a,x)=>a+x.s, 0);
   if(!tot) return 0;
   const ccPart = sel.filter(x=>bedKeep.has(x.i)).reduce((a,x)=>a+x.s, 0) / tot;
@@ -596,12 +623,17 @@ function bedShareOf(keep, bedKeep, extra, intp){
   const intpPart = intp
     ? sel.filter(x=>!bedKeep.has(x.i)).reduce((a,x)=>a + x.s * (x.x!=null ? x.x : D.g.interp), 0) / tot
     : 0;
-  const placed = Math.min(1, ccPart + intpPart);
+  /* Siblings compose the same way and for the same reason: a child arriving with a sibling needs
+     a door whatever the complaint, so it applies to whoever the earlier two rules leave behind
+     rather than adding to them. The share is measured (D.grp.share), not drawn. */
+  const grpShare = (D.grp && D.grp.share) || 0;
+  const grpPart = grp ? (1 - Math.min(1, ccPart + intpPart)) * grpShare : 0;
+  const placed = Math.min(1, ccPart + intpPart + grpPart);
   return Math.min(1, placed + (1-placed) * (extra||0)/100);
 }
 const idSet = v => new Set(String(v).split(".").filter(x=>x!=="").map(Number));
 // the same figure for the lane on screen
-const liveBedShare = () => bedShareOf(PICK, BEDPICK, S.bedExtra, S.bedIntp);
+const liveBedShare = () => bedShareOf(PICK, BEDPICK, S.bedExtra, S.bedIntp, S.bedGrp);
 
 // Named layouts the group has put forward. Each is a full setting, not a hint.
 const PRESETS = [
@@ -640,7 +672,8 @@ const LEVELS = [
 // against it. The page reports how long people wait and how many are turned away; what counts
 // as acceptable is a judgement for the room, not a line in a chart.
 const S = {mode:"split", A:6, R:4, budget:0, cyc:Math.round(D.T_A), assess:44,
-           fastDischarge:false, level:1, bar:"today", start:15, len:8, bedExtra:0, bedIntp:true};
+           fastDischarge:false, level:1, bar:"today", start:15, len:8, bedExtra:0, bedIntp:true,
+           bedGrp:true, turnRoom:10, turnChair:1};
 
 /* ⚠ EVERY NUMBER THAT REACHES THE ENGINE IS CLAMPED ON THE WAY IN. Two of them arrive from
    outside this page and neither can be trusted: the '#' link (people edit them, and chat
@@ -650,7 +683,7 @@ const S = {mode:"split", A:6, R:4, budget:0, cyc:Math.round(D.T_A), assess:44,
    RangeError, which happened before a single button was wired, so Add / Play / Copy link were
    all inert. Limits mirror the sliders, so a clamped link lands somewhere the UI can show. */
 const LIM = {A:[1,14], R:[1,16], cyc:[55,115], assess:[10,90], start:[0,23], len:[2,24],
-             bedExtra:[0,40]};
+             bedExtra:[0,40], turnRoom:[0,30], turnChair:[0,15]};
 function lim(k, v, dflt){
   const n = Math.round(+v);
   if(!Number.isFinite(n)) return dflt;
@@ -759,6 +792,32 @@ function fdControl(){
    under the mouse, which ends the drag after one step. Rebuild only when the CONTROLS change
    (mode, or the no-test toggle that adds a second slider), never on a value change. */
 let speedKey = null;
+/* ⚠ BUILT ONCE. Same rule as every other slider on this page: re-rendering an <input> inside its
+   own oninput replaces the element under the pointer and kills the drag after one step. */
+function drawTurn(){
+  const host = $("turnCtl");
+  if(!host) return;
+  if(!$("trn")){
+    host.innerHTML =
+      `<div class="ctl"><div class="ctl-top">
+         <label for="trn">Turning over a room</label><output class="num" id="trnOut"></output></div>
+       <input type="range" id="trn" min="0" max="30" step="1" value="${S.turnRoom}"></div>
+       <div class="ctl"><div class="ctl-top">
+         <label for="trc">Turning over a chair</label><output class="num" id="trcOut"></output></div>
+       <input type="range" id="trc" min="0" max="15" step="1" value="${S.turnChair}"></div>`;
+    $("trn").oninput = e => { S.turnRoom  = +e.target.value; syncTurn(); requestRun() };
+    $("trc").oninput = e => { S.turnChair = +e.target.value; syncTurn(); requestRun() };
+  }
+  syncTurn();
+}
+function syncTurn(){
+  const a=$("trnOut"), b=$("trcOut");
+  if(a) a.textContent = S.turnRoom + " min";
+  if(b) b.textContent = S.turnChair + " min";
+  const x=$("trn"); if(x && +x.value !== S.turnRoom) x.value = S.turnRoom;
+  const y=$("trc"); if(y && +y.value !== S.turnChair) y.value = S.turnChair;
+}
+
 function drawSpeed(m){
   const host = $("speedCtl");
   const key = m.id + "|" + (S.fastDischarge ? 1 : 0);
@@ -957,6 +1016,12 @@ function sane(cfg){
              must keep being scored without it — defaulting to true would silently re-rank other
              people's lanes under a rule they never chose. New rows always carry the field. */
           bedIntp: cfg.bedIntp === undefined ? false : cfg.bedIntp === true,
+          /* Same rule as bedIntp: a row saved before these existed was scored without them, so it
+             keeps being scored without them. Turnover defaults to ZERO here and 10/1 in live
+             state — those are not in conflict, they are the two different questions "what did
+             this row mean when it was saved" and "what should a new lane start at". */
+          bedGrp: cfg.bedGrp === true,
+          turnRoom: lim("turnRoom", cfg.turnRoom, 0), turnChair: lim("turnChair", cfg.turnChair, 0),
           bedShare: cfg.bedcc === undefined ? cfg.bedShare : undefined,
           // entries saved before the window was adjustable ran the original 15:00-23:00 lane
           start:lim("start",cfg.start,15), len:lim("len",cfg.len,8), cc:cfg.cc};
@@ -985,6 +1050,7 @@ async function addEntry(){
   if(!who){ $("who").focus(); return }
   const cfg = {mode:S.mode, A:S.A, R:S.R, cyc:S.cyc, assess:S.assess, fastDischarge:S.fastDischarge,
                bedcc:[...BEDPICK].sort((a,b)=>a-b).join("."), bedExtra:S.bedExtra, bedIntp:S.bedIntp,
+               bedGrp:S.bedGrp, turnRoom:S.turnRoom, turnChair:S.turnChair,
                cc:[...PICK].sort((a,b)=>a-b).join("."), start:S.start, len:S.len};
   const entry = {who, cfg, at: Date.now()};
   if(SHARED){
@@ -1053,7 +1119,7 @@ function drawBoard(){
        the criteria had. Undefined means a row from before the list existed: Blake's default,
        which is what evaluate() assumes for it too. */
     BEDPICK = c.bedcc === undefined ? new Set(BED_IDS) : idSet(c.bedcc);
-    S.bedIntp = c.bedIntp === true;
+    S.bedIntp = c.bedIntp === true; S.bedGrp = c.bedGrp === true;
     drawModes(); drawSpaces(); drawWindow(); run();
   });
   $("boardNote").innerHTML = `Scored on ${LEVELS[S.level].n.toLowerCase()} — ${pts} patients. `
@@ -1080,7 +1146,9 @@ function hashState(){
   const bed = S.mode==="bedfirst";
   if(PICK.size < CC.length || bed) c.push(PICK.size < CC.length ? [...PICK].sort((x,y)=>x-y).join(".") : "");
   if(bed){ c.push([...BEDPICK].sort((x,y)=>x-y).join(".")); c.push(String(S.bedExtra));
-           c.push(S.bedIntp ? "1" : "0") }
+           c.push(S.bedIntp ? "1" : "0"); c.push(S.bedGrp ? "1" : "0") }
+  // turnover applies to every layout, so it rides on all links, after the bed-first block
+  c.push(String(S.turnRoom)); c.push(String(S.turnChair));
   return c.join(",");
 }
 function toHash(){
@@ -1109,6 +1177,13 @@ function fromHash(){
   S.bedExtra = p.length>=12 ? lim("bedExtra", p[11], 0) : 0;
   // a link written before the criterion existed described a lane scored without it
   S.bedIntp  = p.length>=13 ? p[12] === "1" : false;
+  S.bedGrp   = p.length>=14 ? p[13] === "1" : false;
+  /* ⚠ the turnover pair sits at a different offset depending on whether the bed-first block is
+     present, which is why it is read from the END rather than by index. A link written before
+     turnover existed described a lane with none. */
+  const tail = p.length >= (p[0]==="bedfirst" ? 16 : 12) ? p.slice(-2) : null;
+  S.turnRoom  = tail ? lim("turnRoom", tail[0], 0) : 0;
+  S.turnChair = tail ? lim("turnChair", tail[1], 0) : 0;
 }
 
 /* ⚠ BUILT ONCE, THEN ONLY THE READOUTS CHANGE. These sliders sit next to the chart they drive,
@@ -1197,7 +1272,8 @@ function drawBedList(){
   $("bedSum").innerHTML = `<b class="num">${Math.round(100*eff)}%</b> of the patients this lane
     accepts must have a room &mdash; <b class="num">${Math.round(100*ccPart)}%</b> from the
     ${BEDPICK.size} complaint${BEDPICK.size===1?"":"s"} ticked below${S.bedIntp
-      ? `, <b class="num">${Math.round(100*intpPart)}%</b> needing an interpreter` : ``}, plus
+      ? `, <b class="num">${Math.round(100*intpPart)}%</b> needing an interpreter` : ``}${S.bedGrp
+      ? `, <b class="num">${Math.round(100*(1-Math.min(1,ccPart+intpPart))*((D.grp&&D.grp.share)||0))}%</b> arriving with a sibling` : ``}, plus
     <b class="num">${S.bedExtra}%</b> of everyone else.
     ${S.bedExtra===0 ? `<span class="dim">Nothing is allowed yet for the reasons no complaint can
       carry &mdash; a sensitive history, a family who needs a door &mdash; so this is a floor.</span>` : ``}`;
@@ -1217,6 +1293,15 @@ function drawBedList(){
              ? sel.filter(x=>!BEDPICK.has(x.i)).reduce((a,x)=>a+x.s*(x.x!=null?x.x:D.g.interp),0)/tot
              : 0))}%</b> of the rest if ticked</span>`}</span></button>`;
     $("bedIntpBtn").onclick = () => { S.bedIntp = !S.bedIntp; run() };
+    const gShare = (D.grp && D.grp.share) || 0;
+    intpBtn.insertAdjacentHTML("beforeend",
+      `<button type="button" class="cc${S.bedGrp?" on":""}" id="bedGrpBtn"
+          aria-pressed="${S.bedGrp}">
+        <span class="cc-n">Arrives with a sibling</span>
+        <span class="cc-m">${S.bedGrp
+          ? `<b class="num">${(pts*(1-Math.min(1,ccPart+intpPart))*gShare).toFixed(1)}</b> arrive while you are open`
+          : `<span class="dim">not counted &mdash; <b class="num">${Math.round(100*gShare)}%</b> of the rest if ticked</span>`}</span></button>`);
+    $("bedGrpBtn").onclick = () => { S.bedGrp = !S.bedGrp; run() };
   }
 
   /* ⚠ built once, like every other slider on this page — rebuilding it inside its own oninput
@@ -1296,9 +1381,10 @@ function run(){
   const m=modeOf(), lvl=LEVELS[S.level];
   const cfg = {mode:S.mode, A:S.A, R:S.R, cyc:S.cyc, assess:S.assess, fastDischarge:S.fastDischarge,
                bedcc:[...BEDPICK].sort((a,b)=>a-b).join("."), bedExtra:S.bedExtra, bedIntp:S.bedIntp,
+               bedGrp:S.bedGrp, turnRoom:S.turnRoom, turnChair:S.turnChair,
                cc:[...PICK].sort((a,b)=>a-b).join("."), start:S.start, len:S.len, bar:S.bar};
   const E = evaluate(cfg, lvl.pts), o = E.o;
-  drawSpeed(m); drawWindow(); syncWindow();
+  drawSpeed(m); drawTurn(); drawWindow(); syncWindow();
   $("speedCtl").querySelectorAll("[data-fd]").forEach(bt=>bt.onclick=()=>{
     S.fastDischarge = bt.dataset.fd==="1"; run() });
 
@@ -1395,7 +1481,7 @@ function run(){
      move was most of the stutter. Keyed, so they run when they can actually differ. */
   const critKey = `${S.start}|${S.len}|${S.level}|${[...PICK].sort((x,y)=>x-y).join(".")}`;
   if(critKey !== lastCritKey){ lastCritKey = critKey; drawCriteria() }
-  const bedKey = `${S.mode}|${critKey}|${[...BEDPICK].sort((x,y)=>x-y).join(".")}|${S.bedExtra}|${S.bedIntp?1:0}`;
+  const bedKey = `${S.mode}|${critKey}|${[...BEDPICK].sort((x,y)=>x-y).join(".")}|${S.bedExtra}|${S.bedIntp?1:0}|${S.bedGrp?1:0}|${S.turnRoom}|${S.turnChair}`;
   if(bedKey !== lastBedKey){ lastBedKey = bedKey; drawBedList() }
   const boardKey = `${S.level}|${S.bar}`;
   if(boardKey !== lastBoardKey){ lastBoardKey = boardKey; drawBoard() }
@@ -1426,8 +1512,8 @@ function drawLevels(E){
 
 fromHash();
 drawPresets(); drawModes(); drawSpaces(); run();
-$("bedBlake").onclick = () => { BEDPICK = new Set(BED_IDS); S.bedIntp = true;  run() };
-$("bedNone").onclick  = () => { BEDPICK = new Set();          S.bedIntp = false; run() };
+$("bedBlake").onclick = () => { BEDPICK = new Set(BED_IDS); S.bedIntp = true;  S.bedGrp = true;  run() };
+$("bedNone").onclick  = () => { BEDPICK = new Set();          S.bedIntp = false; S.bedGrp = false; run() };
 $("ccAll").onclick  = () => { PICK = new Set(CC.map(x=>x.i)); run() };
 $("ccNone").onclick = () => { PICK = new Set(); run() };
 $("ccLow").onclick  = () => { PICK = new Set(CC.filter(x=>x.w<=0.25).map(x=>x.i)); run() };

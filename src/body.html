@@ -33,6 +33,11 @@
       <div class="panel-h"><div class="eyebrow">3 · Timing</div></div>
       <div class="panel-b">
         <div id="speedCtl"></div>
+        <div id="turnCtl"></div>
+        <div class="crit-hint">A space is not free the moment a patient walks out of it. Until
+          2026-08-22 this page assumed it was, which quietly handed every layout back capacity it
+          does not have &mdash; and handed the most to the fastest layouts, because they turn their
+          spaces over most often. Set both to zero to see the old behaviour.</div>
       </div>
     </section>
 
@@ -168,6 +173,15 @@
           complaint carries its own measured rate &mdash; from <b>{{intplo}}%</b> to
           <b>{{intphi}}%</b> &mdash; so narrowing the criteria moves it, as it should. It applies
           only to whoever the ticked complaints leave behind, so a patient is never counted twice.</p>
+
+        <div class="eyebrow">A sibling in the room, not a chair each</div>
+        <p><b>{{grpshare}}% of the children arriving in these hours come with a sibling</b>, and
+          measured in the record rather than assumed &mdash; reshuffling arrival times among the
+          same surnames puts the coincidence rate near zero. They are ticked as needing a room,
+          because a family goes into one room together rather than into separate chairs across the
+          lane, and because the lane takes the whole family or none of it.</p>
+        <p>It is a <b>floor</b>: a family whose children have different surnames cannot be seen in
+          the data at all, so the true share is higher by an amount nothing here can measure.</p>
 
         <div class="eyebrow">And the part no chief complaint can capture</div>
         <p>Two reasons a patient needs a door remain uncodable, and the slider below is now for

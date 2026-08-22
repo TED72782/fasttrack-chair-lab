@@ -47,6 +47,11 @@ doPost({postData:{contents:JSON.stringify({who:'Blake',cfg:{mode:'bedfirst',A:6,
 // field must take part in the dedup key and not silently overwrite 3d
 doPost({postData:{contents:JSON.stringify({who:'Blake',cfg:{mode:'bedfirst',A:6,R:4,cyc:76,assess:44,
   fastDischarge:false,cc:'',start:15,len:8,bedcc:'2.9.20',bedExtra:0,bedIntp:true},at:4002})}});
+// 3g. same lane again with turnover set — turnover changes what a lane MEANS, so it must take
+// part in the dedup key rather than overwriting the same lane scored without it
+doPost({postData:{contents:JSON.stringify({who:'Blake',cfg:{mode:'bedfirst',A:6,R:4,cyc:76,assess:44,
+  fastDischarge:false,cc:'',start:15,len:8,bedcc:'2.9.20',bedExtra:0,bedIntp:true,
+  bedGrp:true,turnRoom:10,turnChair:1},at:4003})}});
 // 4. exact repeat of #2 — must replace it
 doPost({postData:{contents:JSON.stringify({who:'Park',cfg:{mode:'split',A:3,R:2,cyc:76,assess:30,
   fastDischarge:true,cc:'0.1.4',start:12,len:6},at:2002})}});
@@ -79,7 +84,13 @@ console.log('legacy row has no bed fields  :',
 console.log('interpreter flag round trips  :',
   bf.some(e=>e.cfg.bedIntp===true) && bf.some(e=>e.cfg.bedIntp===false) ? 'yes'
   : 'FAIL got '+bf.map(e=>String(e.cfg.bedIntp)).join(','));
-console.log('interpreter is part of the key:', bf.length===3 ? 'yes (3 distinct Blake lanes)'
-  : 'FAIL — '+bf.length+' rows, the intp lane collided with another');
+console.log('interpreter is part of the key:', bf.length===4 ? 'yes (4 distinct Blake lanes)'
+  : 'FAIL — '+bf.length+' rows, a lane collided with another');
+const turned = bf.find(e=>e.cfg.turnRoom===10);
+console.log('turnover round trips          :', turned && turned.cfg.turnChair===1 && turned.cfg.bedGrp===true
+  ? 'yes (room 10 / chair 1 / sibling rule on)'
+  : 'FAIL got '+JSON.stringify(turned && {r:turned.cfg.turnRoom,c:turned.cfg.turnChair,g:turned.cfg.bedGrp}));
+console.log('legacy row has no turnover    :',
+  legacy.cfg.turnRoom===undefined && legacy.cfg.turnChair===undefined ? 'yes' : 'FAIL');
 const rej = doPost({postData:{contents:JSON.stringify({who:'X',cfg:{mode:'zone',A:2,R:8},at:1})}});
 console.log('retired mode rejected         :', String(rej).indexOf('error')>=0 ? 'yes' : 'FAIL got '+rej);
