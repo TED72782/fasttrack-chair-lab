@@ -46,9 +46,37 @@ function sim(cfg){
   for(const sd of seeds){
     const r = mulberry32(sd);
     for(let d=0; d<days; d++){
-      const arr=[];
-      for(let h=0;h<H;h++){ let t=h*60; for(;;){ t+=expo(r,lam[h]/60); if(t>=(h+1)*60) break; arr.push(t) } }
-      arr.sort((x,y)=>x-y); arrN += arr.length;
+      /* ── FAMILIES ARRIVE TOGETHER ──────────────────────────────────────────────────────
+         Measured in the vault (pipelines/analyze_family_groups.py, the only analysis that needs
+         patient_name): 5.6% of ESI 4/5 evening arrivals come with a sibling — 358 pairs, 45
+         triples and under 11 larger groups over 592 evenings. Reshuffling the arrival times among
+         the same surnames puts the coincidence rate at 0.05%, so essentially all of that is real.
+
+         ⚠ The RATE is divided by the mean group size, so the same number of CHILDREN arrive as
+         before — this changes how they are bunched, not how many there are. Without that the lane
+         would quietly get 3% more volume and every layout would look worse.
+
+         ⚠ Matching on the arrival MINUTE would have found a quarter of this: registration cannot
+         stamp two patients in the same minute, so a family walking in together is recorded minutes
+         apart (1.08% at 0 min against 4.20% at 5). They are modelled arriving at one instant,
+         because the spacing is a recording artefact and not a real gap.
+
+         Absent params -> every group is size 1 -> bit-identical to before this existed. */
+      const G = D.grp, gmean = G ? G.mean_group_size : 1;
+      const gsize = () => { if(!G) return 1; const u = r();
+        if(u < G.p4) return 4; if(u < G.p4+G.p3) return 3; if(u < G.p4+G.p3+G.p2) return 2; return 1 };
+      const arr=[], gid=[];
+      let gnext=0;
+      for(let h=0;h<H;h++){ let t=h*60;
+        for(;;){ t+=expo(r,(lam[h]/gmean)/60); if(t>=(h+1)*60) break;
+                 const g=gsize(), id=gnext++;
+                 for(let k=0;k<g;k++){ arr.push(t); gid.push(id) } } }
+      // sort arrivals while keeping each patient with its own group id
+      const ord = arr.map((_,i)=>i).sort((x,y)=> arr[x]-arr[y] || gid[x]-gid[y]);
+      const arrS = ord.map(i=>arr[i]), gidS = ord.map(i=>gid[i]);
+      arr.length=0; gid.length=0;
+      for(let i=0;i<arrS.length;i++){ arr.push(arrS[i]); gid.push(gidS[i]) }
+      arrN += arr.length;
       const ev=new Heap(); for(let i=0;i<arr.length;i++) ev.push([arr[i],0,i]);
       ev.push([CLOSE,-1,-1]);
       const qa=[], qr=[], second=new Float64Array(arr.length);
@@ -77,8 +105,21 @@ function sim(cfg){
       const startB = (t,tag) => { rb++;
         if(T){ const s=freeB.pop(); slotB[tag]=s; T.push({t, id:tag, ev:"second", slot:s}) }
         ev.push([t+second[tag],2,tag]) };
-      const takeNext = t => { if(!qa.length || ab>=A) return;
-        const q=qa.shift(); rec(q[1], t-q[0]); startA(t,q[1]) };
+      /* A family is seated as one party or not at all — operator, 2026-08-22: they walk out
+         together. Splitting one sibling into a chair and leaving the other outside with the parent
+         is not a thing the department does, and modelling it that way would let a lane look like
+         it absorbed a family it only half-took. The scan is NON-blocking: a party that does not
+         fit is passed over rather than holding the queue, so a single behind it is still seated.
+         With every group size 1 this reduces exactly to the old shift(). */
+      const partySize = g => { let n=0; for(const q of qa) if(gid[q[1]]===g) n++; return n };
+      const seatParty = (t, g, start) => { for(let j=qa.length-1;j>=0;j--) if(gid[qa[j][1]]===g){
+          const q=qa.splice(j,1)[0]; rec(q[1], t-q[0]); start(t,q[1]) } };
+      const takeOne = t => { if(!qa.length || ab>=A) return false;
+        const free = A-ab;
+        const i = qa.findIndex(q => partySize(gid[q[1]]) <= free);
+        if(i<0) return false;
+        seatParty(t, gid[qa[i][1]], startA); return true };
+      const takeNext = t => { for(;;){ if(!takeOne(t)) break } };
 
       /* ── BED-FIRST ────────────────────────────────────────────────────────────────────────
          A third shape, and it is neither of the other two. A room is the DEFAULT, not a stage:
@@ -100,17 +141,24 @@ function sim(cfg){
       const startChair = (t,tag) => { rb++;
         if(T){ const s=freeB.pop(); slotB[tag]=s; T.push({t, id:tag, ev:"second", slot:s}) }
         ev.push([t+draw(tag),2,tag]) };
-      const takeBed = t => { if(!qa.length || ab>=A) return false;
-        const q=qa.shift(); rec(q[1], t-q[0]); startBed(t,q[1]); return true };
-      const takeChair = t => { if(rb>=R) return false;
-        // a bed-required patient waits for a door; the next person who can use a chair takes it
-        const i = qa.findIndex(q => !bedReq[q[1]]);
-        if(i<0) return false;
-        const q=qa.splice(i,1)[0]; rec(q[1], t-q[0]); startChair(t,q[1]); return true };
+      /* Same one-party rule as the split lane. A party needs room for ALL of it before any of it
+         is placed: enough doors for its bed-required members, and any space at all for the rest. */
+      const party = g => { const out=[]; for(let j=0;j<qa.length;j++) if(gid[qa[j][1]]===g) out.push(j); return out };
+      const seatBedParty = (t, idx) => { for(let j=idx.length-1;j>=0;j--){
+          const q=qa.splice(idx[j],1)[0]; rec(q[1], t-q[0]);
+          if(ab<A && (bedReq[q[1]] || rb>=R)) startBed(t,q[1]); else startChair(t,q[1]) } };
+      const takeParty = t => {
+        for(let i=0;i<qa.length;i++){
+          const idx = party(gid[qa[i][1]]);
+          let needBed=0; for(const j of idx) if(bedReq[qa[j][1]]) needBed++;
+          const rest = idx.length-needBed, fa = A-ab, fr = R-rb;
+          if(needBed <= fa && rest <= (fa-needBed) + fr){ seatBedParty(t, idx); return true }
+        }
+        return false };
       /* Rooms first, every time. takeBed only fires while a room is free, so by the time
          takeChair is reached the rooms ARE full — the "chairs only at zero room capacity" rule
          falls out of the order rather than needing a threshold of its own. */
-      const drain = t => { for(;;){ if(takeBed(t)) continue; if(takeChair(t)) continue; break } };
+      const drain = t => { for(;;){ if(!takeParty(t)) break } };
 
       while(ev.a.length){
         const e=ev.pop(), t=e[0], kind=e[1], tag=e[2];
@@ -130,7 +178,7 @@ function sim(cfg){
           continue;
         }
         if(kind===0){ if(T) T.push({t, id:tag, ev:"arrive", test: null});
-                      if(ab<A){ rec(tag,0); startA(t,tag) } else qa.push([t,tag]) }
+                      qa.push([t,tag]); takeNext(t) }
         else if(kind===1){
           seen++;
           if(!second[tag]){ ab--;

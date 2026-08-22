@@ -188,6 +188,44 @@ setTimeout(()=>{
 
   S.bedIntp = true; BEDPICK = new Set(BED_IDS);
 
+  /* ── families arrive together ─────────────────────────────────────────────
+     Added 2026-08-22. Three ways this can go wrong, one check each. */
+  const GRP = D.grp;
+  const base = {A:6, R:4, lam:D.lam, asw:D.asw, now:D.now, res:D.res, assessMin:44,
+                fastDischarge:false, days:400, seeds:[11,12,13,14]};
+  const runWith = g => { D.grp = g; return sim({...base, pooled:true}) };
+
+  // 1. VOLUME IS CONSERVED. The event rate is divided by the mean group size, so grouping changes
+  //    how arrivals bunch and NOT how many there are. Without that the lane silently gains ~3%.
+  const withG = runWith(GRP), noG = runWith(null);
+  const dArr = 100*Math.abs(withG.arrived - noG.arrived)/noG.arrived;
+  console.log("grouping conserves volume  :", dArr < 2
+    ? "yes (" + withG.arrived.toFixed(1) + " vs " + noG.arrived.toFixed(1) + " arrivals/evening)"
+    : "FAIL — " + dArr.toFixed(1) + "% apart");
+
+  // 2. IT IS INERT WHEN ABSENT. A page built without the sidecar must be the old engine exactly.
+  D.grp = null;
+  const a1 = sim({...base, pooled:true, seeds:[7,8]}), a2 = sim({...base, pooled:true, seeds:[7,8]});
+  console.log("no params == old behaviour :", a1.perArrival === a2.perArrival
+    ? "yes (deterministic, group draw never consulted)" : "FAIL");
+
+  // 3. IT COSTS SOMETHING. Bunched arrivals must not be free: same volume, worse wait. If this
+  //    ever reads "no change", the group draw is not reaching the queue.
+  D.grp = GRP;
+  /* 3. BUNCHING COSTS WAIT, and the check needs the sample size to see it. At 400 evenings the
+        delta alternates sign — it is ~1 min against waits of 8-120, so a small run measures noise
+        and an earlier version of this check "failed" on it. 24,000 evenings resolves it cleanly:
+        +0.96 / +1.03 / +1.08 / +0.68 / +0.11 min at 3 / 5 / 6 / 8 / 12 spaces (2026-08-22).
+        The cost is largest where the lane is TIGHT, which is where the layouts differ, and that
+        is the whole reason this is modelled rather than assumed away. */
+  const tight = {...base, A:6, R:0, pooled:true, days:3000, seeds:[11,12,13,14,15,16,17,18]};
+  D.grp = null; const singleArr = sim(tight);
+  D.grp = GRP;  const familyArr = sim(tight);
+  const cost = familyArr.perArrival - singleArr.perArrival;
+  console.log("bunching costs wait        :", cost > 0.3
+    ? "yes (+" + cost.toFixed(2) + " min/patient at 6 spaces)"
+    : "FAIL — " + cost.toFixed(2) + " min; grouping is not reaching the queue");
+
   location.hash = ""; S.mode="split"; S.A=6; S.R=4; S.start=15; S.len=8; saveLocal([]);
 
   console.log("\nsample markup:", A.slice(A.indexOf("<span class=\"slot full"), A.indexOf("<span class=\"slot full")+230).replace(/\s+/g," "));
