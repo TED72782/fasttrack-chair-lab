@@ -269,7 +269,8 @@ function buildTrace(){
      to be listed here — a mode added to sim() and not to this line plays a DIFFERENT lane on
      screen from the one the cards describe, which is worse than showing no lane at all. */
   const base = {A:S.A, R:m.hasR?S.R:0, pooled:m.id==="pooled", bedGrp:S.bedGrp, ...turnFor(S),
-                bedFirst:m.id==="bedfirst", bedShare:liveBedShare(), assessMin:S.assess, assessNo:S.assessNo,
+                bedFirst:m.id==="bedfirst", bedShare:liveBedShare(), assessMin:S.assess,
+                assessNo:S.assessNo * mx.fm,
                 fastDischarge:S.fastDischarge, shr:mx.shr, lam,
                 asw:scale(D.asw, f*mx.fa), now:scale(D.now, f*mx.fo), res:scale(D.res, f*mx.fr),
                 days:1, trace:true};
@@ -495,13 +496,14 @@ const bar = () => BARS[S.bar] || BARS.today;
 function mix(){
   const sel = CC.filter(x=>PICK.has(x.i));
   const s = sel.reduce((a,x)=>a+x.s, 0);
-  if(!s) return {share:0, shr:D.shr, fa:1, fr:1, fo:1, n:0};
+  if(!s) return {share:0, shr:D.shr, fa:1, fr:1, fo:1, fm:1, n:0};
   const wsum = k => sel.reduce((a,x)=>a+x.s*x[k], 0)/s;
   return {share:s, n:sel.length,
           shr: wsum("w"),
           fa: wsum("a")/D.g.asw,                    // scale factors onto the shared shapes
           fr: wsum("r")/D.g.res,
-          fo: wsum("o")/D.g.now};
+          fo: wsum("o")/D.g.now,
+          fm: D.g.mv ? wsum("m")/D.g.mv : 1};   // when this mix's no-test patients could move
 }
 const scale  = (pool,f) => pool.map(x => x*f);
 
@@ -549,7 +551,16 @@ function evaluate(cfg, dayTotal){
              ? Math.min(1, Math.max(0, (+cfg.bedShare || 0) / 100))
              : bedShareOf(keep, cfg.bedcc === undefined ? new Set(BED_IDS) : idSet(cfg.bedcc),
                           cfg.bedExtra, cfg.bedIntp, cfg.bedGrp),
-           assessMin:cfg.assess, assessNo:cfg.assessNo, fastDischarge:cfg.fastDischarge, shr:w("w"), lam,
+           assessMin:cfg.assess, fastDischarge:cfg.fastDischarge, shr:w("w"), lam,
+           /* Scaled by the mix, exactly as the service pools are. A lane that takes only quick
+              complaints gets a shorter no-test assessment automatically, because those patients
+              really are done sooner — measured 34 min for an arm injury against 98 for a
+              constipation. Narrowing the criteria therefore moves this without anyone touching
+              the slider, which is the point: the slider sets the AVERAGE patient. */
+           /* ⚠ resolve the legacy fallback BEFORE scaling. sim() used to take `assessNo ??
+              assessMin`, so a cfg without the field worked; multiplying an undefined by the mix
+              factor gives NaN, and a NaN reaches the board as a blank score. */
+           assessNo: (cfg.assessNo ?? cfg.assess ?? D.g.mv) * (D.g.mv ? w("m")/D.g.mv : 1),
            asw:scale(D.asw, f*w("a")/D.g.asw), now:scale(D.now, f*w("o")/D.g.now),
            res:scale(D.res, f*w("r")/D.g.res), days:cfg.days||600, seeds:cfg.seeds||[11,12,13,14]});
 
@@ -688,7 +699,11 @@ const LEVELS = [
 // as acceptable is a judgement for the room, not a line in a chart.
 const S = {mode:"split", A:6, R:4, budget:0, cyc:Math.round(D.T_A), assess:44,
            fastDischarge:false, level:1, bar:"today", start:15, len:8, bedExtra:0, bedIntp:true,
-           bedGrp:true, turnRoom:10, turnChair:1, roomsA:false, assessNo:44};
+           bedGrp:true, turnRoom:10, turnChair:1, roomsA:false,
+           /* MEASURED, not chosen: roomed -> disposition for patients who need no test. This was
+              44 for one day — the test cohort's figure — which moved them out ~23 min early and
+              handed the second area more than double the time it should get. */
+           assessNo: Math.round(D.g.mv || 44)};
 
 /* ⚠ EVERY NUMBER THAT REACHES THE ENGINE IS CLAMPED ON THE WAY IN. Two of them arrive from
    outside this page and neither can be trusted: the '#' link (people edit them, and chat
@@ -697,7 +712,7 @@ const S = {mode:"split", A:6, R:4, budget:0, cyc:Math.round(D.T_A), assess:44,
    page: drawStageIdle() does `new Array(S.A)`, and new Array(NaN) — or (-3), or (6.5) — throws
    RangeError, which happened before a single button was wired, so Add / Play / Copy link were
    all inert. Limits mirror the sliders, so a clamped link lands somewhere the UI can show. */
-const LIM = {A:[1,14], R:[1,16], cyc:[55,115], assess:[10,90], assessNo:[10,90],
+const LIM = {A:[1,14], R:[1,16], cyc:[55,115], assess:[10,90], assessNo:[10,120],
              start:[0,23], len:[2,24], bedExtra:[0,40], turnRoom:[0,30], turnChair:[0,15]};
 function lim(k, v, dflt){
   const n = Math.round(+v);
@@ -896,13 +911,16 @@ function drawSpeed(m){
     + (S.fastDischarge ? `<div class="ctl"><div class="ctl-top">
         <label for="asn">Assessment &mdash; a patient needing none</label>
         <output class="num" id="asnOut"></output></div>
-      <input type="range" id="asn" min="10" max="90" step="1" value="${S.assessNo}">
-      <div class="hint">Nothing in the record times this one. A patient with no order has no event
-        between being roomed and leaving, so the ${(D.g.asw-D.pom).toFixed(0)}-min figure above
-        &mdash; measured on patients who DID have an order &mdash; is the wrong number for them and
-        was being used anyway until 2026-08-22. <b>They are ${Math.round(100*(1-D.shr))}% of the
-        lane.</b> Moving them out early is not free: they fill the second area, and a patient who
-        cannot move stays in the assessment space, holding both.</div></div>` : ``);
+      <input type="range" id="asn" min="10" max="120" step="1" value="${S.assessNo}">
+      <div class="hint">Measured, unlike the one above: a patient who needs no test holds their
+        space <b>${Math.round(D.g.mv)} min</b> before the decision is made, and has about
+        <b>${Math.round(D.g.now - D.g.mv)} min</b> left after it. That tail is the only part that
+        can move. It runs
+        ${Math.round(Math.min(...CC.map(x=>x.m)))}&ndash;${Math.round(Math.max(...CC.map(x=>x.m)))}
+        min by complaint and follows whichever ones you accept, so this dial sets the AVERAGE
+        patient. <b>They are ${Math.round(100*(1-D.shr))}% of the lane.</b> Moving them out early
+        is not free: they fill the second area, and a patient who cannot move stays in the
+        assessment space, holding both.</div></div>` : ``);
   $("asx").oninput = e => { S.assess = +e.target.value; syncSpeed(m); requestRun() };
   if($("asn")) $("asn").oninput = e => { S.assessNo = +e.target.value; syncSpeed(m); requestRun() };
   syncSpeed(m);
@@ -1382,13 +1400,20 @@ function drawCriteria(){
     <b class="num">${String(S.start).padStart(2,"0")}:00</b> and
     <b class="num">${String((S.start+S.len)%24).padStart(2,"0")}:00</b>
     on ${LEVELS[S.level].n.toLowerCase()} — <b class="num">${pts.toFixed(1)}</b> in total.
-    Tap a complaint to take it or leave it.`;
+    Tap a complaint to take it or leave it.
+    <span class="dim">&ldquo;Ready to move&rdquo; is measured: how long a patient who needs no test
+    holds a space before the decision is made &mdash; ${Math.round(D.g.mv)} min on average, but
+    ${Math.round(Math.min(...CC.map(x=>x.m)))} to ${Math.round(Math.max(...CC.map(x=>x.m)))} across
+    these complaints. It is the clearest signal of who belongs in a chair lane: the slow ones are
+    the complaints where something is DONE &mdash; a repair, a wound, a treatment and a
+    re-check.</span>`;
   $("ccList").innerHTML = CC.map(x=>{
     const on = PICK.has(x.i);
     return `<button type="button" class="cc${on?" on":""}" data-cc="${x.i}" aria-pressed="${on}">
       <span class="cc-n">${x.n}</span>
       <span class="cc-m"><b class="num">${(pts*x.s).toFixed(1)}</b> arrive while you are open
-        · <span class="num">${Math.round(100*x.w)}%</span> need a test</span></button>`;
+        · <span class="num">${Math.round(100*x.w)}%</span> need a test
+        · ready to move <span class="num">${Math.round(x.m)}</span> min</span></button>`;
   }).join("");
   $("ccList").querySelectorAll("[data-cc]").forEach(btn=>btn.onclick=()=>{
     const i=+btn.dataset.cc; PICK.has(i)?PICK.delete(i):PICK.add(i); run();

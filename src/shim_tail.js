@@ -1,3 +1,6 @@
+/* captured before anything mutates S — the legacy-link tests below deliberately overwrite
+   assessNo with the pre-split fallback, so reading it at the end measures the wrong thing */
+const DEFAULT_ASSESS_NO = S.assessNo;
 setTimeout(()=>{
   S.mode="split";S.A=6;S.R=4;S.start=15;S.len=8;S.assess=44;S.fastDischarge=true;S.level=1;
   PICK=new Set(CC.map(x=>x.i)); run(); buildTrace();
@@ -301,6 +304,31 @@ setTimeout(()=>{
   console.log("early moves BLOCK, not relieve:", early.stuck > late.stuck && early.perArrival > late.perArrival
     ? "yes (stuck " + early.stuck.toFixed(0) + "% -> " + late.stuck.toFixed(0) + "%)"
     : "FAIL — stuck " + early.stuck.toFixed(0) + "% vs " + late.stuck.toFixed(0) + "%");
+  /* Per complaint since 2026-08-22. The chain is cc selection -> mix().fm -> the assessNo passed
+     to sim(). sim's consumption of assessNo is guarded above ("no-test assessment is its own"),
+     so what is left to pin is the FACTOR, which is where a wiring mistake would live.
+
+     ⚠ The obvious test does not work and looked like it did: scoring an ear-only lane against a
+     laceration-only lane gives 8.0 either way, because one complaint is a few percent of the
+     evening and a 6-chair lane never queues at that volume. It would have passed with the factor
+     disconnected. Assert the factor itself. */
+  const ccNamed = n => CC.find(c=>c.n===n);
+  const earM = ccNamed("Ear Problem"), lacM = ccNamed("Laceration");
+  if(earM && lacM){
+    const held = new Set(PICK);
+    PICK = new Set([earM.i]); const fmEar = mix().fm;
+    PICK = new Set([lacM.i]); const fmLac = mix().fm;
+    PICK = held;
+    console.log("quick complaints move sooner:", fmLac > fmEar * 1.3
+      ? "yes (ear ready at " + Math.round(earM.m) + " min, laceration at " + Math.round(lacM.m)
+        + " — factor " + fmEar.toFixed(2) + " vs " + fmLac.toFixed(2) + ")"
+      : "FAIL — the mix factor is flat: " + fmEar + " vs " + fmLac);
+  } else console.log("quick complaints move sooner: FAIL — complaint not found");
+
+  console.log("the default is the measurement:", Math.abs(DEFAULT_ASSESS_NO - D.g.mv) <= 1
+    ? "yes (" + DEFAULT_ASSESS_NO + " min, measured " + D.g.mv + ")"
+    : "FAIL — default " + DEFAULT_ASSESS_NO + " against a measured " + D.g.mv);
+
   console.log("legacy row shares one figure:", sane({mode:"split", A:6, R:4, cyc:76, assess:60,
       fastDischarge:true, cc:"0.1"}).assessNo === 60
     ? "yes (assessNo falls back to assess)" : "FAIL");
