@@ -1406,14 +1406,16 @@ function drawCriteria(){
     ${Math.round(Math.min(...CC.map(x=>x.m)))} to ${Math.round(Math.max(...CC.map(x=>x.m)))} across
     these complaints. It is the clearest signal of who belongs in a chair lane: the slow ones are
     the complaints where something is DONE &mdash; a repair, a wound, a treatment and a
-    re-check.</span>`;
+    re-check. A dash means nearly everyone with that complaint gets a test, so there is no
+    no-test group left to measure and the lane-wide figure is used instead.</span>`;
   $("ccList").innerHTML = CC.map(x=>{
     const on = PICK.has(x.i);
     return `<button type="button" class="cc${on?" on":""}" data-cc="${x.i}" aria-pressed="${on}">
       <span class="cc-n">${x.n}</span>
       <span class="cc-m"><b class="num">${(pts*x.s).toFixed(1)}</b> arrive while you are open
         · <span class="num">${Math.round(100*x.w)}%</span> need a test
-        · ready to move <span class="num">${Math.round(x.m)}</span> min</span></button>`;
+        · ready to move <span class="num">${x.me ? "&mdash;" : Math.round(x.m)}</span>${
+          x.me ? `<span class="dim"> (too few without a test)</span>` : ` min`}</span></button>`;
   }).join("");
   $("ccList").querySelectorAll("[data-cc]").forEach(btn=>btn.onclick=()=>{
     const i=+btn.dataset.cc; PICK.has(i)?PICK.delete(i):PICK.add(i); run();
