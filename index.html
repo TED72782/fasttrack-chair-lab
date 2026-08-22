@@ -297,7 +297,9 @@ footer{margin-top:26px;font-size:12.5px;color:var(--ink-3);border-top:1px solid 
         <div class="crit-hint">A space is not free the moment a patient walks out of it. Until
           2026-08-22 this page assumed it was, which quietly handed every layout back capacity it
           does not have &mdash; and handed the most to the fastest layouts, because they turn their
-          spaces over most often. Set both to zero to see the old behaviour.</div>
+          spaces over most often. <b>The chair figure applies wherever a chair is used</b>, which is
+          both sides of a divided lane and the whole of the pooled one; only the rooms-first layout
+          has rooms to turn over. Set both to zero to see the old behaviour.</div>
       </div>
     </section>
 
@@ -1137,11 +1139,17 @@ function mix(){
 }
 const scale  = (pool,f) => pool.map(x => x*f);
 
-/* Which turnover applies to which pool. A patient is EXAMINED in the assessment pool — a room in
-   the bed-first lane and in "8 rooms + 10 chairs" — so it turns over at the room figure, while the
-   second area and the pooled lane are chairs. In a divided lane whose assessment side is itself
-   chairs this over-charges that pool; set the room slider to the chair figure for that reading. */
-const turnFor = cfg => ({turnA: cfg.mode === "pooled" ? (cfg.turnChair ?? 0) : (cfg.turnRoom ?? 0),
+/* Which turnover applies to which pool. The chair figure applies ANYWHERE A CHAIR IS USED, which
+   is both sides of a divided lane — assessment and results/discharge pending are chairs alike —
+   and the whole of the pooled lane. Only the bed-first lane has rooms, and only its first pool.
+
+   ⚠ Corrected 2026-08-22 (operator). This first charged the ROOM figure to every assessment pool,
+   on the reasoning that a patient is examined there. That is wrong for this lab: the assessment
+   side of a chair lane is chairs, so a 6+4 divided lane was being charged ten minutes to turn over
+   a chair and came out ~1 min/patient worse than it should have been. The lane is named for what
+   it is. The one layout where the assessment side really is rooms — "8 rooms + 10 chairs" — is now
+   the case that under-charges; raise the chair slider to read that one. */
+const turnFor = cfg => ({turnA: cfg.mode === "bedfirst" ? (cfg.turnRoom ?? 0) : (cfg.turnChair ?? 0),
                          turnB: cfg.turnChair ?? 0});
 
 /* One lane, evaluated. `cfg` is everything a saved board entry carries, so the live page and

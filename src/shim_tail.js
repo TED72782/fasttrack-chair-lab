@@ -250,6 +250,23 @@ setTimeout(()=>{
       + " min/patient at 3 rooms)"
     : "FAIL — no cost: " + wSib.perArrival.toFixed(2) + " vs " + noSib.perArrival.toFixed(2));
 
+  /* The room slider must be INERT in a lane made of chairs — both sides of a divided lane are
+     chairs, and so is the pooled one. This is the regression guard for the 2026-08-22 correction:
+     the first build charged the room figure to every assessment pool, which cost a 6+4 divided
+     lane about a minute per patient it should never have been charged. */
+  const chairLane = {mode:"split", A:6, R:4, cyc:76, assess:44, fastDischarge:false,
+                     cc:CC.map(x=>x.i).join("."), start:15, len:8, bedExtra:0};
+  const busyPts = LEVELS[2].pts;
+  const roomHigh = evaluate(sane({...chairLane, turnRoom:30, turnChair:2}), busyPts).score;
+  const roomZero = evaluate(sane({...chairLane, turnRoom:0,  turnChair:2}), busyPts).score;
+  console.log("room slider inert in a chair lane:", roomHigh === roomZero
+    ? "yes (" + roomHigh.toFixed(2) + " either way)"
+    : "FAIL — 30-min rooms moved a chair lane " + roomZero.toFixed(2) + " -> " + roomHigh.toFixed(2));
+  const chairBites = evaluate(sane({...chairLane, turnRoom:0, turnChair:0}), busyPts).score;
+  console.log("chair turnover still bites  :", roomZero > chairBites
+    ? "yes (" + chairBites.toFixed(2) + " -> " + roomZero.toFixed(2) + " at 2 min a chair)"
+    : "FAIL — chair turnover is free");
+
   /* Measured 2026-08-22, bed-first, 19% bed-required, families on, turnover 10/1:
        8rm+2ch 10.70 -> 12.00 (+1.30) · 6rm+4ch 10.96 -> 11.72 (+0.77)
        4rm+6ch 11.21 -> 11.86 (+0.65) · 2rm+8ch 14.71 -> 15.69 (+0.98)
