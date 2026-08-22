@@ -143,6 +143,51 @@ setTimeout(()=>{
       ? "yes" : "FAIL — got "+liveBedShare());
   S.bedExtra = 0;
 
+  /* ── the interpreter criterion ────────────────────────────────────────────
+     Added 2026-08-22. It is the first term that is neither a complaint nor a flat guess, so it
+     can fail in ways the list checks above cannot see. */
+  BEDPICK = new Set(BED_IDS); S.bedIntp = false; run();
+  const noI = liveBedShare();
+  S.bedIntp = true; run();
+  const yesI = liveBedShare();
+  // it must ADD to the list rather than replace it, and land inside 0..1
+  console.log("interpreter adds to the list :", yesI > noI && yesI < 1
+    ? "yes (" + (100*noI).toFixed(0) + "% -> " + (100*yesI).toFixed(0) + "%)"
+    : "FAIL — off=" + noI + " on=" + yesI);
+
+  /* ⚠ NOT A FLAT RATE. If someone ever replaces the per-complaint `x` with a single window-wide
+     number this check is the one that notices: narrowing to a low-interpreter complaint and to a
+     high one must give different shares. Laceration measures ~5% and Fever ~17%. */
+  const byName = n => CC.find(x => x.n === n);
+  const lac = byName("Laceration"), fev = byName("Fever");
+  if(lac && fev){
+    BEDPICK = new Set();                       // nothing ticked, so the term stands alone
+    PICK = new Set([lac.i]); run(); const shLac = liveBedShare();
+    PICK = new Set([fev.i]); run(); const shFev = liveBedShare();
+    console.log("interpreter is per-complaint :", shFev > shLac + 0.02
+      ? "yes (laceration " + (100*shLac).toFixed(1) + "% vs fever " + (100*shFev).toFixed(1) + "%)"
+      : "FAIL — flat? laceration=" + shLac + " fever=" + shFev);
+  } else console.log("interpreter is per-complaint : FAIL — complaint not found");
+  PICK = new Set(CC.map(x=>x.i));
+
+  /* A row saved before this criterion existed was scored WITHOUT it. Defaulting to true would
+     silently re-rank other people's lanes under a rule they never chose. */
+  const legacyBed = sane({mode:"bedfirst", A:6, R:4, cyc:76, assess:44, fastDischarge:false,
+                          bedcc:[...BED_IDS].join("."), bedExtra:0});
+  console.log("legacy bed row keeps its score:", legacyBed.bedIntp === false
+    ? "yes (interpreter off)" : "FAIL — bedIntp=" + legacyBed.bedIntp);
+
+  /* The genital group must be ON Blake's list, and must not have dragged the urinary complaints
+     in with it — the operator's 2026-08-22 correction. */
+  const gen = CC.find(x => x.k === "genital");
+  console.log("genital group is on the list :", gen && BED_IDS.indexOf(gen.i) >= 0
+    ? "yes (" + gen.n + ", " + (100*gen.s).toFixed(2) + "% of the lane)"
+    : "FAIL — group missing from BED_IDS");
+  console.log("urinary stayed out of it     :", gen && !/urinary|dysuria|hematuria/i.test(gen.n)
+    && CC.some(x => x.n === "Dysuria") ? "yes (Dysuria is still its own row)" : "FAIL");
+
+  S.bedIntp = true; BEDPICK = new Set(BED_IDS);
+
   location.hash = ""; S.mode="split"; S.A=6; S.R=4; S.start=15; S.len=8; saveLocal([]);
 
   console.log("\nsample markup:", A.slice(A.indexOf("<span class=\"slot full"), A.indexOf("<span class=\"slot full")+230).replace(/\s+/g," "));

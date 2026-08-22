@@ -140,42 +140,46 @@
       <div class="crit-hint">Presentations that need a door for the initial evaluation, and so
         wait for a room rather than take a chair. Tap a complaint to add or remove it. The three
         ticked to start are the ones Blake named that a chief complaint can actually carry
-        &mdash; abdominal pain, rash, dysuria. <b>That is a starting point, not an answer:</b>
+        &mdash; abdominal pain, rash, dysuria, and the genital complaints as a group. <b>That is a starting point, not an answer:</b>
         this is the list the MD group has to establish and sign off, and it is a clinical
         judgement rather than anything the data can settle.</div>
       <div class="crit-list" id="bedList"></div>
+      <div id="bedIntpCtl"></div>
       <div class="bed-extra">
-        <div class="eyebrow">⚠ The GU complaints are recorded, but this build hides them</div>
-        <p><b>Genitourinary concerns are apparent in the chief complaint</b> &mdash; they are
-          exactly the "exams of sensitive areas" on Blake's list, and triage records them. But
-          only <b>Dysuria</b> is broken out above. Genital, scrotal, testicular and vaginal
-          complaints, hematuria, urinary frequency and the rest are all inside
-          <i>Everything else (227 complaints)</i>, which is a single button covering
-          <b>25%</b> of the lane's volume. <b>Do not tick that bucket as a GU proxy</b> &mdash; it
-          would put a quarter of the department in rooms.</p>
-        <p>So the list above cannot yet express the sensitive-area half of Blake's rule. Fixing it
-          properly means breaking those complaints out into their own rows at the next data cut;
-          this page ships aggregates only, so it cannot do that on its own. <b>Until then they
-          belong in the share below</b>, along with the reasons that will never be codable.</p>
+        <div class="eyebrow">Genital complaints are their own row now &mdash; urinary ones are not in it</div>
+        <p>The sensitive-area half of Blake's rule used to be unexpressable here: only
+          <b>Dysuria</b> was broken out, and everything else genital sat inside
+          <i>Everything else</i>, a single button covering a quarter of the lane. It is now its
+          own row &mdash; <b>{{genn}} complaints</b>, <b>{{genpct}}%</b> of the lane &mdash;
+          small enough to tick without putting the department in rooms.</p>
+        <p><b>Urinary complaints are deliberately not in that group.</b> Dysuria, hematuria and
+          urinary frequency or retention &mdash; <b>{{urinn}} visits, {{urinpct}}%</b> &mdash;
+          do not usually need a sensitive exam, which is the whole reason the group exists
+          (physicians, 2026-08-22). Dysuria stays ticked on its own, exactly as Blake wrote it;
+          it is on the list for its own reasons, not as a stand-in for a genital exam.</p>
+
+        <div class="eyebrow">An interpreter is now measured, not guessed</div>
+        <p><b>{{intp}}% of this lane needs an interpreter</b> &mdash; preferred language is
+          recorded at registration, not judged at the bedside, so this is a count rather than an
+          estimate: <b>{{intpcov}}%</b> of the window carries it, across <b>{{intpn}}</b>
+          languages. An interpreted evaluation has to be audible and private, and an interpreter
+          is often placed physically at the bedside; a chair in an open bay is neither.</p>
+        <p>It is ticked above as its own criterion, and it is <b>not</b> a flat percentage. Each
+          complaint carries its own measured rate &mdash; from <b>{{intplo}}%</b> to
+          <b>{{intphi}}%</b> &mdash; so narrowing the criteria moves it, as it should. It applies
+          only to whoever the ticked complaints leave behind, so a patient is never counted twice.</p>
+
         <div class="eyebrow">And the part no chief complaint can capture</div>
-        <p>Three more reasons a patient needs a door, and <b>none of them is a chief
-          complaint</b>, so no amount of ticking above will find them:</p>
+        <p>Two reasons a patient needs a door remain uncodable, and the slider below is now for
+          those alone:</p>
         <ul>
-          <li><b>A patient or family who does not speak English</b> &mdash; an interpreted
-              evaluation has to be both audible and private, which a chair in an open bay is
-              not, and an interpreter often has to be physically placed at the bedside.</li>
           <li><b>A sensitive history</b> &mdash; taken in the open, it is not taken.</li>
           <li><b>A family who needs a door</b> &mdash; frightened, angry or simply at the end of
               their patience. A triage judgement made in the moment and written down nowhere.</li>
         </ul>
-        <p><b>The first of those is not like the other two.</b> Preferred language and
-          interpreter need are <i>recorded fields</i> &mdash; they are taken at registration, not
-          judged at the bedside &mdash; so that share could be <b>measured rather than guessed</b>.
-          It is simply not in this build's extract. Ask for it alongside the GU complaints and
-          this stops being a slider. A sensitive history and an angry family never will be.</p>
-        <p>Until then the only honest thing the page can do is ask you for the number.
-          <b>It starts at zero, which is certainly too low</b> &mdash; the GU complaints and the
-          interpreted encounters alone put it above zero.</p>
+        <p>Neither will ever be a field, so this one stays a number only the group can set.
+          <b>It starts at zero, which is certainly too low</b> &mdash; but it is now a smaller job
+          than it was, because the two shares that could be measured have been.</p>
         <p><b>Two of the reasons Blake names are deliberately absent from all of this:
           child-abuse evaluations and mental-health presentations.</b> Neither is missing from
           the data &mdash; they are missing from this <i>population</i>. Every encounter behind

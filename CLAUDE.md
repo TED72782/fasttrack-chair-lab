@@ -158,8 +158,9 @@ usually to help Ted get one of these unstuck rather than to start editing.
 |---|---|---|---|
 | 1 | ~~Re-push the Apps Script deployment~~ **DONE 2026-08-22 — Version 7** | — | The project's `Code.gs` was **stale**, so a redeploy alone would have been a no-op: its `HEAD` lacked `bedcc`/`bedExtra` and its `modes` lacked `bedfirst`. The repo's `shared-board.gs` was pasted in, saved, and the EXISTING deployment moved to a new version — same Deployment ID `…6fwLWXM6auKC`, so the address baked into the page is unchanged. Verified live: a Blake lane now saves with `mode: bedfirst`, `bedcc: 2.9.20`, `bedExtra: 0`, and loads back identically. |
 | 2 | ~~Open the live page and check the leaderboard footer~~ **DONE 2026-08-22** | — | Verified in Chrome on Ted's laptop: footer reads *"shared board — everyone using this link sees the same list"*, `SHARED === true`, the baked `DEFAULT_BOARD` answers, and the live page serves the bed-first build. Closes open threads 4 and 6. |
-| 3 | **Ask the extract for GU complaint rows + preferred-language / interpreter need** | whoever runs the extract | Turns two slider guesses into measurements. See open threads 2 and 3. |
-| 4 | **Get the residual share from Blake** | Blake | It ships at 0%, which the page says outright is too low. |
+| 3 | ~~Ask the extract for GU complaint rows + preferred-language~~ **NOT NEEDED — DONE 2026-08-22** | — | Both were already in `quality_deid.db`; `language` has been carried since 2026-08-15. Now measured and shipped. See open threads 2 and 3. |
+| 4 | **Get the residual share from Blake** | Blake | Still 0%, but a smaller question than it was: the two shares that could be measured have been, so it now covers only a sensitive history and a family who needs a door. |
+| 5 | **Decide whether Dysuria stays on the exclusion list** | Blake | It was ticked as the sensitive-exam entry, and the physicians have since said urinary complaints do not usually need a sensitive exam. Left ticked — removing a complaint from his own list is not a call this repo should make silently. |
 
 Ted has been distributing the link to physicians, so **regressions are now user-visible**. Rebuild
 and run all three checks before any push, and prefer a browser check for anything touching layout.
@@ -181,20 +182,36 @@ and run all three checks before any push, and prefer a browser check for anythin
    Ships at **0%**, which the page says outright is too low. Only triage can put the real number
    on it. Blake is the source.
 
-**Work needing data nobody here has**
+**Settled 2026-08-22 — both of these were NOT missing data**
 
-2. **GU complaints must be broken out of the 227-complaint bucket.** They *are* recorded at
-   triage, but this build surfaces only `Dysuria`; genital/scrotal/testicular/vaginal, hematuria
-   and frequency are inside `Everything else`, a single button worth 25% of volume. Until the
-   extract gives them their own rows, Blake's "exams of sensitive areas" cannot be expressed as a
-   list. Needs the complaint names + volumes from whoever runs the extract (`a03ba12`).
-3. **Preferred language / interpreter need is not in the extract either.** It is a registration
-   field, not a bedside judgement, so the non-English share is *measurable* — it is simply absent.
-   Ask for it in the same breath as the GU complaints; both turn a slider guess into a number.
-   Note the model routes these patients to a room but still gives them an average visit, so it
-   captures the space an interpreted encounter needs and not the extra time it plausibly takes.
+2. ~~GU complaints must be broken out of the 227-complaint bucket~~ **DONE, and the grouping is
+   narrower than "GU".** They were always in `quality_deid.db`; nothing needed to be asked of the
+   extract. The refresh now emits a **genital group** — 18 normalised complaints, 0.87% of the
+   lane — carrying a stable key `k:"genital"` so the exclusion list matches on that and never on
+   the display name, which holds a member count that moves with the data.
+   ⚠ **Urinary complaints are deliberately OUT of it** (physicians, 2026-08-22): dysuria,
+   hematuria, urinary frequency and retention — 205 visits, 1.30% — do not usually need a
+   sensitive exam, which is the entire reason the group exists. Dysuria remains ticked on its own
+   as Blake wrote it. Do not "complete" the group by folding urinary back in.
+3. ~~Preferred language / interpreter need is not in the extract~~ **IT IS, since 2026-08-15** —
+   the mbed de-id build began carrying `language` (rare values bucketed at n<20) a week after this
+   thread was written. Measured on the window: **11.4% need an interpreter**, 99.7% coverage, 20
+   languages. It ships as its own ticked criterion, **per complaint** (4.2% `Well Child` to 24.1%
+   `Diarrhea`) — a flat rate would misprice any narrowed lane — applied only to whoever the ticked
+   complaints leave behind, because those complaints are themselves more non-English than average
+   (14.6% vs 11.1%) and composing on the window-wide figure would double-count.
 
-**Never verified from a sandbox** (the agent proxy denies both hosts, so these need Ted's laptop)
+   **What it did to the numbers.** Bed-required goes 8.2% → 19.2% of the lane, and The Blake at
+   6 rooms + 4 chairs moves **29.15 → 29.39** — a quarter of a minute for a share that more than
+   doubled. The rule is insensitive to the share when rooms are ample, and the sensitivity is all
+   in the chair-heavy layouts: the same change costs +0.1 at 8 rooms, +1.3 at 4, **+4.2 at 2**.
+   So "his rule is close to free, but only because it has rooms" now rests on a measured share
+   rather than a flat 25% guess.
+
+   The residual slider still ships at 0% and now stands for two genuinely uncodable reasons only —
+   a sensitive history, and a family who needs a door. **Blake is still the source for it.**
+
+**Never verified from a sandbox****Never verified from a sandbox** (the agent proxy denies both hosts, so these need Ted's laptop)
 
 4. ~~The baked-in shared board has never been reached~~ **REACHED 2026-08-22.** `DEFAULT_BOARD`
    answers, `SHARED === true`, the footer reads *"shared board — everyone using this link sees the

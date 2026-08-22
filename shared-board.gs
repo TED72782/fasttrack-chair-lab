@@ -23,7 +23,7 @@
 
 var SHEET = 'board';
 var HEAD = ['who', 'mode', 'A', 'R', 'cyc', 'assess', 'fastDischarge', 'at',
-            'cc', 'start', 'len', 'bedcc', 'bedExtra'];
+            'cc', 'start', 'len', 'bedcc', 'bedExtra', 'bedIntp'];
 
 function sheet_() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -61,7 +61,11 @@ function read_() {
              // pre-bed-first rows have neither, and were not that layout: undefined, not 0.
              // bedcc is a dot-joined id list and is written as text for the same reason cc is.
              bedcc: r[11] === '' || r[11] === undefined ? undefined : String(r[11]).replace(/^'/, ''),
-             bedExtra: r[12] === '' || r[12] === undefined ? undefined : Number(r[12]) },
+             bedExtra: r[12] === '' || r[12] === undefined ? undefined : Number(r[12]),
+             // a row saved before the interpreter criterion existed was scored WITHOUT it;
+             // undefined (not false) so the page applies its own legacy rule, as with bedcc
+             bedIntp: r[13] === '' || r[13] === undefined ? undefined
+                      : (r[13] === true || r[13] === 'TRUE') },
       at: Number(r[7]) || 0
     });
   }
@@ -101,7 +105,8 @@ function doPost(e) {
           String(rows[i][11] === undefined ? '' : rows[i][11]).replace(/^'/, '') ===
             String(c.bedcc === undefined ? '' : c.bedcc) &&
           String(rows[i][12] === undefined ? '' : rows[i][12]) ===
-            String(c.bedExtra === undefined || c.bedExtra === null ? '' : c.bedExtra)) {
+            String(c.bedExtra === undefined || c.bedExtra === null ? '' : c.bedExtra) &&
+          (rows[i][13] === true || rows[i][13] === 'TRUE') === (c.bedIntp === true)) {
         sh.deleteRow(i + 1);
       }
     }
@@ -113,7 +118,8 @@ function doPost(e) {
                   c.len === undefined || c.len === null || c.len === '' ? 8 : Number(c.len),
                   c.bedcc === undefined || c.bedcc === '' ? '' : "'" + String(c.bedcc),
                   c.bedExtra === undefined || c.bedExtra === null || c.bedExtra === '' ? ''
-                    : Number(c.bedExtra)]);
+                    : Number(c.bedExtra),
+                  c.bedIntp === true]);
     return json_(read_());
   } catch (err) {
     return json_({ error: String(err) });
