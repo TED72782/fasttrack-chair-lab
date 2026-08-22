@@ -66,6 +66,17 @@ header p{margin:0;color:var(--ink-2);max-width:64ch}
 .opt .t{font-weight:600;font-size:14px}
 .opt .s{font-size:12.5px;color:var(--ink-2)}
 #presets button{background:var(--surface)}
+.cc-row{display:flex;align-items:center;gap:6px}
+.cc-row .cc{flex:1;min-width:0}
+/* a small pill, vertically centred — stretched full-height it read as an empty second card */
+.cc-bed{all:unset;cursor:pointer;align-self:center;padding:5px 8px;border-radius:6px;
+  border:1px solid var(--line);font-size:10.5px;line-height:1;letter-spacing:.06em;
+  text-transform:uppercase;color:var(--ink-3);background:var(--surface);white-space:nowrap}
+.cc-bed:hover:not(:disabled){color:var(--ink);border-color:var(--ink-3)}
+.cc-bed[aria-pressed="true"]{border-color:var(--hold);background:var(--hold-wash);
+  color:var(--ink);font-weight:600}
+.cc-bed:disabled{opacity:.3;cursor:default}
+.cc-bed:focus-visible{outline:2px solid var(--hold);outline-offset:2px}
 .tabs{display:flex;gap:6px;margin:0 0 14px}
 .tabs button{all:unset;cursor:pointer;padding:7px 14px;border-radius:8px;font-size:13.5px;
   color:var(--ink-2);border:1px solid transparent}

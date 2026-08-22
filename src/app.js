@@ -605,6 +605,8 @@ function evaluate(cfg, dayTotal){
 /* layouts in which a patient keeps one space for the whole visit — no second stage, so they share
    the pace dial and the whole-visit service shape rather than the assess/results split */
 const NOMOVE = new Set(["pooled", "bedfirst", "stream"]);
+/* layouts that HAVE beds, so a complaint can be marked as needing one */
+const BEDMODE = new Set(["bedfirst", "stream"]);
 const MODES = [
   {id:"split",  t:"Assessment spaces + a second area",
                 s:"Assessed in one space, then moved to a second area to wait for results or to be discharged.",
@@ -1360,17 +1362,6 @@ function drawBedList(){
   const pts = winHours().reduce((a,h)=>a + D.lam24[h]*fac, 0);
   const sel = CC.filter(x=>PICK.has(x.i)), tot = sel.reduce((a,x)=>a+x.s,0);
 
-  $("bedList").innerHTML = CC.map(x=>{
-    const isOn = BEDPICK.has(x.i), inLane = PICK.has(x.i);
-    return `<button type="button" class="cc${isOn?" on":""}" data-bed="${x.i}" aria-pressed="${isOn}">
-      <span class="cc-n">${x.n}</span>
-      <span class="cc-m">${inLane
-        ? `<b class="num">${(pts*x.s).toFixed(1)}</b> arrive while you are open`
-        : `<span class="dim">not accepted by this lane</span>`}</span></button>`;
-  }).join("");
-  $("bedList").querySelectorAll("[data-bed]").forEach(btn=>btn.onclick=()=>{
-    const i=+btn.dataset.bed; BEDPICK.has(i)?BEDPICK.delete(i):BEDPICK.add(i); run();
-  });
 
   const ccPart = tot ? sel.filter(x=>BEDPICK.has(x.i)).reduce((a,x)=>a+x.s,0)/tot : 0;
   const eff = liveBedShare();
@@ -1439,21 +1430,37 @@ function drawCriteria(){
     <b class="num">${String(S.start).padStart(2,"0")}:00</b> and
     <b class="num">${String((S.start+S.len)%24).padStart(2,"0")}:00</b>
     on ${LEVELS[S.level].n.toLowerCase()} — <b class="num">${pts.toFixed(1)}</b> in total.
-    Tap a complaint to take it or leave it.
+    Tap a complaint to take it or leave it${BEDMODE.has(S.mode)
+      ? `, and <b>bed</b> to say it needs one rather than a chair` : ``}.
     <span class="dim">&ldquo;Doctor to decision&rdquo; is measured, and is the clearest signal of
     who belongs in a chair lane &mdash; but it is <b>not</b> the moment they can move.
     <b>Notes &amp; method</b> says why.</span>`;
+  /* ⚠ ONE LIST, TWO DECISIONS. There were two complaint panels — take-or-leave, and
+     needs-a-bed — over the same 26 rows, so in a bed layout you tapped the same complaint in two
+     places to say two different things, and the two lists could silently disagree (the exclusion
+     list happily showed complaints the lane did not even accept). The row carries both now: the
+     row itself is take-or-leave, the chip is bed-or-chair, and the chip only exists in the
+     layouts that HAVE beds. PICK and BEDPICK are untouched underneath, so the link, the board
+     schema and every guard are unchanged — this is a rendering change, not a data one. */
+  const bedMode = BEDMODE.has(S.mode);
   $("ccList").innerHTML = CC.map(x=>{
-    const on = PICK.has(x.i);
-    return `<button type="button" class="cc${on?" on":""}" data-cc="${x.i}" aria-pressed="${on}">
-      <span class="cc-n">${x.n}</span>
-      <span class="cc-m"><b class="num">${(pts*x.s).toFixed(1)}</b> arrive while you are open
-        · <span class="num">${Math.round(100*x.w)}%</span> need a test
-        · doctor to decision <span class="num">${x.me ? "&mdash;" : Math.round(x.dd)}</span>${
-          x.me ? `<span class="dim"> (too few without a test)</span>` : ` min`}</span></button>`;
+    const on = PICK.has(x.i), bed = BEDPICK.has(x.i);
+    return `<div class="cc-row${on?" on":""}${bed&&bedMode?" bed":""}">
+      <button type="button" class="cc" data-cc="${x.i}" aria-pressed="${on}">
+        <span class="cc-n">${x.n}</span>
+        <span class="cc-m"><b class="num">${(pts*x.s).toFixed(1)}</b> arrive while you are open
+          · <span class="num">${Math.round(100*x.w)}%</span> need a test
+          · doctor to decision <span class="num">${x.me ? "&mdash;" : Math.round(x.dd)}</span>${
+            x.me ? `<span class="dim"> (too few without a test)</span>` : ` min`}</span></button>${
+      bedMode ? `<button type="button" class="cc-bed" data-bed="${x.i}" aria-pressed="${bed}"
+          title="${bed ? "needs a bed — tap for a chair" : "can use a chair — tap for a bed"}"
+          ${on ? `` : `disabled`}>bed</button>` : ``}</div>`;
   }).join("");
   $("ccList").querySelectorAll("[data-cc]").forEach(btn=>btn.onclick=()=>{
     const i=+btn.dataset.cc; PICK.has(i)?PICK.delete(i):PICK.add(i); run();
+  });
+  $("ccList").querySelectorAll("[data-bed]").forEach(btn=>btn.onclick=()=>{
+    const i=+btn.dataset.bed; BEDPICK.has(i)?BEDPICK.delete(i):BEDPICK.add(i); run();
   });
   $("ccSum").innerHTML = mx.share
     ? `Taking <b class="num">${(pts*mx.share).toFixed(1)}</b> of the
@@ -1593,7 +1600,11 @@ function run(){
      entry (900 evenings each) and only its day/bar can change the answer; drawCriteria rebuilds
      25 buttons and only the hours and the day move its numbers. Redrawing both on every pointer
      move was most of the stutter. Keyed, so they run when they can actually differ. */
-  const critKey = `${S.start}|${S.len}|${S.level}|${[...PICK].sort((x,y)=>x-y).join(".")}`;
+  /* ⚠ the mode and the bed list belong in this key now. The complaint list carries the bed chips,
+     so it has to redraw when the layout changes (chips appear) and when a chip is tapped — it was
+     keyed on the criteria alone, and switching to a bed layout left a list with no chips at all. */
+  const critKey = `${S.start}|${S.len}|${S.level}|${[...PICK].sort((x,y)=>x-y).join(".")}`
+    + `|${S.mode}|${[...BEDPICK].sort((x,y)=>x-y).join(".")}`;
   if(critKey !== lastCritKey){ lastCritKey = critKey; drawCriteria() }
   const bedKey = `${S.mode}|${critKey}|${[...BEDPICK].sort((x,y)=>x-y).join(".")}|${S.bedExtra}|${S.bedIntp?1:0}|${S.bedGrp?1:0}|${S.turnRoom}|${S.turnChair}|${S.roomsA?1:0}|${S.assessNo}`;
   if(bedKey !== lastBedKey){ lastBedKey = bedKey; drawBedList() }
