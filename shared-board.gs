@@ -24,7 +24,7 @@
 var SHEET = 'board';
 var HEAD = ['who', 'mode', 'A', 'R', 'cyc', 'assess', 'fastDischarge', 'at',
             'cc', 'start', 'len', 'bedcc', 'bedExtra', 'bedIntp',
-            'bedGrp', 'turnRoom', 'turnChair'];
+            'bedGrp', 'turnRoom', 'turnChair', 'roomsA'];
 
 function sheet_() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -72,7 +72,9 @@ function read_() {
              // turnover: a row saved before it existed was scored with none, so undefined not 0 —
              // the page's own legacy rule decides, exactly as it does for bedcc
              turnRoom: r[15] === '' || r[15] === undefined ? undefined : Number(r[15]),
-             turnChair: r[16] === '' || r[16] === undefined ? undefined : Number(r[16]) },
+             turnChair: r[16] === '' || r[16] === undefined ? undefined : Number(r[16]),
+             roomsA: r[17] === '' || r[17] === undefined ? undefined
+                     : (r[17] === true || r[17] === 'TRUE') },
       at: Number(r[7]) || 0
     });
   }
@@ -116,7 +118,8 @@ function doPost(e) {
           (rows[i][13] === true || rows[i][13] === 'TRUE') === (c.bedIntp === true) &&
         (rows[i][14] === true || rows[i][14] === 'TRUE') === (c.bedGrp === true) &&
         Number(rows[i][15] || 0) === Number(c.turnRoom || 0) &&
-        Number(rows[i][16] || 0) === Number(c.turnChair || 0)) {
+        Number(rows[i][16] || 0) === Number(c.turnChair || 0) &&
+        (rows[i][17] === true || rows[i][17] === 'TRUE') === (c.roomsA === true)) {
         sh.deleteRow(i + 1);
       }
     }
@@ -132,7 +135,8 @@ function doPost(e) {
                   c.bedIntp === true,
                   c.bedGrp === true,
                   c.turnRoom === undefined || c.turnRoom === null ? '' : Number(c.turnRoom),
-                  c.turnChair === undefined || c.turnChair === null ? '' : Number(c.turnChair)]);
+                  c.turnChair === undefined || c.turnChair === null ? '' : Number(c.turnChair),
+                  c.roomsA === true]);
     return json_(read_());
   } catch (err) {
     return json_({ error: String(err) });

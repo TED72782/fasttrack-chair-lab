@@ -508,9 +508,12 @@ const scale  = (pool,f) => pool.map(x => x*f);
    side of a chair lane is chairs, so a 6+4 divided lane was being charged ten minutes to turn over
    a chair and came out ~1 min/patient worse than it should have been. The lane is named for what
    it is. The one layout where the assessment side really is rooms — "8 rooms + 10 chairs" — is now
-   the case that under-charges; raise the chair slider to read that one. */
-const turnFor = cfg => ({turnA: cfg.mode === "bedfirst" ? (cfg.turnRoom ?? 0) : (cfg.turnChair ?? 0),
-                         turnB: cfg.turnChair ?? 0});
+   the case that under-charges — so it says so: `roomsA` marks a divided lane whose assessment side
+   is rooms, set by that preset and by the control under Spaces. The second area is chairs either
+   way; nobody has proposed a layout whose results-pending side is rooms. */
+const turnFor = cfg => ({
+  turnA: (cfg.mode === "bedfirst" || cfg.roomsA) ? (cfg.turnRoom ?? 0) : (cfg.turnChair ?? 0),
+  turnB: cfg.turnChair ?? 0});
 
 /* One lane, evaluated. `cfg` is everything a saved board entry carries, so the live page and
    the leaderboard cannot drift apart — they call this same function. */
@@ -650,7 +653,7 @@ const PRESETS = [
    set:{mode:"split", A:3, R:2, budget:5},
    d:"5 spaces in total, split between assessment and results-pending however you like — move one and the other follows."},
   {id:"rooms", n:"8 rooms + 10 chairs",
-   set:{mode:"split", A:8, R:10, fastDischarge:true},
+   set:{mode:"split", A:8, R:10, fastDischarge:true, roomsA:true},
    d:"The larger estate: assessment in a room, then a second area of 10 chairs."},
   /* Blake's proposal, on the SAME ten spaces as the 6+4 split and the 10 pooled, so the only
      thing that differs between the three is the rule for who goes where. */
@@ -679,7 +682,7 @@ const LEVELS = [
 // as acceptable is a judgement for the room, not a line in a chart.
 const S = {mode:"split", A:6, R:4, budget:0, cyc:Math.round(D.T_A), assess:44,
            fastDischarge:false, level:1, bar:"today", start:15, len:8, bedExtra:0, bedIntp:true,
-           bedGrp:true, turnRoom:10, turnChair:1};
+           bedGrp:true, turnRoom:10, turnChair:1, roomsA:false};
 
 /* ⚠ EVERY NUMBER THAT REACHES THE ENGINE IS CLAMPED ON THE WAY IN. Two of them arrive from
    outside this page and neither can be trusted: the '#' link (people edit them, and chat
@@ -738,7 +741,15 @@ function drawSpaces(){
                             S.R, 1, 16, false));
   const tot = S.A + (m.hasR?S.R:0);
   rows.push(`<div class="total"><span>Spaces in use</span><b class="num" id="spaceTot">${tot}${S.budget?" of "+S.budget:""}</b></div>`);
+  /* Only a DIVIDED lane has to be asked: the rooms-first layout is rooms by definition and the
+     pooled lane is chairs. It decides which turnover figure the assessment side is charged. */
+  if(m.id === "split") rows.push(`<div class="seg" id="roomsASeg">
+      <div class="seg-l">The assessment spaces are</div>
+      <button type="button" data-ra="0" aria-pressed="${!S.roomsA}">chairs</button>
+      <button type="button" data-ra="1" aria-pressed="${S.roomsA}">rooms</button></div>`);
   $("spaceCtl").innerHTML = rows.join("");
+  $("spaceCtl").querySelectorAll("[data-ra]").forEach(b=>b.onclick=()=>{
+    S.roomsA = b.dataset.ra === "1"; drawSpaces(); run() });
   $("spaceCtl").querySelectorAll("input").forEach(i=>{
     i.oninput=()=>{
       const k=i.dataset.k, v=+i.value;
@@ -910,6 +921,7 @@ function drawPresets(){
     // BEDPICK lives outside S, so Object.assign cannot carry it — the same class of bug the
     // board-row loader has hit twice. A preset is a full setting, so it resets the list too.
     if(p.set.mode === "bedfirst") BEDPICK = new Set(BED_IDS);
+    if(p.set.roomsA === undefined) S.roomsA = false;   // a preset is a FULL setting
     drawModes(); drawSpaces(); run();
   });
 }
@@ -1026,7 +1038,7 @@ function sane(cfg){
              keeps being scored without them. Turnover defaults to ZERO here and 10/1 in live
              state — those are not in conflict, they are the two different questions "what did
              this row mean when it was saved" and "what should a new lane start at". */
-          bedGrp: cfg.bedGrp === true,
+          bedGrp: cfg.bedGrp === true, roomsA: cfg.roomsA === true,
           turnRoom: lim("turnRoom", cfg.turnRoom, 0), turnChair: lim("turnChair", cfg.turnChair, 0),
           bedShare: cfg.bedcc === undefined ? cfg.bedShare : undefined,
           // entries saved before the window was adjustable ran the original 15:00-23:00 lane
@@ -1056,7 +1068,7 @@ async function addEntry(){
   if(!who){ $("who").focus(); return }
   const cfg = {mode:S.mode, A:S.A, R:S.R, cyc:S.cyc, assess:S.assess, fastDischarge:S.fastDischarge,
                bedcc:[...BEDPICK].sort((a,b)=>a-b).join("."), bedExtra:S.bedExtra, bedIntp:S.bedIntp,
-               bedGrp:S.bedGrp, turnRoom:S.turnRoom, turnChair:S.turnChair,
+               bedGrp:S.bedGrp, turnRoom:S.turnRoom, turnChair:S.turnChair, roomsA:S.roomsA,
                cc:[...PICK].sort((a,b)=>a-b).join("."), start:S.start, len:S.len};
   const entry = {who, cfg, at: Date.now()};
   if(SHARED){
@@ -1125,7 +1137,7 @@ function drawBoard(){
        the criteria had. Undefined means a row from before the list existed: Blake's default,
        which is what evaluate() assumes for it too. */
     BEDPICK = c.bedcc === undefined ? new Set(BED_IDS) : idSet(c.bedcc);
-    S.bedIntp = c.bedIntp === true; S.bedGrp = c.bedGrp === true;
+    S.bedIntp = c.bedIntp === true; S.bedGrp = c.bedGrp === true; S.roomsA = c.roomsA === true;
     drawModes(); drawSpaces(); drawWindow(); run();
   });
   $("boardNote").innerHTML = `Scored on ${LEVELS[S.level].n.toLowerCase()} — ${pts} patients. `
@@ -1154,7 +1166,7 @@ function hashState(){
   if(bed){ c.push([...BEDPICK].sort((x,y)=>x-y).join(".")); c.push(String(S.bedExtra));
            c.push(S.bedIntp ? "1" : "0"); c.push(S.bedGrp ? "1" : "0") }
   // turnover applies to every layout, so it rides on all links, after the bed-first block
-  c.push(String(S.turnRoom)); c.push(String(S.turnChair));
+  c.push(String(S.turnRoom)); c.push(String(S.turnChair)); c.push(S.roomsA ? "1" : "0");
   return c.join(",");
 }
 function toHash(){
@@ -1187,9 +1199,13 @@ function fromHash(){
   /* ⚠ the turnover pair sits at a different offset depending on whether the bed-first block is
      present, which is why it is read from the END rather than by index. A link written before
      turnover existed described a lane with none. */
-  const tail = p.length >= (p[0]==="bedfirst" ? 16 : 12) ? p.slice(-2) : null;
+  const min2 = p[0]==="bedfirst" ? 16 : 12;          // links with the turnover pair
+  const tail = p.length >= min2+1 ? p.slice(-3)     // …and the rooms flag after it
+             : p.length >= min2   ? [...p.slice(-2), "0"]
+             : null;
   S.turnRoom  = tail ? lim("turnRoom", tail[0], 0) : 0;
   S.turnChair = tail ? lim("turnChair", tail[1], 0) : 0;
+  S.roomsA    = tail ? tail[2] === "1" : false;
 }
 
 /* ⚠ BUILT ONCE, THEN ONLY THE READOUTS CHANGE. These sliders sit next to the chart they drive,
@@ -1387,7 +1403,7 @@ function run(){
   const m=modeOf(), lvl=LEVELS[S.level];
   const cfg = {mode:S.mode, A:S.A, R:S.R, cyc:S.cyc, assess:S.assess, fastDischarge:S.fastDischarge,
                bedcc:[...BEDPICK].sort((a,b)=>a-b).join("."), bedExtra:S.bedExtra, bedIntp:S.bedIntp,
-               bedGrp:S.bedGrp, turnRoom:S.turnRoom, turnChair:S.turnChair,
+               bedGrp:S.bedGrp, turnRoom:S.turnRoom, turnChair:S.turnChair, roomsA:S.roomsA,
                cc:[...PICK].sort((a,b)=>a-b).join("."), start:S.start, len:S.len, bar:S.bar};
   const E = evaluate(cfg, lvl.pts), o = E.o;
   drawSpeed(m); drawTurn(); drawWindow(); syncWindow();
@@ -1487,7 +1503,7 @@ function run(){
      move was most of the stutter. Keyed, so they run when they can actually differ. */
   const critKey = `${S.start}|${S.len}|${S.level}|${[...PICK].sort((x,y)=>x-y).join(".")}`;
   if(critKey !== lastCritKey){ lastCritKey = critKey; drawCriteria() }
-  const bedKey = `${S.mode}|${critKey}|${[...BEDPICK].sort((x,y)=>x-y).join(".")}|${S.bedExtra}|${S.bedIntp?1:0}|${S.bedGrp?1:0}|${S.turnRoom}|${S.turnChair}`;
+  const bedKey = `${S.mode}|${critKey}|${[...BEDPICK].sort((x,y)=>x-y).join(".")}|${S.bedExtra}|${S.bedIntp?1:0}|${S.bedGrp?1:0}|${S.turnRoom}|${S.turnChair}|${S.roomsA?1:0}`;
   if(bedKey !== lastBedKey){ lastBedKey = bedKey; drawBedList() }
   const boardKey = `${S.level}|${S.bar}`;
   if(boardKey !== lastBoardKey){ lastBoardKey = boardKey; drawBoard() }

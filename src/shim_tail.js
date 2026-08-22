@@ -262,6 +262,15 @@ setTimeout(()=>{
   console.log("room slider inert in a chair lane:", roomHigh === roomZero
     ? "yes (" + roomHigh.toFixed(2) + " either way)"
     : "FAIL — 30-min rooms moved a chair lane " + roomZero.toFixed(2) + " -> " + roomHigh.toFixed(2));
+  /* …unless the lane SAYS its assessment side is rooms. That is the one layout the rule above
+     under-charges — "8 rooms + 10 chairs" — so it carries a flag rather than being mismodelled. */
+  const asRooms = evaluate(sane({...chairLane, turnRoom:30, turnChair:2, roomsA:true}), busyPts).score;
+  console.log("rooms flag re-arms the slider:", asRooms > roomHigh
+    ? "yes (" + roomHigh.toFixed(2) + " as chairs -> " + asRooms.toFixed(2) + " as rooms)"
+    : "FAIL — flag inert: " + asRooms.toFixed(2) + " vs " + roomHigh.toFixed(2));
+  const preset = PRESETS.find(x=>x.id==="rooms");
+  console.log("the 8+10 preset says rooms  :", preset && preset.set.roomsA === true
+    ? "yes" : "FAIL — it would turn its rooms over at the chair figure");
   const chairBites = evaluate(sane({...chairLane, turnRoom:0, turnChair:0}), busyPts).score;
   console.log("chair turnover still bites  :", roomZero > chairBites
     ? "yes (" + chairBites.toFixed(2) + " -> " + roomZero.toFixed(2) + " at 2 min a chair)"

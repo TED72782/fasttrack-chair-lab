@@ -51,7 +51,7 @@ doPost({postData:{contents:JSON.stringify({who:'Blake',cfg:{mode:'bedfirst',A:6,
 // part in the dedup key rather than overwriting the same lane scored without it
 doPost({postData:{contents:JSON.stringify({who:'Blake',cfg:{mode:'bedfirst',A:6,R:4,cyc:76,assess:44,
   fastDischarge:false,cc:'',start:15,len:8,bedcc:'2.9.20',bedExtra:0,bedIntp:true,
-  bedGrp:true,turnRoom:10,turnChair:1},at:4003})}});
+  bedGrp:true,turnRoom:10,turnChair:1,roomsA:true},at:4003})}});
 // 4. exact repeat of #2 — must replace it
 doPost({postData:{contents:JSON.stringify({who:'Park',cfg:{mode:'split',A:3,R:2,cyc:76,assess:30,
   fastDischarge:true,cc:'0.1.4',start:12,len:6},at:2002})}});
@@ -73,7 +73,11 @@ console.log('fd-flip kept as separate row  :', fdPair.length===2 ? 'yes' : 'FAIL
 const ten = out.find(e=>e.who==='Ten');
 console.log('numeric-looking cc kept whole :', ten && ten.cfg.cc==='0.10' ? 'yes' : 'FAIL got '+(ten&&ten.cfg.cc));
 const bf = out.filter(e=>e.who==='Blake');
-console.log('bed-first mode accepted       :', bf.length===2 ? 'yes' : 'FAIL got '+bf.length+' rows');
+/* ⚠ assert the MODE is accepted, not a row count — this counted rows, and adding a lane to the
+   fixtures below silently "failed" a check about something else entirely. The count belongs to
+   the distinct-lanes check further down, which is the one that means it. */
+console.log('bed-first mode accepted       :', bf.length && bf.every(e=>e.cfg.mode==='bedfirst')
+  ? 'yes ('+bf.length+' rows)' : 'FAIL got '+bf.length+' rows');
 console.log('exclusion list round trips    :',
   bf.every(e=>e.cfg.bedcc==='2.9.20') ? 'yes' : 'FAIL got '+bf.map(e=>e.cfg.bedcc).join('|'));
 console.log('residual share round trips    :',
@@ -87,6 +91,7 @@ console.log('interpreter flag round trips  :',
 console.log('interpreter is part of the key:', bf.length===4 ? 'yes (4 distinct Blake lanes)'
   : 'FAIL — '+bf.length+' rows, a lane collided with another');
 const turned = bf.find(e=>e.cfg.turnRoom===10);
+console.log('rooms flag round trips        :', turned && turned.cfg.roomsA===true ? 'yes' : 'FAIL');
 console.log('turnover round trips          :', turned && turned.cfg.turnChair===1 && turned.cfg.bedGrp===true
   ? 'yes (room 10 / chair 1 / sibling rule on)'
   : 'FAIL got '+JSON.stringify(turned && {r:turned.cfg.turnRoom,c:turned.cfg.turnChair,g:turned.cfg.bedGrp}));
