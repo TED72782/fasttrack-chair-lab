@@ -418,18 +418,26 @@ footer{margin-top:26px;font-size:12.5px;color:var(--ink-3);border-top:1px solid 
           this page ships aggregates only, so it cannot do that on its own. <b>Until then they
           belong in the share below</b>, along with the reasons that will never be codable.</p>
         <div class="eyebrow">And the part no chief complaint can capture</div>
-        <p>Blake's list names three more reasons a patient needs a door, and <b>none of them are a
-          chief complaint</b>, so no amount of ticking above will find them:</p>
+        <p>Four more reasons a patient needs a door, and <b>none of them is a chief
+          complaint</b>, so no amount of ticking above will find them:</p>
         <ul>
+          <li><b>A patient or family who does not speak English</b> &mdash; an interpreted
+              evaluation has to be both audible and private, which a chair in an open bay is
+              not, and an interpreter often has to be physically placed at the bedside.</li>
           <li><b>A sensitive history</b> &mdash; taken in the open, it is not taken.</li>
           <li><b>A mental-health presentation</b> &mdash; recorded under many complaints, and
               often under none of the 24 above.</li>
           <li><b>A family who needs a door</b> &mdash; frightened, angry or simply at the end of
               their patience. A triage judgement made in the moment and written down nowhere.</li>
         </ul>
-        <p>These are real and they are not in the data, so the only honest thing the page can do
-          is ask you for the number. <b>It starts at zero, which is certainly too low</b> &mdash;
-          the GU complaints above alone put it above zero.</p>
+        <p><b>The first of those is not like the other three.</b> Preferred language and
+          interpreter need are <i>recorded fields</i> &mdash; they are taken at registration, not
+          judged at the bedside &mdash; so that share could be <b>measured rather than guessed</b>.
+          It is simply not in this build's extract. Ask for it alongside the GU complaints and
+          this stops being a slider. A sensitive history and an angry family never will be.</p>
+        <p>Until then the only honest thing the page can do is ask you for the number.
+          <b>It starts at zero, which is certainly too low</b> &mdash; the GU complaints and the
+          interpreted encounters alone put it above zero.</p>
         <p><b>Child-abuse evaluations are deliberately not on that list</b>, though Blake names
           them. They do get coded &mdash; typically as <i>Well Child</i> &mdash; but a concern
           recognised at triage is not triaged ESI 4/5, and every encounter behind this page is
@@ -581,7 +589,10 @@ footer{margin-top:26px;font-size:12.5px;color:var(--ink-3);border-top:1px solid 
             only the people doing triage can put a number on. Move the slider to yours.</li>
         <li><b>A room and a chair are treated as taking the same time.</b> If an evaluation behind
             a door is genuinely faster or more thorough than one in a chair, that is not modelled
-            &mdash; nothing measures it. It would help the bed-first layout if true.</li>
+            &mdash; nothing measures it. It would help the bed-first layout if true. The same gap
+            applies to an interpreted encounter, which plausibly runs longer than the measured
+            mean: the model sends those patients to a room but still gives them an average visit,
+            so it captures the space they need and not the time.</li>
         <li><b>It cannot see the ward.</b> Who is watching a patient waiting on a result, whether an
             open chair is right for a given child, and what happens at 23:00 are all real and none
             of them are in here. If pooling wins on this screen and loses on the floor, the floor
@@ -1097,12 +1108,16 @@ const MODES = [
    highly anxious/demanding/angry" are a triage judgement nothing in the record marks, and a
    mental-health presentation is spread across complaints rather than carried by one.
 
-   ⚠ TWO DIFFERENT KINDS OF MISSING, AND ONLY ONE IS PERMANENT. GU concerns ARE recorded at
-   triage — but this build breaks out only Dysuria, and the rest (genital, scrotal, testicular,
-   vaginal, hematuria, frequency) are swallowed by the 227-complaint bucket, which is a quarter
-   of the volume and so useless as a proxy. That is a PIPELINE limit, fixable by giving those
-   complaints their own rows in the next cut; a sensitive history is not fixable at all. The page
-   says which is which, because one of them is somebody's next job.
+   ⚠ TWO DIFFERENT KINDS OF MISSING, AND ONLY ONE IS PERMANENT. Two of the reasons a patient
+   needs a door are recorded somewhere and merely absent from THIS extract:
+     - GU concerns are recorded at triage, but this build breaks out only Dysuria; the rest
+       (genital, scrotal, testicular, vaginal, hematuria, frequency) are swallowed by the
+       227-complaint bucket, a quarter of the volume and so useless as a proxy.
+     - Preferred language / interpreter need is a REGISTRATION field, taken at the desk rather
+       than judged at the bedside. Nothing about it is soft; it just was not extracted.
+   Both are pipeline limits, fixable in the next cut, and both would turn slider guesses into
+   measurements. A sensitive history and an angry family are not fixable by any cut. The page
+   says which is which, because one kind is somebody's next job and the other never will be.
 
    ⚠ CHILD ABUSE IS NOT MISSING, IT IS OUT OF SCOPE. It is coded — usually as Well Child — but a
    concern recognised at triage is not triaged ESI 4/5, and every encounter behind this page is

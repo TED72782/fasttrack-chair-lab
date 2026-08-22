@@ -84,17 +84,22 @@ Retired modes `zone`/`rooms` survive only as legacy board rows and fall back to 
    and frequency are inside `Everything else`, a single button worth 25% of volume. Until the
    extract gives them their own rows, Blake's "exams of sensitive areas" cannot be expressed as a
    list. Needs the complaint names + volumes from whoever runs the extract (`a03ba12`).
+4. **Preferred language / interpreter need is not in the extract either.** It is a registration
+   field, not a bedside judgement, so the non-English share is *measurable* — it is simply absent.
+   Ask for it in the same breath as the GU complaints; both turn a slider guess into a number.
+   Note the model routes these patients to a room but still gives them an average visit, so it
+   captures the space an interpreted encounter needs and not the extra time it plausibly takes.
 
 **Never verified from a sandbox**
 
-4. **The baked-in shared board** (`DEFAULT_BOARD` in `src/app.js`) has never been reached — the
+5. **The baked-in shared board** (`DEFAULT_BOARD` in `src/app.js`) has never been reached — the
    agent proxy denies `script.google.com`. If it is dead, every physician silently gets a private
    board. Check the italic line in the leaderboard footer says *"shared board — everyone using
    this link sees the same list"*.
-5. **The Apps Script deployment needs a new version pushed** (Deploy → Manage deployments → New
+6. **The Apps Script deployment needs a new version pushed** (Deploy → Manage deployments → New
    version). The board schema changed twice on 2026-08-22 (`bedcc`, `bedExtra` replacing a
    short-lived `bedShare`). Until redeployed, Blake lanes save without their exclusion list.
-6. **The live page** at `https://ted72782.github.io/ft-lab/` — the proxy denies `*.github.io`
+7. **The live page** at `https://ted72782.github.io/ft-lab/` — the proxy denies `*.github.io`
    too, so it has only ever been verified from the built file and the repo contents.
-7. **The engine-validation table** in `README.md` compares against a model that is not in this
+8. **The engine-validation table** in `README.md` compares against a model that is not in this
    repo. It is labelled as a port-time record for that reason; do not "refresh" those numbers.

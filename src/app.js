@@ -501,12 +501,16 @@ const MODES = [
    highly anxious/demanding/angry" are a triage judgement nothing in the record marks, and a
    mental-health presentation is spread across complaints rather than carried by one.
 
-   ⚠ TWO DIFFERENT KINDS OF MISSING, AND ONLY ONE IS PERMANENT. GU concerns ARE recorded at
-   triage — but this build breaks out only Dysuria, and the rest (genital, scrotal, testicular,
-   vaginal, hematuria, frequency) are swallowed by the 227-complaint bucket, which is a quarter
-   of the volume and so useless as a proxy. That is a PIPELINE limit, fixable by giving those
-   complaints their own rows in the next cut; a sensitive history is not fixable at all. The page
-   says which is which, because one of them is somebody's next job.
+   ⚠ TWO DIFFERENT KINDS OF MISSING, AND ONLY ONE IS PERMANENT. Two of the reasons a patient
+   needs a door are recorded somewhere and merely absent from THIS extract:
+     - GU concerns are recorded at triage, but this build breaks out only Dysuria; the rest
+       (genital, scrotal, testicular, vaginal, hematuria, frequency) are swallowed by the
+       227-complaint bucket, a quarter of the volume and so useless as a proxy.
+     - Preferred language / interpreter need is a REGISTRATION field, taken at the desk rather
+       than judged at the bedside. Nothing about it is soft; it just was not extracted.
+   Both are pipeline limits, fixable in the next cut, and both would turn slider guesses into
+   measurements. A sensitive history and an angry family are not fixable by any cut. The page
+   says which is which, because one kind is somebody's next job and the other never will be.
 
    ⚠ CHILD ABUSE IS NOT MISSING, IT IS OUT OF SCOPE. It is coded — usually as Well Child — but a
    concern recognised at triage is not triaged ESI 4/5, and every encounter behind this page is
