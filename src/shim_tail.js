@@ -320,14 +320,19 @@ setTimeout(()=>{
     PICK = new Set([lacM.i]); const fmLac = mix().fm;
     PICK = held;
     console.log("quick complaints move sooner:", fmLac > fmEar * 1.3
-      ? "yes (ear ready at " + Math.round(earM.m) + " min, laceration at " + Math.round(lacM.m)
+      ? "yes (ear doctor-time " + Math.round(earM.dd) + " min, laceration " + Math.round(lacM.dd)
         + " — factor " + fmEar.toFixed(2) + " vs " + fmLac.toFixed(2) + ")"
       : "FAIL — the mix factor is flat: " + fmEar + " vs " + fmLac);
   } else console.log("quick complaints move sooner: FAIL — complaint not found");
 
-  console.log("the default is the measurement:", Math.abs(DEFAULT_ASSESS_NO - D.g.mv) <= 1
-    ? "yes (" + DEFAULT_ASSESS_NO + " min, measured " + D.g.mv + ")"
-    : "FAIL — default " + DEFAULT_ASSESS_NO + " against a measured " + D.g.mv);
+  /* ⚠ NOT "the default is the measurement" — it was that for one day and the premise was wrong.
+     A no-test patient can move as soon as the ASSESSMENT is done, which is inside the doctor's
+     time and is recorded nowhere; the decision is the UPPER bound, not the moment. What the data
+     supports is a band, and all the default has to do is sit in it. */
+  const lo = D.g.rd, hi = D.g.rd + D.g.dd;
+  console.log("default sits inside the band:", DEFAULT_ASSESS_NO > lo && DEFAULT_ASSESS_NO < hi
+    ? "yes (" + DEFAULT_ASSESS_NO + " min, between " + Math.round(lo) + " and " + Math.round(hi) + ")"
+    : "FAIL — default " + DEFAULT_ASSESS_NO + " outside " + Math.round(lo) + "-" + Math.round(hi));
 
   console.log("legacy row shares one figure:", sane({mode:"split", A:6, R:4, cyc:76, assess:60,
       fastDischarge:true, cc:"0.1"}).assessNo === 60

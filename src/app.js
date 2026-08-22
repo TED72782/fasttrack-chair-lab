@@ -503,7 +503,7 @@ function mix(){
           fa: wsum("a")/D.g.asw,                    // scale factors onto the shared shapes
           fr: wsum("r")/D.g.res,
           fo: wsum("o")/D.g.now,
-          fm: D.g.mv ? wsum("m")/D.g.mv : 1};   // when this mix's no-test patients could move
+          fm: D.g.dd ? wsum("dd")/D.g.dd : 1};  // how long this mix's no-test patients hold a doctor
 }
 const scale  = (pool,f) => pool.map(x => x*f);
 
@@ -560,7 +560,7 @@ function evaluate(cfg, dayTotal){
            /* ⚠ resolve the legacy fallback BEFORE scaling. sim() used to take `assessNo ??
               assessMin`, so a cfg without the field worked; multiplying an undefined by the mix
               factor gives NaN, and a NaN reaches the board as a blank score. */
-           assessNo: (cfg.assessNo ?? cfg.assess ?? D.g.mv) * (D.g.mv ? w("m")/D.g.mv : 1),
+           assessNo: (cfg.assessNo ?? cfg.assess ?? 44) * (D.g.dd ? w("dd")/D.g.dd : 1),
            asw:scale(D.asw, f*w("a")/D.g.asw), now:scale(D.now, f*w("o")/D.g.now),
            res:scale(D.res, f*w("r")/D.g.res), days:cfg.days||600, seeds:cfg.seeds||[11,12,13,14]});
 
@@ -700,10 +700,14 @@ const LEVELS = [
 const S = {mode:"split", A:6, R:4, budget:0, cyc:Math.round(D.T_A), assess:44,
            fastDischarge:false, level:1, bar:"today", start:15, len:8, bedExtra:0, bedIntp:true,
            bedGrp:true, turnRoom:10, turnChair:1, roomsA:false,
-           /* MEASURED, not chosen: roomed -> disposition for patients who need no test. This was
-              44 for one day — the test cohort's figure — which moved them out ~23 min early and
-              handed the second area more than double the time it should get. */
-           assessNo: Math.round(D.g.mv || 44)};
+           /* ⚠ AN ASSUMPTION, AND IT HAS TO BE. It was briefly set to 67 — roomed -> DECISION —
+              on the reading that a no-test patient can only leave the assessment space once the
+              call is made. Operator, 2026-08-22: they can move as soon as the ASSESSMENT is done,
+              which is somewhere inside the doctor's time and is recorded nowhere. What the data
+              bounds is a BAND: no earlier than the doctor arriving (~27 min after rooming), no
+              later than the decision (~67). 44 sits inside it. The band is shown on screen; this
+              number is the operator's to set, not the data's. */
+           assessNo: 44};
 
 /* ⚠ EVERY NUMBER THAT REACHES THE ENGINE IS CLAMPED ON THE WAY IN. Two of them arrive from
    outside this page and neither can be trusted: the '#' link (people edit them, and chat
@@ -912,15 +916,17 @@ function drawSpeed(m){
         <label for="asn">Assessment &mdash; a patient needing none</label>
         <output class="num" id="asnOut"></output></div>
       <input type="range" id="asn" min="10" max="120" step="1" value="${S.assessNo}">
-      <div class="hint">Measured, unlike the one above: a patient who needs no test holds their
-        space <b>${Math.round(D.g.mv)} min</b> before the decision is made, and has about
-        <b>${Math.round(D.g.now - D.g.mv)} min</b> left after it. That tail is the only part that
-        can move. It runs
-        ${Math.round(Math.min(...CC.map(x=>x.m)))}&ndash;${Math.round(Math.max(...CC.map(x=>x.m)))}
-        min by complaint and follows whichever ones you accept, so this dial sets the AVERAGE
-        patient. <b>They are ${Math.round(100*(1-D.shr))}% of the lane.</b> Moving them out early
-        is not free: they fill the second area, and a patient who cannot move stays in the
-        assessment space, holding both.</div></div>` : ``);
+      <div class="hint">Nothing records this one, but the data brackets it. A patient who needs no
+        test waits <b>${Math.round(D.g.rd)} min</b> for a doctor, and the call is made
+        <b>${Math.round(D.g.dd)} min</b> after that. Their assessment is finished somewhere in
+        between &mdash; they can move to another area from that moment, well before the decision
+        &mdash; so this dial belongs in the band
+        <b>${Math.round(D.g.rd)}&ndash;${Math.round(D.g.rd + D.g.dd)} min</b>. It follows the
+        complaints you accept, whose doctor-time runs
+        ${Math.round(Math.min(...CC.filter(x=>!x.me).map(x=>x.dd)))}&ndash;${Math.round(Math.max(...CC.filter(x=>!x.me).map(x=>x.dd)))}
+        min, so it sets the AVERAGE patient. <b>They are ${Math.round(100*(1-D.shr))}% of the
+        lane.</b> Moving them out early is not free: they fill the second area, and a patient who
+        cannot move stays in the assessment space, holding both.</div></div>` : ``);
   $("asx").oninput = e => { S.assess = +e.target.value; syncSpeed(m); requestRun() };
   if($("asn")) $("asn").oninput = e => { S.assessNo = +e.target.value; syncSpeed(m); requestRun() };
   syncSpeed(m);
@@ -1401,20 +1407,23 @@ function drawCriteria(){
     <b class="num">${String((S.start+S.len)%24).padStart(2,"0")}:00</b>
     on ${LEVELS[S.level].n.toLowerCase()} — <b class="num">${pts.toFixed(1)}</b> in total.
     Tap a complaint to take it or leave it.
-    <span class="dim">&ldquo;Ready to move&rdquo; is measured: how long a patient who needs no test
-    holds a space before the decision is made &mdash; ${Math.round(D.g.mv)} min on average, but
-    ${Math.round(Math.min(...CC.map(x=>x.m)))} to ${Math.round(Math.max(...CC.map(x=>x.m)))} across
-    these complaints. It is the clearest signal of who belongs in a chair lane: the slow ones are
-    the complaints where something is DONE &mdash; a repair, a wound, a treatment and a
-    re-check. A dash means nearly everyone with that complaint gets a test, so there is no
-    no-test group left to measure and the lane-wide figure is used instead.</span>`;
+    <span class="dim">&ldquo;Doctor to decision&rdquo; is measured on patients who need no test:
+    how long from the doctor arriving to the call being made &mdash; ${Math.round(D.g.dd)} min on
+    average, ${Math.round(Math.min(...CC.filter(x=>!x.me).map(x=>x.dd)))} to
+    ${Math.round(Math.max(...CC.filter(x=>!x.me).map(x=>x.dd)))} across these complaints. It is the
+    clearest signal of who belongs in a chair lane: the long ones are the complaints where
+    something is DONE &mdash; a repair, a wound, a treatment and a re-check. <b>It is not the
+    moment they can move</b> &mdash; a patient can go to another area as soon as the assessment
+    itself is finished, which happens somewhere inside this interval and is recorded nowhere. A
+    dash means nearly everyone with that complaint gets a test, so there is no no-test group left
+    to measure.</span>`;
   $("ccList").innerHTML = CC.map(x=>{
     const on = PICK.has(x.i);
     return `<button type="button" class="cc${on?" on":""}" data-cc="${x.i}" aria-pressed="${on}">
       <span class="cc-n">${x.n}</span>
       <span class="cc-m"><b class="num">${(pts*x.s).toFixed(1)}</b> arrive while you are open
         · <span class="num">${Math.round(100*x.w)}%</span> need a test
-        · ready to move <span class="num">${x.me ? "&mdash;" : Math.round(x.m)}</span>${
+        · doctor to decision <span class="num">${x.me ? "&mdash;" : Math.round(x.dd)}</span>${
           x.me ? `<span class="dim"> (too few without a test)</span>` : ` min`}</span></button>`;
   }).join("");
   $("ccList").querySelectorAll("[data-cc]").forEach(btn=>btn.onclick=()=>{
