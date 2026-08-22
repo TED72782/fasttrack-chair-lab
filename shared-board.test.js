@@ -52,6 +52,10 @@ doPost({postData:{contents:JSON.stringify({who:'Blake',cfg:{mode:'bedfirst',A:6,
 doPost({postData:{contents:JSON.stringify({who:'Blake',cfg:{mode:'bedfirst',A:6,R:4,cyc:76,assess:44,
   fastDischarge:false,cc:'',start:15,len:8,bedcc:'2.9.20',bedExtra:0,bedIntp:true,
   bedGrp:true,turnRoom:10,turnChair:1,roomsA:true,assessNo:30},at:4003})}});
+// 3h. the two-stream layout — a new mode string, so both backends must allow it
+doPost({postData:{contents:JSON.stringify({who:'Stream',cfg:{mode:'stream',A:5,R:5,cyc:76,assess:44,
+  fastDischarge:false,cc:'',start:15,len:8,bedcc:'2.9',bedExtra:0,bedIntp:true,bedGrp:true,
+  turnRoom:10,turnChair:1,roomsA:false,assessNo:44},at:4004})}});
 // 4. exact repeat of #2 — must replace it
 doPost({postData:{contents:JSON.stringify({who:'Park',cfg:{mode:'split',A:3,R:2,cyc:76,assess:30,
   fastDischarge:true,cc:'0.1.4',start:12,len:6},at:2002})}});
@@ -98,5 +102,8 @@ console.log('turnover round trips          :', turned && turned.cfg.turnChair===
   : 'FAIL got '+JSON.stringify(turned && {r:turned.cfg.turnRoom,c:turned.cfg.turnChair,g:turned.cfg.bedGrp}));
 console.log('legacy row has no turnover    :',
   legacy.cfg.turnRoom===undefined && legacy.cfg.turnChair===undefined ? 'yes' : 'FAIL');
+const streamRow = out.find(e=>e.who==='Stream');
+console.log('stream mode accepted          :', streamRow && streamRow.cfg.mode==='stream'
+  ? 'yes (' + streamRow.cfg.A + ' beds + ' + streamRow.cfg.R + ' chairs)' : 'FAIL');
 const rej = doPost({postData:{contents:JSON.stringify({who:'X',cfg:{mode:'zone',A:2,R:8},at:1})}});
 console.log('retired mode rejected         :', String(rej).indexOf('error')>=0 ? 'yes' : 'FAIL got '+rej);

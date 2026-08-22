@@ -9,6 +9,12 @@
      acceptable is yours to argue about.</p>
 </header>
 
+<nav class="tabs" role="tablist">
+  <button type="button" id="tabLabBtn"   role="tab" aria-selected="true">The lab</button>
+  <button type="button" id="tabNotesBtn" role="tab" aria-selected="false">Notes &amp; method</button>
+</nav>
+
+<div id="tabLab">
 <div class="layout">
   <!-- ── controls ─────────────────────────────────────────── -->
   <div>
@@ -34,13 +40,7 @@
       <div class="panel-b">
         <div id="speedCtl"></div>
         <div id="turnCtl"></div>
-        <div class="crit-hint">A space is not free the moment a patient walks out of it. Until
-          2026-08-22 this page assumed it was, which quietly handed every layout back capacity it
-          does not have &mdash; and handed the most to the fastest layouts, because they turn their
-          spaces over most often. <b>The chair figure applies wherever a chair is used</b>, which is
-          both sides of a divided lane and the whole of the pooled one. The rooms-first layout has
-          rooms by definition, and a divided lane can say its assessment side is rooms &mdash; the
-          control under Spaces &mdash; which is what <i>8 rooms + 10 chairs</i> does. Set both to zero to see the old behaviour.</div>
+        <div class="crit-hint">A space is not free the moment a patient walks out of it. The chair figure applies wherever a chair is used; only a rooms layout has rooms to turn over. <span class="dim">Why, and what it costs, in <b>Notes &amp; method</b>.</span></div>
       </div>
     </section>
 
@@ -127,12 +127,7 @@
       </div>
       <div class="crit-hint" id="ccHint"></div>
       <div class="crit-list" id="ccList"></div>
-      <div class="crit-f">Chief complaints as triage records them, grouped by our shared
-        normaliser so <i>Febrile</i> and <i>Fever</i> are one complaint rather than two.
-        Volumes and test rates are measured per complaint; the SHAPE of the service times is
-        department-wide, scaled to each complaint's own mean. The mix itself is measured on
-        15:00&ndash;23:00 and applied to whatever window you pick &mdash; close for any daytime or
-        evening window, but an overnight lane would see a different mix than this assumes.</div>
+      <div class="crit-f">Complaints as triage records them, grouped so <i>Febrile</i> and <i>Fever</i> are one. <span class="dim">Full definitions in <b>Notes &amp; method</b>.</span></div>
     </section>
 
     <!-- Blake's exclusion list. Hidden in the layouts that have no chairs to be excluded from. -->
@@ -145,76 +140,15 @@
           <button type="button" id="bedNone" class="mini">Clear</button>
         </div>
       </div>
-      <div class="crit-hint">Presentations that need a door for the initial evaluation, and so
-        wait for a room rather than take a chair. Tap a complaint to add or remove it. The three
-        ticked to start are the ones Blake named that a chief complaint can actually carry
-        &mdash; abdominal pain, rash, and the genital complaints as a group. <b>That is a starting point, not an answer:</b>
-        this is the list the MD group has to establish and sign off, and it is a clinical
-        judgement rather than anything the data can settle.</div>
+      <div class="crit-hint">Who needs a bed rather than a chair. Tap to add or remove. <b>A starting point, not an answer</b> &mdash; this is the list the MD group has to establish and sign off. <span class="dim">What the complaint field can and cannot see is in <b>Notes &amp; method</b>.</span></div>
       <div class="crit-list" id="bedList"></div>
       <div id="bedIntpCtl"></div>
       <div class="bed-extra">
-        <div class="eyebrow">Genital complaints are their own row now &mdash; urinary ones are not in it</div>
-        <p>The sensitive-area half of Blake's rule used to be unexpressable here: only
-          <b>Dysuria</b> was broken out, and everything else genital sat inside
-          <i>Everything else</i>, a single button covering a quarter of the lane. It is now its
-          own row &mdash; <b>{{genn}} complaints</b>, <b>{{genpct}}%</b> of the lane &mdash;
-          small enough to tick without putting the department in rooms.</p>
-        <p><b>Urinary complaints are deliberately not in that group.</b> Dysuria, hematuria and
-          urinary frequency or retention &mdash; <b>{{urinn}} visits, {{urinpct}}%</b> &mdash;
-          do not usually need a sensitive exam, which is the whole reason the group exists
-          (physicians, 2026-08-22). <b>Dysuria has come off the list</b> for the same reason: it was
-          Blake&rsquo;s sensitive-exam entry, and that is the rationale the physicians withdrew. It
-          is still there to tick if the group wants it back on other grounds.</p>
-
-        <div class="eyebrow">An interpreter is now measured, not guessed</div>
-        <p><b>{{intp}}% of this lane needs an interpreter</b> &mdash; preferred language is
-          recorded at registration, not judged at the bedside, so this is a count rather than an
-          estimate: <b>{{intpcov}}%</b> of the window carries it, across <b>{{intpn}}</b>
-          languages. An interpreted evaluation has to be audible and private, and an interpreter
-          is often placed physically at the bedside; a chair in an open bay is neither.</p>
-        <p>It is ticked above as its own criterion, and it is <b>not</b> a flat percentage. Each
-          complaint carries its own measured rate &mdash; from <b>{{intplo}}%</b> to
-          <b>{{intphi}}%</b> &mdash; so narrowing the criteria moves it, as it should. It applies
-          only to whoever the ticked complaints leave behind, so a patient is never counted twice.</p>
-
-        <div class="eyebrow">A sibling in the room, not a chair each</div>
-        <p><b>{{grpshare}}% of the children arriving in these hours come with a sibling</b>, and
-          measured in the record rather than assumed &mdash; reshuffling arrival times among the
-          same surnames puts the coincidence rate near zero. They are ticked as needing a room,
-          because a family goes into one room together rather than into separate chairs across the
-          lane, and because the lane takes the whole family or none of it.</p>
-        <p>It is a <b>floor</b>: a family whose children have different surnames cannot be seen in
-          the data at all, so the true share is higher by an amount nothing here can measure.</p>
-
-        <div class="eyebrow">And the part no chief complaint can capture</div>
-        <p>Two reasons a patient needs a door remain uncodable, and the slider below is now for
-          those alone:</p>
-        <ul>
-          <li><b>A sensitive history</b> &mdash; taken in the open, it is not taken.</li>
-          <li><b>A family who needs a door</b> &mdash; frightened, angry or simply at the end of
-              their patience. A triage judgement made in the moment and written down nowhere.</li>
-        </ul>
-        <p>Neither will ever be a field, so this one stays a number only the group can set.
-          <b>It starts at zero, which is certainly too low</b> &mdash; but it is now a smaller job
-          than it was, because the two shares that could be measured have been.</p>
-        <p><b>Two of the reasons Blake names are deliberately absent from all of this:
-          child-abuse evaluations and mental-health presentations.</b> Neither is missing from
-          the data &mdash; they are missing from this <i>population</i>. Every encounter behind
-          this page is ESI 4/5, and neither is triaged there. A child-abuse concern is usually
-          coded as <i>Well Child</i>, so it looks present and is not; recognised at triage, it is
-          triaged up. Mental-health presentations do not reach ESI 4/5 at all. Those patients
-          never arrive in this lane, so counting either here would pad the share with people the
-          lane never sees &mdash; and the <i>Well Child</i> arrivals in the list above are
-          ordinary low-acuity visits, not this.</p>
-        <p>Both still need a door. They are someone else's flow problem, not this lane's. And a
-          concern that surfaces only <i>after</i> rooming is a third case again &mdash; no
-          triage-time routing rule can act on that one either way.</p>
+        <p class="dim">Why these are on the list &mdash; what the chief complaint can and cannot
+          see, and what is deliberately absent &mdash; is in <b>Notes &amp; method</b> at the top.</p>
         <div id="bedExtraCtl"></div>
       </div>
-      <div class="crit-f">The two parts add up: the complaints you tick, plus this share of
-        everyone else the lane accepts. That total is what the simulation uses &mdash; it is shown
-        above the list, and it is the number worth arguing about.</div>
+      <div class="crit-f">The parts add up, and the total above is what the simulation uses.</div>
     </section>
 
     <section class="panel board">
@@ -258,6 +192,45 @@
          which this page uses by default.</p>
     </div>
 
+  </div>
+</div>
+</div><!-- /tabLab -->
+
+<div id="tabNotes" hidden>
+    <div class="note">
+      <h3>Turnover</h3>
+      <div class="crit-hint">A space is not free the moment a patient walks out of it. Until
+          2026-08-22 this page assumed it was, which quietly handed every layout back capacity it
+          does not have &mdash; and handed the most to the fastest layouts, because they turn their
+          spaces over most often. <b>The chair figure applies wherever a chair is used</b>, which is
+          both sides of a divided lane and the whole of the pooled one. The rooms-first layout has
+          rooms by definition, and a divided lane can say its assessment side is rooms &mdash; the
+          control under Spaces &mdash; which is what <i>8 rooms + 10 chairs</i> does. Set both to zero to see the old behaviour.</div>
+    </div>
+    <div class="note">
+      <h3>Where the complaint groups come from</h3>
+      <div class="crit-f">Chief complaints as triage records them, grouped by our shared
+        normaliser so <i>Febrile</i> and <i>Fever</i> are one complaint rather than two.
+        Volumes and test rates are measured per complaint; the SHAPE of the service times is
+        department-wide, scaled to each complaint's own mean. The mix itself is measured on
+        15:00&ndash;23:00 and applied to whatever window you pick &mdash; close for any daytime or
+        evening window, but an overnight lane would see a different mix than this assumes.</div>
+    </div>
+    <div class="note">
+      <h3>The exclusion list — what the complaint field can and cannot see</h3>
+      <div class="crit-hint">Presentations that need a door for the initial evaluation, and so
+        wait for a room rather than take a chair. Tap a complaint to add or remove it. The three
+        ticked to start are the ones Blake named that a chief complaint can actually carry
+        &mdash; abdominal pain, rash, and the genital complaints as a group. <b>That is a starting point, not an answer:</b>
+        this is the list the MD group has to establish and sign off, and it is a clinical
+        judgement rather than anything the data can settle.</div>
+    </div>
+    <div class="note">
+      <h3>How the bed-required share is composed</h3>
+      <div class="crit-f">The two parts add up: the complaints you tick, plus this share of
+        everyone else the lane accepts. That total is what the simulation uses &mdash; it is shown
+        above the list, and it is the number worth arguing about.</div>
+    </div>
     <div class="note">
       <h3>What this does and does not know</h3>
       <ul>
@@ -375,8 +348,65 @@
       </ul>
     </div>
 
-    <footer>Simulated live in your browser · 600 evenings × 4 runs per setting ·
+        <div class="eyebrow">Genital complaints are their own row now &mdash; urinary ones are not in it</div>
+        <p>The sensitive-area half of Blake's rule used to be unexpressable here: only
+          <b>Dysuria</b> was broken out, and everything else genital sat inside
+          <i>Everything else</i>, a single button covering a quarter of the lane. It is now its
+          own row &mdash; <b>{{genn}} complaints</b>, <b>{{genpct}}%</b> of the lane &mdash;
+          small enough to tick without putting the department in rooms.</p>
+        <p><b>Urinary complaints are deliberately not in that group.</b> Dysuria, hematuria and
+          urinary frequency or retention &mdash; <b>{{urinn}} visits, {{urinpct}}%</b> &mdash;
+          do not usually need a sensitive exam, which is the whole reason the group exists
+          (physicians, 2026-08-22). <b>Dysuria has come off the list</b> for the same reason: it was
+          Blake&rsquo;s sensitive-exam entry, and that is the rationale the physicians withdrew. It
+          is still there to tick if the group wants it back on other grounds.</p>
+
+        <div class="eyebrow">An interpreter is now measured, not guessed</div>
+        <p><b>{{intp}}% of this lane needs an interpreter</b> &mdash; preferred language is
+          recorded at registration, not judged at the bedside, so this is a count rather than an
+          estimate: <b>{{intpcov}}%</b> of the window carries it, across <b>{{intpn}}</b>
+          languages. An interpreted evaluation has to be audible and private, and an interpreter
+          is often placed physically at the bedside; a chair in an open bay is neither.</p>
+        <p>It is ticked above as its own criterion, and it is <b>not</b> a flat percentage. Each
+          complaint carries its own measured rate &mdash; from <b>{{intplo}}%</b> to
+          <b>{{intphi}}%</b> &mdash; so narrowing the criteria moves it, as it should. It applies
+          only to whoever the ticked complaints leave behind, so a patient is never counted twice.</p>
+
+        <div class="eyebrow">A sibling in the room, not a chair each</div>
+        <p><b>{{grpshare}}% of the children arriving in these hours come with a sibling</b>, and
+          measured in the record rather than assumed &mdash; reshuffling arrival times among the
+          same surnames puts the coincidence rate near zero. They are ticked as needing a room,
+          because a family goes into one room together rather than into separate chairs across the
+          lane, and because the lane takes the whole family or none of it.</p>
+        <p>It is a <b>floor</b>: a family whose children have different surnames cannot be seen in
+          the data at all, so the true share is higher by an amount nothing here can measure.</p>
+
+        <div class="eyebrow">And the part no chief complaint can capture</div>
+        <p>Two reasons a patient needs a door remain uncodable, and the slider below is now for
+          those alone:</p>
+        <ul>
+          <li><b>A sensitive history</b> &mdash; taken in the open, it is not taken.</li>
+          <li><b>A family who needs a door</b> &mdash; frightened, angry or simply at the end of
+              their patience. A triage judgement made in the moment and written down nowhere.</li>
+        </ul>
+        <p>Neither will ever be a field, so this one stays a number only the group can set.
+          <b>It starts at zero, which is certainly too low</b> &mdash; but it is now a smaller job
+          than it was, because the two shares that could be measured have been.</p>
+        <p><b>Two of the reasons Blake names are deliberately absent from all of this:
+          child-abuse evaluations and mental-health presentations.</b> Neither is missing from
+          the data &mdash; they are missing from this <i>population</i>. Every encounter behind
+          this page is ESI 4/5, and neither is triaged there. A child-abuse concern is usually
+          coded as <i>Well Child</i>, so it looks present and is not; recognised at triage, it is
+          triaged up. Mental-health presentations do not reach ESI 4/5 at all. Those patients
+          never arrive in this lane, so counting either here would pad the share with people the
+          lane never sees &mdash; and the <i>Well Child</i> arrivals in the list above are
+          ordinary low-acuity visits, not this.</p>
+        <p>Both still need a door. They are someone else's flow problem, not this lane's. And a
+          concern that surfaces only <i>after</i> rooming is a third case again &mdash; no
+          triage-time routing rule can act on that one either way.</p>
+</div>
+
+  <footer>Simulated live in your browser · 600 evenings × 4 runs per setting ·
       measured from ESI 4/5 visits 2025-01-01 &rarr; {{cut}} ·
       the same engine that produced the figures in the scoping deck.</footer>
-  </div>
-</div>
+</div><!-- /wrap -->

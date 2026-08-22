@@ -66,6 +66,15 @@ header p{margin:0;color:var(--ink-2);max-width:64ch}
 .opt .t{font-weight:600;font-size:14px}
 .opt .s{font-size:12.5px;color:var(--ink-2)}
 #presets button{background:var(--surface)}
+.tabs{display:flex;gap:6px;margin:0 0 14px}
+.tabs button{all:unset;cursor:pointer;padding:7px 14px;border-radius:8px;font-size:13.5px;
+  color:var(--ink-2);border:1px solid transparent}
+.tabs button:hover{color:var(--ink)}
+.tabs button[aria-selected="true"]{color:var(--ink);font-weight:600;
+  border-color:var(--line);background:var(--surface)}
+.tabs button:focus-visible{outline:2px solid var(--hold);outline-offset:2px}
+#tabNotes{max-width:760px}
+#tabNotes h3{margin:22px 0 8px}
 .seg{display:flex;align-items:center;gap:8px;margin-top:10px;flex-wrap:wrap}
 .seg-l{font-size:12.5px;color:var(--ink-2)}
 .seg button{all:unset;cursor:pointer;border:1px solid var(--line);border-radius:8px;
@@ -274,6 +283,12 @@ footer{margin-top:26px;font-size:12.5px;color:var(--ink-3);border-top:1px solid 
      acceptable is yours to argue about.</p>
 </header>
 
+<nav class="tabs" role="tablist">
+  <button type="button" id="tabLabBtn"   role="tab" aria-selected="true">The lab</button>
+  <button type="button" id="tabNotesBtn" role="tab" aria-selected="false">Notes &amp; method</button>
+</nav>
+
+<div id="tabLab">
 <div class="layout">
   <!-- ── controls ─────────────────────────────────────────── -->
   <div>
@@ -299,13 +314,7 @@ footer{margin-top:26px;font-size:12.5px;color:var(--ink-3);border-top:1px solid 
       <div class="panel-b">
         <div id="speedCtl"></div>
         <div id="turnCtl"></div>
-        <div class="crit-hint">A space is not free the moment a patient walks out of it. Until
-          2026-08-22 this page assumed it was, which quietly handed every layout back capacity it
-          does not have &mdash; and handed the most to the fastest layouts, because they turn their
-          spaces over most often. <b>The chair figure applies wherever a chair is used</b>, which is
-          both sides of a divided lane and the whole of the pooled one. The rooms-first layout has
-          rooms by definition, and a divided lane can say its assessment side is rooms &mdash; the
-          control under Spaces &mdash; which is what <i>8 rooms + 10 chairs</i> does. Set both to zero to see the old behaviour.</div>
+        <div class="crit-hint">A space is not free the moment a patient walks out of it. The chair figure applies wherever a chair is used; only a rooms layout has rooms to turn over. <span class="dim">Why, and what it costs, in <b>Notes &amp; method</b>.</span></div>
       </div>
     </section>
 
@@ -392,12 +401,7 @@ footer{margin-top:26px;font-size:12.5px;color:var(--ink-3);border-top:1px solid 
       </div>
       <div class="crit-hint" id="ccHint"></div>
       <div class="crit-list" id="ccList"></div>
-      <div class="crit-f">Chief complaints as triage records them, grouped by our shared
-        normaliser so <i>Febrile</i> and <i>Fever</i> are one complaint rather than two.
-        Volumes and test rates are measured per complaint; the SHAPE of the service times is
-        department-wide, scaled to each complaint's own mean. The mix itself is measured on
-        15:00&ndash;23:00 and applied to whatever window you pick &mdash; close for any daytime or
-        evening window, but an overnight lane would see a different mix than this assumes.</div>
+      <div class="crit-f">Complaints as triage records them, grouped so <i>Febrile</i> and <i>Fever</i> are one. <span class="dim">Full definitions in <b>Notes &amp; method</b>.</span></div>
     </section>
 
     <!-- Blake's exclusion list. Hidden in the layouts that have no chairs to be excluded from. -->
@@ -410,76 +414,15 @@ footer{margin-top:26px;font-size:12.5px;color:var(--ink-3);border-top:1px solid 
           <button type="button" id="bedNone" class="mini">Clear</button>
         </div>
       </div>
-      <div class="crit-hint">Presentations that need a door for the initial evaluation, and so
-        wait for a room rather than take a chair. Tap a complaint to add or remove it. The three
-        ticked to start are the ones Blake named that a chief complaint can actually carry
-        &mdash; abdominal pain, rash, and the genital complaints as a group. <b>That is a starting point, not an answer:</b>
-        this is the list the MD group has to establish and sign off, and it is a clinical
-        judgement rather than anything the data can settle.</div>
+      <div class="crit-hint">Who needs a bed rather than a chair. Tap to add or remove. <b>A starting point, not an answer</b> &mdash; this is the list the MD group has to establish and sign off. <span class="dim">What the complaint field can and cannot see is in <b>Notes &amp; method</b>.</span></div>
       <div class="crit-list" id="bedList"></div>
       <div id="bedIntpCtl"></div>
       <div class="bed-extra">
-        <div class="eyebrow">Genital complaints are their own row now &mdash; urinary ones are not in it</div>
-        <p>The sensitive-area half of Blake's rule used to be unexpressable here: only
-          <b>Dysuria</b> was broken out, and everything else genital sat inside
-          <i>Everything else</i>, a single button covering a quarter of the lane. It is now its
-          own row &mdash; <b>18 complaints</b>, <b>0.87%</b> of the lane &mdash;
-          small enough to tick without putting the department in rooms.</p>
-        <p><b>Urinary complaints are deliberately not in that group.</b> Dysuria, hematuria and
-          urinary frequency or retention &mdash; <b>205 visits, 1.3%</b> &mdash;
-          do not usually need a sensitive exam, which is the whole reason the group exists
-          (physicians, 2026-08-22). <b>Dysuria has come off the list</b> for the same reason: it was
-          Blake&rsquo;s sensitive-exam entry, and that is the rationale the physicians withdrew. It
-          is still there to tick if the group wants it back on other grounds.</p>
-
-        <div class="eyebrow">An interpreter is now measured, not guessed</div>
-        <p><b>11.4% of this lane needs an interpreter</b> &mdash; preferred language is
-          recorded at registration, not judged at the bedside, so this is a count rather than an
-          estimate: <b>99.7%</b> of the window carries it, across <b>20</b>
-          languages. An interpreted evaluation has to be audible and private, and an interpreter
-          is often placed physically at the bedside; a chair in an open bay is neither.</p>
-        <p>It is ticked above as its own criterion, and it is <b>not</b> a flat percentage. Each
-          complaint carries its own measured rate &mdash; from <b>4.2%</b> to
-          <b>24.1%</b> &mdash; so narrowing the criteria moves it, as it should. It applies
-          only to whoever the ticked complaints leave behind, so a patient is never counted twice.</p>
-
-        <div class="eyebrow">A sibling in the room, not a chair each</div>
-        <p><b>5.61% of the children arriving in these hours come with a sibling</b>, and
-          measured in the record rather than assumed &mdash; reshuffling arrival times among the
-          same surnames puts the coincidence rate near zero. They are ticked as needing a room,
-          because a family goes into one room together rather than into separate chairs across the
-          lane, and because the lane takes the whole family or none of it.</p>
-        <p>It is a <b>floor</b>: a family whose children have different surnames cannot be seen in
-          the data at all, so the true share is higher by an amount nothing here can measure.</p>
-
-        <div class="eyebrow">And the part no chief complaint can capture</div>
-        <p>Two reasons a patient needs a door remain uncodable, and the slider below is now for
-          those alone:</p>
-        <ul>
-          <li><b>A sensitive history</b> &mdash; taken in the open, it is not taken.</li>
-          <li><b>A family who needs a door</b> &mdash; frightened, angry or simply at the end of
-              their patience. A triage judgement made in the moment and written down nowhere.</li>
-        </ul>
-        <p>Neither will ever be a field, so this one stays a number only the group can set.
-          <b>It starts at zero, which is certainly too low</b> &mdash; but it is now a smaller job
-          than it was, because the two shares that could be measured have been.</p>
-        <p><b>Two of the reasons Blake names are deliberately absent from all of this:
-          child-abuse evaluations and mental-health presentations.</b> Neither is missing from
-          the data &mdash; they are missing from this <i>population</i>. Every encounter behind
-          this page is ESI 4/5, and neither is triaged there. A child-abuse concern is usually
-          coded as <i>Well Child</i>, so it looks present and is not; recognised at triage, it is
-          triaged up. Mental-health presentations do not reach ESI 4/5 at all. Those patients
-          never arrive in this lane, so counting either here would pad the share with people the
-          lane never sees &mdash; and the <i>Well Child</i> arrivals in the list above are
-          ordinary low-acuity visits, not this.</p>
-        <p>Both still need a door. They are someone else's flow problem, not this lane's. And a
-          concern that surfaces only <i>after</i> rooming is a third case again &mdash; no
-          triage-time routing rule can act on that one either way.</p>
+        <p class="dim">Why these are on the list &mdash; what the chief complaint can and cannot
+          see, and what is deliberately absent &mdash; is in <b>Notes &amp; method</b> at the top.</p>
         <div id="bedExtraCtl"></div>
       </div>
-      <div class="crit-f">The two parts add up: the complaints you tick, plus this share of
-        everyone else the lane accepts. That total is what the simulation uses &mdash; it is shown
-        above the list, and it is the number worth arguing about.</div>
+      <div class="crit-f">The parts add up, and the total above is what the simulation uses.</div>
     </section>
 
     <section class="panel board">
@@ -523,6 +466,45 @@ footer{margin-top:26px;font-size:12.5px;color:var(--ink-3);border-top:1px solid 
          which this page uses by default.</p>
     </div>
 
+  </div>
+</div>
+</div><!-- /tabLab -->
+
+<div id="tabNotes" hidden>
+    <div class="note">
+      <h3>Turnover</h3>
+      <div class="crit-hint">A space is not free the moment a patient walks out of it. Until
+          2026-08-22 this page assumed it was, which quietly handed every layout back capacity it
+          does not have &mdash; and handed the most to the fastest layouts, because they turn their
+          spaces over most often. <b>The chair figure applies wherever a chair is used</b>, which is
+          both sides of a divided lane and the whole of the pooled one. The rooms-first layout has
+          rooms by definition, and a divided lane can say its assessment side is rooms &mdash; the
+          control under Spaces &mdash; which is what <i>8 rooms + 10 chairs</i> does. Set both to zero to see the old behaviour.</div>
+    </div>
+    <div class="note">
+      <h3>Where the complaint groups come from</h3>
+      <div class="crit-f">Chief complaints as triage records them, grouped by our shared
+        normaliser so <i>Febrile</i> and <i>Fever</i> are one complaint rather than two.
+        Volumes and test rates are measured per complaint; the SHAPE of the service times is
+        department-wide, scaled to each complaint's own mean. The mix itself is measured on
+        15:00&ndash;23:00 and applied to whatever window you pick &mdash; close for any daytime or
+        evening window, but an overnight lane would see a different mix than this assumes.</div>
+    </div>
+    <div class="note">
+      <h3>The exclusion list — what the complaint field can and cannot see</h3>
+      <div class="crit-hint">Presentations that need a door for the initial evaluation, and so
+        wait for a room rather than take a chair. Tap a complaint to add or remove it. The three
+        ticked to start are the ones Blake named that a chief complaint can actually carry
+        &mdash; abdominal pain, rash, and the genital complaints as a group. <b>That is a starting point, not an answer:</b>
+        this is the list the MD group has to establish and sign off, and it is a clinical
+        judgement rather than anything the data can settle.</div>
+    </div>
+    <div class="note">
+      <h3>How the bed-required share is composed</h3>
+      <div class="crit-f">The two parts add up: the complaints you tick, plus this share of
+        everyone else the lane accepts. That total is what the simulation uses &mdash; it is shown
+        above the list, and it is the number worth arguing about.</div>
+    </div>
     <div class="note">
       <h3>What this does and does not know</h3>
       <ul>
@@ -640,11 +622,68 @@ footer{margin-top:26px;font-size:12.5px;color:var(--ink-3);border-top:1px solid 
       </ul>
     </div>
 
-    <footer>Simulated live in your browser · 600 evenings × 4 runs per setting ·
+        <div class="eyebrow">Genital complaints are their own row now &mdash; urinary ones are not in it</div>
+        <p>The sensitive-area half of Blake's rule used to be unexpressable here: only
+          <b>Dysuria</b> was broken out, and everything else genital sat inside
+          <i>Everything else</i>, a single button covering a quarter of the lane. It is now its
+          own row &mdash; <b>18 complaints</b>, <b>0.87%</b> of the lane &mdash;
+          small enough to tick without putting the department in rooms.</p>
+        <p><b>Urinary complaints are deliberately not in that group.</b> Dysuria, hematuria and
+          urinary frequency or retention &mdash; <b>205 visits, 1.3%</b> &mdash;
+          do not usually need a sensitive exam, which is the whole reason the group exists
+          (physicians, 2026-08-22). <b>Dysuria has come off the list</b> for the same reason: it was
+          Blake&rsquo;s sensitive-exam entry, and that is the rationale the physicians withdrew. It
+          is still there to tick if the group wants it back on other grounds.</p>
+
+        <div class="eyebrow">An interpreter is now measured, not guessed</div>
+        <p><b>11.4% of this lane needs an interpreter</b> &mdash; preferred language is
+          recorded at registration, not judged at the bedside, so this is a count rather than an
+          estimate: <b>99.7%</b> of the window carries it, across <b>20</b>
+          languages. An interpreted evaluation has to be audible and private, and an interpreter
+          is often placed physically at the bedside; a chair in an open bay is neither.</p>
+        <p>It is ticked above as its own criterion, and it is <b>not</b> a flat percentage. Each
+          complaint carries its own measured rate &mdash; from <b>4.2%</b> to
+          <b>24.1%</b> &mdash; so narrowing the criteria moves it, as it should. It applies
+          only to whoever the ticked complaints leave behind, so a patient is never counted twice.</p>
+
+        <div class="eyebrow">A sibling in the room, not a chair each</div>
+        <p><b>5.61% of the children arriving in these hours come with a sibling</b>, and
+          measured in the record rather than assumed &mdash; reshuffling arrival times among the
+          same surnames puts the coincidence rate near zero. They are ticked as needing a room,
+          because a family goes into one room together rather than into separate chairs across the
+          lane, and because the lane takes the whole family or none of it.</p>
+        <p>It is a <b>floor</b>: a family whose children have different surnames cannot be seen in
+          the data at all, so the true share is higher by an amount nothing here can measure.</p>
+
+        <div class="eyebrow">And the part no chief complaint can capture</div>
+        <p>Two reasons a patient needs a door remain uncodable, and the slider below is now for
+          those alone:</p>
+        <ul>
+          <li><b>A sensitive history</b> &mdash; taken in the open, it is not taken.</li>
+          <li><b>A family who needs a door</b> &mdash; frightened, angry or simply at the end of
+              their patience. A triage judgement made in the moment and written down nowhere.</li>
+        </ul>
+        <p>Neither will ever be a field, so this one stays a number only the group can set.
+          <b>It starts at zero, which is certainly too low</b> &mdash; but it is now a smaller job
+          than it was, because the two shares that could be measured have been.</p>
+        <p><b>Two of the reasons Blake names are deliberately absent from all of this:
+          child-abuse evaluations and mental-health presentations.</b> Neither is missing from
+          the data &mdash; they are missing from this <i>population</i>. Every encounter behind
+          this page is ESI 4/5, and neither is triaged there. A child-abuse concern is usually
+          coded as <i>Well Child</i>, so it looks present and is not; recognised at triage, it is
+          triaged up. Mental-health presentations do not reach ESI 4/5 at all. Those patients
+          never arrive in this lane, so counting either here would pad the share with people the
+          lane never sees &mdash; and the <i>Well Child</i> arrivals in the list above are
+          ordinary low-acuity visits, not this.</p>
+        <p>Both still need a door. They are someone else's flow problem, not this lane's. And a
+          concern that surfaces only <i>after</i> rooming is a third case again &mdash; no
+          triage-time routing rule can act on that one either way.</p>
+</div>
+
+  <footer>Simulated live in your browser · 600 evenings × 4 runs per setting ·
       measured from ESI 4/5 visits 2025-01-01 &rarr; 2026-08-12 ·
       the same engine that produced the figures in the scoping deck.</footer>
-  </div>
-</div>
+</div><!-- /wrap -->
 <script>
 const D = {"pom": 25, "cut": "2026-08-12", "day_mean": 54.6, "lam": [2.8947, 3.1851, 3.455, 3.5823, 3.8574, 3.8489, 3.3786, 2.5976], "lam24": [1.4618, 1.0153, 0.781, 0.691, 0.6757, 0.5484, 0.7216, 1.1205, 1.5942, 2.4092, 2.8149, 3.2003, 3.0238, 2.8981, 2.8353, 2.8981, 3.1885, 3.4601, 3.584, 3.8625, 3.8591, 3.3837, 2.5976, 1.9745], "day": {"10": 38, "25": 46, "50": 54, "75": 63, "90": 72, "95": 78}, "eve": [8, 8, 10, 11, 11, 11, 11, 12, 13, 13, 13, 13, 13, 14, 14, 14, 14, 15, 15, 15, 15, 15, 15, 15, 15, 16, 16, 16, 16, 16, 16, 16, 16, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 18, 18, 18, 18, 18, 18, 18, 18, 18, 18, 18, 18, 18, 18, 18, 18, 18, 18, 18, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 21, 21, 21, 21, 21, 21, 21, 21, 21, 21, 21, 21, 21, 21, 21, 21, 21, 21, 21, 21, 21, 21, 21, 21, 21, 21, 21, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 23, 23, 23, 23, 23, 23, 23, 23, 23, 23, 23, 23, 23, 23, 23, 23, 23, 23, 23, 23, 23, 23, 23, 23, 23, 23, 23, 23, 23, 23, 23, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 25, 25, 25, 25, 25, 25, 25, 25, 25, 25, 25, 25, 25, 25, 25, 25, 25, 25, 25, 25, 25, 25, 25, 25, 25, 25, 25, 25, 25, 25, 25, 25, 25, 25, 25, 25, 25, 25, 25, 25, 25, 25, 25, 25, 25, 26, 26, 26, 26, 26, 26, 26, 26, 26, 26, 26, 26, 26, 26, 26, 26, 26, 26, 26, 26, 26, 26, 26, 26, 26, 26, 26, 26, 26, 27, 27, 27, 27, 27, 27, 27, 27, 27, 27, 27, 27, 27, 27, 27, 27, 27, 27, 27, 27, 27, 27, 27, 27, 27, 27, 27, 27, 27, 27, 27, 27, 27, 27, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 33, 33, 33, 33, 33, 33, 33, 33, 33, 33, 33, 33, 33, 33, 33, 33, 33, 33, 33, 33, 33, 33, 34, 34, 34, 34, 34, 34, 34, 34, 34, 34, 34, 34, 34, 34, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 36, 36, 36, 36, 36, 36, 36, 36, 36, 36, 36, 36, 36, 36, 36, 37, 37, 37, 37, 37, 37, 37, 37, 37, 37, 37, 37, 37, 37, 37, 37, 37, 37, 37, 37, 37, 38, 38, 38, 38, 38, 38, 39, 39, 39, 39, 39, 40, 40, 40, 41, 41, 42, 42, 42, 42, 42, 42, 42, 42, 43, 43, 43, 44, 44, 45, 45, 46, 46, 47, 48], "eve_n": 589, "eve_p": {"10": 18, "25": 22, "50": 26, "75": 31, "90": 36, "95": 38}, "shr": 0.498105, "now": [1, 13, 17, 18, 19, 20, 21, 22, 23, 24, 24, 25, 26, 26, 27, 27, 28, 28, 29, 29, 30, 30, 31, 31, 32, 32, 33, 33, 33, 34, 34, 35, 35, 35, 36, 36, 36, 37, 37, 38, 38, 38, 39, 39, 40, 40, 40, 41, 41, 41, 42, 42, 42, 43, 43, 44, 44, 44, 45, 45, 45, 46, 46, 46, 47, 47, 47, 48, 48, 48, 49, 49, 50, 50, 50, 50, 51, 51, 51, 52, 52, 53, 53, 53, 54, 54, 55, 55, 55, 56, 56, 56, 57, 57, 57, 58, 58, 58, 59, 59, 60, 60, 60, 61, 61, 62, 62, 62, 63, 63, 63, 64, 64, 65, 65, 65, 66, 66, 67, 67, 68, 68, 69, 69, 70, 70, 70, 71, 71, 72, 72, 73, 73, 74, 74, 74, 75, 75, 76, 76, 77, 77, 78, 78, 78, 79, 79, 80, 80, 81, 81, 82, 82, 83, 83, 84, 85, 85, 86, 86, 87, 87, 88, 88, 89, 89, 90, 90, 91, 91, 92, 92, 93, 93, 94, 95, 95, 96, 96, 97, 98, 98, 99, 100, 100, 101, 101, 102, 103, 104, 104, 105, 106, 107, 107, 108, 109, 110, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 132, 133, 134, 135, 136, 138, 139, 140, 142, 143, 145, 146, 148, 149, 151, 153, 155, 157, 159, 161, 163, 166, 169, 171, 174, 178, 181, 186, 189, 194, 201, 207, 214, 225, 240, 261, 304, 1529], "asw": [25, 25, 25, 25, 26, 26, 26, 27, 27, 27, 28, 28, 28, 28, 29, 29, 30, 30, 30, 31, 31, 31, 32, 32, 32, 33, 33, 33, 33, 34, 34, 34, 34, 35, 35, 35, 36, 36, 36, 36, 37, 37, 37, 37, 38, 38, 38, 38, 38, 39, 39, 39, 39, 40, 40, 40, 40, 40, 41, 41, 41, 41, 41, 42, 42, 42, 42, 43, 43, 43, 43, 43, 44, 44, 44, 44, 44, 45, 45, 45, 45, 46, 46, 46, 46, 47, 47, 47, 47, 47, 48, 48, 48, 48, 49, 49, 49, 49, 50, 50, 50, 50, 51, 51, 51, 52, 52, 52, 52, 53, 53, 53, 54, 54, 54, 54, 55, 55, 55, 55, 56, 56, 56, 57, 57, 57, 58, 58, 58, 59, 59, 59, 60, 60, 60, 61, 61, 61, 62, 62, 62, 63, 63, 63, 64, 64, 64, 65, 65, 65, 66, 66, 67, 67, 68, 68, 68, 69, 69, 69, 70, 70, 71, 71, 72, 72, 72, 73, 73, 74, 74, 75, 75, 76, 76, 77, 77, 78, 78, 79, 79, 80, 80, 81, 81, 82, 83, 83, 84, 84, 85, 86, 86, 87, 87, 88, 89, 89, 90, 91, 91, 92, 93, 93, 94, 95, 95, 96, 97, 98, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 110, 111, 112, 112, 113, 115, 116, 117, 118, 119, 121, 122, 124, 126, 127, 128, 130, 131, 133, 135, 138, 141, 143, 146, 149, 151, 154, 158, 162, 168, 174, 180, 189, 204, 227, 441], "res": [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 2, 2, 3, 3, 4, 4, 5, 5, 6, 7, 7, 8, 8, 9, 9, 10, 11, 11, 12, 12, 13, 13, 14, 15, 15, 16, 17, 17, 18, 18, 19, 20, 20, 21, 22, 22, 23, 23, 24, 25, 25, 26, 27, 27, 28, 29, 29, 30, 31, 31, 32, 33, 33, 34, 35, 35, 36, 36, 37, 38, 38, 39, 39, 40, 40, 41, 42, 42, 43, 43, 44, 45, 45, 46, 46, 47, 47, 48, 49, 49, 50, 51, 51, 52, 52, 53, 53, 54, 54, 55, 55, 56, 57, 58, 58, 59, 59, 60, 60, 61, 62, 62, 63, 64, 64, 65, 65, 66, 67, 67, 68, 69, 70, 71, 71, 72, 73, 73, 74, 75, 76, 76, 77, 78, 78, 79, 80, 81, 81, 82, 83, 84, 84, 85, 86, 87, 88, 89, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 113, 114, 116, 117, 118, 120, 121, 122, 123, 125, 126, 127, 129, 130, 131, 132, 135, 137, 138, 140, 142, 144, 145, 147, 149, 151, 154, 156, 158, 161, 163, 167, 170, 172, 175, 178, 181, 185, 189, 192, 196, 200, 204, 208, 213, 218, 224, 232, 240, 248, 256, 267, 276, 288, 302, 319, 339, 372, 424, 516, 4566], "mean_now": 83.0, "mean_asw": 69.0, "mean_res": 79.3, "T_A": 76.04, "T_R": 78.19, "g": {"shr": 0.5035, "asw": 71.7, "res": 77.2, "now": 85.8, "rd": 26.6, "dd": 40.4, "interp": 0.114, "interp_cov": 0.9973}, "hold_all": 111.6, "floor": 8.0, "main24": [98.7, 89.9, 65, 47.0, 35.7, 23.2, 18.7, 15.6, 16.3, 23.6, 25.8, 27.2, 33.8, 38.6, 39.2, 31.6, 38.1, 41.2, 46.5, 53.8, 67.4, 85.6, 107.0, 109.3], "main_mean": 50.0, "nolane24": [100.8, 89.9, 65.0, 47.1, 35.7, 23.2, 18.0, 15.3, 15.3, 17.4, 18.5, 28.0, 34.0, 38.6, 39.2, 31.4, 38.8, 44.6, 52.2, 70.0, 93.6, 115.8, 117.8, 113.6], "nolane_mean": 59.2, "cc": [{"n": "Fever", "s": 0.16679, "x": 0.1658, "w": 0.665, "a": 76.1, "r": 67.2, "o": 86.8, "dd": 34.2, "me": 0}, {"n": "Cough", "s": 0.08523, "x": 0.1075, "w": 0.62, "a": 71.5, "r": 60.9, "o": 79.2, "dd": 32.7, "me": 0}, {"n": "Rash", "s": 0.05193, "x": 0.16, "w": 0.192, "a": 84.4, "r": 44.9, "o": 75.6, "dd": 30.1, "me": 0}, {"n": "Vomiting", "s": 0.0518, "x": 0.1443, "w": 0.518, "a": 77.5, "r": 95.8, "o": 96.5, "dd": 48.2, "me": 0}, {"n": "Ear Problem", "s": 0.04939, "x": 0.1223, "w": 0.101, "a": 73.5, "r": 77.6, "o": 69.1, "dd": 28.0, "me": 0}, {"n": "Fall", "s": 0.03761, "x": 0.0745, "w": 0.306, "a": 65.9, "r": 99.2, "o": 92.8, "dd": 49.1, "me": 0}, {"n": "Head Injury", "s": 0.03641, "x": 0.0539, "w": 0.132, "a": 70.7, "r": 115.7, "o": 91, "dd": 44.2, "me": 0}, {"n": "URI", "s": 0.03305, "x": 0.1111, "w": 0.597, "a": 73.3, "r": 54.1, "o": 86.2, "dd": 37.4, "me": 0}, {"n": "Laceration", "s": 0.02748, "x": 0.0486, "w": 0.116, "a": 63.8, "r": 109.5, "o": 115.0, "dd": 72.3, "me": 0}, {"n": "Abdominal Pain", "s": 0.01969, "x": 0.1581, "w": 0.749, "a": 64.8, "r": 121.2, "o": 105.4, "dd": 52.5, "me": 0}, {"n": "Breathing Difficulty", "s": 0.01925, "x": 0.0662, "w": 0.507, "a": 79.3, "r": 78.6, "o": 98.5, "dd": 48.1, "me": 0}, {"n": "Eye Problem", "s": 0.019, "x": 0.1717, "w": 0.092, "a": 83.1, "r": 74.9, "o": 81.3, "dd": 36.4, "me": 0}, {"n": "Arm Injury", "s": 0.01779, "x": 0.0679, "w": 0.757, "a": 51.6, "r": 76.2, "o": 50.0, "dd": 23.7, "me": 0}, {"n": "Finger Injury", "s": 0.0171, "x": 0.1074, "w": 0.83, "a": 53.0, "r": 78.2, "o": 97.2, "dd": 44.4, "me": 0}, {"n": "Throat Pain", "s": 0.01665, "x": 0.1369, "w": 0.762, "a": 64.9, "r": 46.7, "o": 81.6, "dd": 37.4, "me": 0}, {"n": "Skin Problem", "s": 0.01444, "x": 0.1106, "w": 0.231, "a": 91.1, "r": 86.0, "o": 87.5, "dd": 33.7, "me": 0}, {"n": "Diarrhea", "s": 0.01292, "x": 0.2414, "w": 0.469, "a": 77.1, "r": 85.0, "o": 83.7, "dd": 36.0, "me": 0}, {"n": "Ankle Injury", "s": 0.0126, "x": 0.0653, "w": 0.99, "a": 39.2, "r": 90.4, "o": 85.8, "dd": 40.4, "me": 1}, {"n": "Well Child", "s": 0.01209, "x": 0.0419, "w": 0.373, "a": 77.1, "r": 163.2, "o": 83.8, "dd": 43.3, "me": 0}, {"n": "Headache", "s": 0.01083, "x": 0.1287, "w": 0.555, "a": 89.8, "r": 72.0, "o": 105.5, "dd": 54.8, "me": 0}, {"n": "Dysuria", "s": 0.01057, "x": 0.0539, "w": 0.981, "a": 50.1, "r": 86.7, "o": 85.8, "dd": 40.4, "me": 1}, {"n": "Constipation", "s": 0.00963, "x": 0.1842, "w": 0.421, "a": 72.9, "r": 111.1, "o": 116.9, "dd": 70.2, "me": 0}, {"n": "Foot Injury", "s": 0.00887, "x": 0.0857, "w": 0.877, "a": 49.8, "r": 79.7, "o": 99.8, "dd": 40.4, "me": 1}, {"n": "Musculoskeletal Problem", "s": 0.00855, "x": 0.0963, "w": 0.876, "a": 61.7, "r": 90.9, "o": 73.3, "dd": 40.4, "me": 1}, {"n": "Genital & sensitive exam (18)", "s": 0.00868, "x": 0.1022, "w": 0.524, "a": 80.2, "r": 84.6, "o": 76.6, "dd": 27.1, "me": 0, "k": "genital"}, {"n": "Everything else (209 complaints)", "s": 0.24164, "x": 0.0844, "w": 0.521, "a": 68.4, "r": 87.4, "o": 83.9, "dd": 40.0, "me": 0}], "grp": {"p2": 0.02329, "p3": 0.00293, "p4": 0.00059, "mean_group_size": 1.03092, "cut": "ESI 4/5, 15-22h, from 2025-01-01", "share": 0.0561}, "prose": {"toorder": 47, "refasw": 72, "pom": 25, "main15": 32, "main22": 107, "mean1523": 58.1, "mainmean": 50.0, "floor": 8.0, "cut": "2026-08-12", "genn": 18, "genpct": 0.87, "urinn": 205, "urinpct": 1.3, "intp": 11.4, "intplo": 4.2, "intphi": 24.1, "intpcov": 99.7, "intpn": 20, "grppct": 2.68, "grpshare": 5.61, "ftspan": "11:00\u201320:00", "peakspan": "19:00\u201320:00", "worstspan": "22:00\u201323:00", "podlo": 66, "podhi": 69, "poduntil": 18, "podwlo": 27, "podwhi": 45, "otherlo": 28, "otherhi": 118, "walkoutpct": 59}};
 
@@ -679,7 +718,7 @@ Heap.prototype.pop=function(){const a=this.a,top=a[0],last=a.pop();if(a.length){
    anyone still queueing goes to the main department. */
 function sim(cfg){
   const {A, R, lam, asw, now, res, pooled, bedFirst, bedShare=0, assessMin, fastDischarge,
-         bedGrp=false, turnA=0, turnB=0, assessNo,   // assessNo: the no-test half (see below)
+         bedGrp=false, stream=false, turnA=0, turnB=0, assessNo,  // assessNo: the no-test half
          shr=D.shr, floor=D.floor, days=600, seeds=[11,12,13,14], trace} = cfg;
   // `trace` records one evening, patient by patient, so the animation plays the SAME run the
   // numbers come from rather than a decorative loop of its own. Slots are tracked only here —
@@ -730,7 +769,7 @@ function sim(cfg){
       const qa=[], qr=[], second=new Float64Array(arr.length);
       // BED-FIRST only: set at arrival, because it is a triage decision — this patient cannot be
       // put in a chair for their initial evaluation, whatever the queue looks like.
-      const bedReq = bedFirst ? new Uint8Array(arr.length) : null;
+      const bedReq = (bedFirst || stream) ? new Uint8Array(arr.length) : null;
       const slotA = T ? new Int16Array(arr.length).fill(-1) : null;
       const slotB = T ? new Int16Array(arr.length).fill(-1) : null;
       let ab=0, rb=0, peak=0;
@@ -806,15 +845,31 @@ function sim(cfg){
       /* Same one-party rule as the split lane. A party needs room for ALL of it before any of it
          is placed: enough doors for its bed-required members, and any space at all for the rest. */
       const party = g => { const out=[]; for(let j=0;j<qa.length;j++) if(gid[qa[j][1]]===g) out.push(j); return out };
+      /* ── TWO SHAPES, ONE PLACEMENT ────────────────────────────────────────────────────────
+         bed-first: a bed is the DEFAULT and chairs are overflow, so a chair patient takes a bed
+         whenever one is free. "Rooms first" falls out of the order rather than needing a threshold.
+
+         stream: the two sides are kept APART. A chair patient never takes a bed, even with beds
+         standing empty, and a bed patient never takes a chair. That is the whole difference — the
+         routing rule (who needs a bed) is identical, and is the exclusion list either way.
+
+         ⚠ Splitting a fixed estate into two pools that cannot help each other costs something, and
+         this page already carries that in a guarded form: bed-first at 0% bed-required is
+         bit-identical to a pooled lane over the same spaces. Expect stream to score worse than
+         bed-first at the same footprint. That IS the measurement — a department may stream because
+         of how nursing is assigned, and this prices it. */
       const seatBedParty = (t, idx) => { for(let j=idx.length-1;j>=0;j--){
           const q=qa.splice(idx[j],1)[0]; rec(q[1], t-q[0]);
-          if(ab<A && (bedReq[q[1]] || rb>=R)) startBed(t,q[1]); else startChair(t,q[1]) } };
+          const toBed = stream ? bedReq[q[1]] : (ab<A && (bedReq[q[1]] || rb>=R));
+          if(toBed) startBed(t,q[1]); else startChair(t,q[1]) } };
       const takeParty = t => {
         for(let i=0;i<qa.length;i++){
           const idx = party(gid[qa[i][1]]);
           let needBed=0; for(const j of idx) if(bedReq[qa[j][1]]) needBed++;
           const rest = idx.length-needBed, fa = A-ab, fr = R-rb;
-          if(needBed <= fa && rest <= (fa-needBed) + fr){ seatBedParty(t, idx); return true }
+          const fits = stream ? (needBed <= fa && rest <= fr)          // each side on its own
+                              : (needBed <= fa && rest <= (fa-needBed) + fr);
+          if(fits){ seatBedParty(t, idx); return true }
         }
         return false };
       /* Rooms first, every time. takeBed only fires while a room is free, so by the time
@@ -828,7 +883,7 @@ function sim(cfg){
                                            rec(q[1], CLOSE-q[0], true);
                                            if(T) T.push({t, id:q[1], ev:"divert"}) }
                        qa.length=0; if(T) T.push({t, ev:"close"}); continue }
-        if(bedFirst){
+        if(bedFirst || stream){
           if(kind===0){ if(T) T.push({t, id:tag, ev:"arrive", test: null});
                         /* A family needs a door: siblings go in one room together rather than
                            into separate chairs across the lane, so arriving with a sibling is a
@@ -908,7 +963,7 @@ const PLAY = {on:false, t:0, speed:60, raf:0, trace:null, A:0, R:0, last:0,
    rest, because the spread is real and worth seeing — it just should not be what you meet first. */
 function buildTrace(){
   const m = modeOf(), lvl = LEVELS[S.level], mx = mix();
-  const f = (m.id==="pooled" || m.id==="bedfirst") ? S.cyc/D.T_A : 1;
+  const f = NOMOVE.has(m.id) ? S.cyc/D.T_A : 1;
   const hours = winHours(), fac = lvl.pts/D.day_mean;
   const lam = hours.map(h => D.lam24[h]*fac*mx.share);
   const expect = lam.reduce((a,b)=>a+b, 0);
@@ -916,7 +971,7 @@ function buildTrace(){
      to be listed here — a mode added to sim() and not to this line plays a DIFFERENT lane on
      screen from the one the cards describe, which is worse than showing no lane at all. */
   const base = {A:S.A, R:m.hasR?S.R:0, pooled:m.id==="pooled", bedGrp:S.bedGrp, ...turnFor(S),
-                bedFirst:m.id==="bedfirst", bedShare:liveBedShare(), assessMin:S.assess,
+                bedFirst:m.id==="bedfirst", stream:m.id==="stream", bedShare:liveBedShare(), assessMin:S.assess,
                 assessNo:S.assessNo * mx.fm,
                 fastDischarge:S.fastDischarge, shr:mx.shr, lam,
                 asw:scale(D.asw, f*mx.fa), now:scale(D.now, f*mx.fo), res:scale(D.res, f*mx.fr),
@@ -993,8 +1048,10 @@ function paintSlots(host, ids, st){
    overflow chairs reads as the results area it is not. */
 function labelStage(m){
   const ah = $("stageAH"), bh = $("stageBH");
-  if(ah) ah.textContent = m.id==="bedfirst" ? "In a room" : m.id==="pooled" ? "In a space" : "Being assessed";
-  if(bh) bh.textContent = m.id==="bedfirst" ? "In an overflow chair" : "Second area — results & discharge";
+  if(ah) ah.textContent = m.id==="bedfirst" ? "In a room" : m.id==="stream" ? "In a bed"
+                        : m.id==="pooled" ? "In a space" : "Being assessed";
+  if(bh) bh.textContent = m.id==="bedfirst" ? "In an overflow chair"
+                        : m.id==="stream" ? "In a chair" : "Second area — results & discharge";
   /* ⚠ "outlined in red" only exists where a patient can be BLOCKED mid-visit, which needs a
      second area to be blocked out of. In the two layouts where nobody is ever moved it can
      never fire, and promising it sent people hunting for a state the run cannot reach. */
@@ -1167,7 +1224,8 @@ const scale  = (pool,f) => pool.map(x => x*f);
    is rooms, set by that preset and by the control under Spaces. The second area is chairs either
    way; nobody has proposed a layout whose results-pending side is rooms. */
 const turnFor = cfg => ({
-  turnA: (cfg.mode === "bedfirst" || cfg.roomsA) ? (cfg.turnRoom ?? 0) : (cfg.turnChair ?? 0),
+  turnA: (cfg.mode === "bedfirst" || cfg.mode === "stream" || cfg.roomsA)
+           ? (cfg.turnRoom ?? 0) : (cfg.turnChair ?? 0),
   turnB: cfg.turnChair ?? 0});
 
 /* One lane, evaluated. `cfg` is everything a saved board entry carries, so the live page and
@@ -1176,7 +1234,7 @@ function evaluate(cfg, dayTotal){
   /* a board row saved in the four-mode era ('zone', 'rooms') must not crash the page for
      everyone sharing the board — fall back to split, the nearest surviving semantics */
   const m = MODES.find(x=>x.id===cfg.mode) || MODES[0];
-  const f = (cfg.mode==="pooled" || cfg.mode==="bedfirst") ? cfg.cyc/D.T_A : 1;
+  const f = NOMOVE.has(cfg.mode) ? cfg.cyc/D.T_A : 1;
   const hours = Array.from({length:cfg.len}, (_,i)=>(cfg.start+i)%24);
   const fac   = dayTotal / D.day_mean;
 
@@ -1230,6 +1288,9 @@ function evaluate(cfg, dayTotal){
 }
 
 /* ── state ───────────────────────────────────────────────────────────────── */
+/* layouts in which a patient keeps one space for the whole visit — no second stage, so they share
+   the pace dial and the whole-visit service shape rather than the assess/results split */
+const NOMOVE = new Set(["pooled", "bedfirst", "stream"]);
 const MODES = [
   {id:"split",  t:"Assessment spaces + a second area",
                 s:"Assessed in one space, then moved to a second area to wait for results or to be discharged.",
@@ -1241,6 +1302,9 @@ const MODES = [
      patient who cannot be put in a chair at all. See the bed-first block in sim(). */
   {id:"bedfirst", t:"Rooms first, chairs only when rooms are full",
                 s:"A room if one is free, a chair only when they are all taken — and some patients need a room either way. Nobody moves.",
+                hasR:true},
+  {id:"stream",   t:"Two streams, kept apart",
+                s:"Sorted at the door: some patients go to beds, everyone else to chairs, and neither side lends to the other. Nobody moves.",
                 hasR:true}
 ];
 /* ⚠ WHAT THE CHIEF-COMPLAINT FIELD CAN AND CANNOT SEE. Blake's bed-required list is a clinical
@@ -1411,9 +1475,11 @@ function syncSpaces(){
 function drawSpaces(){
   const m=modeOf(), rows=[];
   rows.push(ctl("A", m.id==="pooled" ? "Spaces in the group"
-                  : m.id==="bedfirst" ? "ED rooms the lane can use" : "Assessment spaces",
+                  : m.id==="bedfirst" ? "ED rooms the lane can use"
+                  : m.id==="stream"   ? "Beds — for the patients sorted to them" : "Assessment spaces",
                 S.A, 1, 14, false));
   if(m.hasR) rows.push(ctl("R", m.id==="bedfirst" ? "Chairs — overflow only"
+                             : m.id==="stream"   ? "Chairs — for everyone else"
                              : "Second area — results &amp; discharge pending",
                             S.R, 1, 16, false));
   const tot = S.A + (m.hasR?S.R:0);
@@ -1521,14 +1587,14 @@ function drawSpeed(m){
      pace dial. There is no assessment-move control, because nobody moves — and the one control
      the proposal really turns on, who cannot use a chair, is a LIST rather than a number, so it
      has its own panel further down beside the complaints it is built from. */
-  if(m.id==="bedfirst"){
+  if(m.id==="bedfirst" || m.id==="stream"){
     host.innerHTML = `<div class="ctl"><div class="ctl-top">
         <label for="cyc">How fast a space turns over</label>
         <output class="num" id="cycOut"></output></div>
       <input type="range" id="cyc" min="55" max="115" step="1" value="${S.cyc}">
       <div class="hint">Nobody is moved in this layout, so one space &mdash; room or chair &mdash;
         carries the whole visit, ${Math.round(D.hold_all)} min on average today. A pace, not a
-        duration. Who must have a room is set in <b>the exclusion list</b> below.</div></div>`;
+        duration. Who goes to a bed is set in <b>the exclusion list</b> below.</div></div>`;
     $("cyc").oninput = e => { S.cyc = +e.target.value; syncSpeed(m); requestRun() };
     return syncSpeed(m);
   }
@@ -1588,7 +1654,7 @@ function drawSpeed(m){
 function syncSpeed(m){
   const an=$("asnOut"); if(an) an.textContent = S.assessNo + " min";
   const ai=$("asn"); if(ai && +ai.value !== S.assessNo) ai.value = S.assessNo;
-  if(m.id==="bedfirst"){
+  if(m.id==="bedfirst" || m.id==="stream"){
     const pct = Math.round(100 - 100*S.cyc/D.T_A);
     const o = $("cycOut");
     if(o) o.textContent = pct===0 ? "today's pace" : (pct>0 ? pct+"% faster" : (-pct)+"% slower");
@@ -1619,7 +1685,7 @@ function drawPresets(){
     S.budget=0; Object.assign(S,p.set);
     // BEDPICK lives outside S, so Object.assign cannot carry it — the same class of bug the
     // board-row loader has hit twice. A preset is a full setting, so it resets the list too.
-    if(p.set.mode === "bedfirst") BEDPICK = new Set(BED_IDS);
+    if(p.set.mode === "bedfirst" || p.set.mode === "stream") BEDPICK = new Set(BED_IDS);
     if(p.set.roomsA === undefined) S.roomsA = false;   // a preset is a FULL setting
     drawModes(); drawSpaces(); run();
   });
@@ -1799,6 +1865,7 @@ function drawBoard(){
     // own score was never computed from
     const shape = r.cfg.mode==="pooled" ? `${r.cfg.A} pooled`
                 : r.cfg.mode==="bedfirst" ? `${r.cfg.A} rm + ${r.cfg.R} ch`
+                : r.cfg.mode==="stream" ? `${r.cfg.A} bed + ${r.cfg.R} ch`
                 : `${r.cfg.A}+${r.cfg.R}`;
     const big = r.spaces > most;
     return `<tr><td class="num">${i+1}</td><td>${r.who}</td>
@@ -1863,7 +1930,7 @@ function hashState(){
      so a link from any other layout keeps the shape it has always had. */
   // fields 10-12: criteria, the bed-required list, the residual share. Only the layout that has
   // an exclusion list carries one, and an empty field holds its place so older links still parse.
-  const bed = S.mode==="bedfirst";
+  const bed = S.mode==="bedfirst" || S.mode==="stream";
   if(PICK.size < CC.length || bed) c.push(PICK.size < CC.length ? [...PICK].sort((x,y)=>x-y).join(".") : "");
   if(bed){ c.push([...BEDPICK].sort((x,y)=>x-y).join(".")); c.push(String(S.bedExtra));
            c.push(S.bedIntp ? "1" : "0"); c.push(S.bedGrp ? "1" : "0") }
@@ -1902,7 +1969,7 @@ function fromHash(){
   /* ⚠ the turnover pair sits at a different offset depending on whether the bed-first block is
      present, which is why it is read from the END rather than by index. A link written before
      turnover existed described a lane with none. */
-  const min2 = p[0]==="bedfirst" ? 16 : 12;          // links with the turnover pair
+  const min2 = (p[0]==="bedfirst" || p[0]==="stream") ? 16 : 12;   // links with the turnover pair
   const tail = p.length >= min2+2 ? p.slice(-4)     // …rooms flag, then the no-test assessment
              : p.length >= min2+1 ? [...p.slice(-3), ""]
              : p.length >= min2   ? [...p.slice(-2), "0", ""]
@@ -1971,7 +2038,7 @@ function drawArrivals(E){
 function drawBedList(){
   const panel = $("bedPanel");
   if(!panel) return;
-  const on = S.mode === "bedfirst";
+  const on = S.mode === "bedfirst" || S.mode === "stream";   // the list routes both layouts
   panel.hidden = !on;
   if(!on) return;
 
@@ -2059,16 +2126,9 @@ function drawCriteria(){
     <b class="num">${String((S.start+S.len)%24).padStart(2,"0")}:00</b>
     on ${LEVELS[S.level].n.toLowerCase()} — <b class="num">${pts.toFixed(1)}</b> in total.
     Tap a complaint to take it or leave it.
-    <span class="dim">&ldquo;Doctor to decision&rdquo; is measured on patients who need no test:
-    how long from the doctor arriving to the call being made &mdash; ${Math.round(D.g.dd)} min on
-    average, ${Math.round(Math.min(...CC.filter(x=>!x.me).map(x=>x.dd)))} to
-    ${Math.round(Math.max(...CC.filter(x=>!x.me).map(x=>x.dd)))} across these complaints. It is the
-    clearest signal of who belongs in a chair lane: the long ones are the complaints where
-    something is DONE &mdash; a repair, a wound, a treatment and a re-check. <b>It is not the
-    moment they can move</b> &mdash; a patient can go to another area as soon as the assessment
-    itself is finished, which happens somewhere inside this interval and is recorded nowhere. A
-    dash means nearly everyone with that complaint gets a test, so there is no no-test group left
-    to measure.</span>`;
+    <span class="dim">&ldquo;Doctor to decision&rdquo; is measured, and is the clearest signal of
+    who belongs in a chair lane &mdash; but it is <b>not</b> the moment they can move.
+    <b>Notes &amp; method</b> says why.</span>`;
   $("ccList").innerHTML = CC.map(x=>{
     const on = PICK.has(x.i);
     return `<button type="button" class="cc${on?" on":""}" data-cc="${x.i}" aria-pressed="${on}">
@@ -2132,7 +2192,7 @@ function run(){
   const mins = S.len*60;
   const mx = mix();
   // what one patient demands of each side, given the assessment time the physician set
-  const fPace = (m.id==="pooled" || m.id==="bedfirst") ? S.cyc/D.T_A : 1;
+  const fPace = NOMOVE.has(m.id) ? S.cyc/D.T_A : 1;
   const perAssess = m.id==="pooled" ? D.hold_all*fPace
     : S.fastDischarge ? S.assess
     : mx.shr*S.assess + (1-mx.shr)*D.g.now*mx.fo;
@@ -2252,6 +2312,22 @@ function drawLevels(E){
 
 fromHash();
 drawPresets(); drawModes(); drawSpaces(); run();
+/* Two tabs. The lab is the thing; the reasoning behind it is 650 words and was sitting in the
+   middle of the controls. Plain hidden/unhidden — no routing, no history, so a shared link still
+   lands on the lab with its setup intact. */
+(function tabs(){
+  const lab=$("tabLab"), notes=$("tabNotes"), lb=$("tabLabBtn"), nb=$("tabNotesBtn");
+  if(!lab || !notes) return;
+  const show = which => {
+    lab.hidden = which !== "lab"; notes.hidden = which === "lab";
+    lb.setAttribute("aria-selected", which === "lab");
+    nb.setAttribute("aria-selected", which !== "lab");
+    if(which !== "lab") window.scrollTo(0,0);
+  };
+  lb.onclick = () => show("lab");
+  nb.onclick = () => show("notes");
+})();
+
 $("bedBlake").onclick = () => { BEDPICK = new Set(BED_IDS); S.bedIntp = true;  S.bedGrp = true;  run() };
 $("bedNone").onclick  = () => { BEDPICK = new Set();          S.bedIntp = false; S.bedGrp = false; run() };
 $("ccAll").onclick  = () => { PICK = new Set(CC.map(x=>x.i)); run() };

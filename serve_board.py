@@ -75,7 +75,7 @@ class Handler(SimpleHTTPRequestHandler):
                               "bedGrp", "turnRoom", "turnChair", "roomsA", "assessNo")},
                      "at": int(e.get("at", 0))}
             # 'rooms'/'zone' retired with the four-mode UI; shared-board.gs already rejects them
-            if not entry["who"] or entry["cfg"]["mode"] not in ("split", "pooled", "bedfirst"):
+            if not entry["who"] or entry["cfg"]["mode"] not in ("split", "pooled", "bedfirst", "stream"):
                 return self.send_error(400)
 
             # One row per person per distinct lane. A row written before this file stored the

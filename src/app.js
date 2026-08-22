@@ -32,7 +32,7 @@ Heap.prototype.pop=function(){const a=this.a,top=a[0],last=a.pop();if(a.length){
    anyone still queueing goes to the main department. */
 function sim(cfg){
   const {A, R, lam, asw, now, res, pooled, bedFirst, bedShare=0, assessMin, fastDischarge,
-         bedGrp=false, turnA=0, turnB=0, assessNo,   // assessNo: the no-test half (see below)
+         bedGrp=false, stream=false, turnA=0, turnB=0, assessNo,  // assessNo: the no-test half
          shr=D.shr, floor=D.floor, days=600, seeds=[11,12,13,14], trace} = cfg;
   // `trace` records one evening, patient by patient, so the animation plays the SAME run the
   // numbers come from rather than a decorative loop of its own. Slots are tracked only here —
@@ -83,7 +83,7 @@ function sim(cfg){
       const qa=[], qr=[], second=new Float64Array(arr.length);
       // BED-FIRST only: set at arrival, because it is a triage decision — this patient cannot be
       // put in a chair for their initial evaluation, whatever the queue looks like.
-      const bedReq = bedFirst ? new Uint8Array(arr.length) : null;
+      const bedReq = (bedFirst || stream) ? new Uint8Array(arr.length) : null;
       const slotA = T ? new Int16Array(arr.length).fill(-1) : null;
       const slotB = T ? new Int16Array(arr.length).fill(-1) : null;
       let ab=0, rb=0, peak=0;
@@ -159,15 +159,31 @@ function sim(cfg){
       /* Same one-party rule as the split lane. A party needs room for ALL of it before any of it
          is placed: enough doors for its bed-required members, and any space at all for the rest. */
       const party = g => { const out=[]; for(let j=0;j<qa.length;j++) if(gid[qa[j][1]]===g) out.push(j); return out };
+      /* ── TWO SHAPES, ONE PLACEMENT ────────────────────────────────────────────────────────
+         bed-first: a bed is the DEFAULT and chairs are overflow, so a chair patient takes a bed
+         whenever one is free. "Rooms first" falls out of the order rather than needing a threshold.
+
+         stream: the two sides are kept APART. A chair patient never takes a bed, even with beds
+         standing empty, and a bed patient never takes a chair. That is the whole difference — the
+         routing rule (who needs a bed) is identical, and is the exclusion list either way.
+
+         ⚠ Splitting a fixed estate into two pools that cannot help each other costs something, and
+         this page already carries that in a guarded form: bed-first at 0% bed-required is
+         bit-identical to a pooled lane over the same spaces. Expect stream to score worse than
+         bed-first at the same footprint. That IS the measurement — a department may stream because
+         of how nursing is assigned, and this prices it. */
       const seatBedParty = (t, idx) => { for(let j=idx.length-1;j>=0;j--){
           const q=qa.splice(idx[j],1)[0]; rec(q[1], t-q[0]);
-          if(ab<A && (bedReq[q[1]] || rb>=R)) startBed(t,q[1]); else startChair(t,q[1]) } };
+          const toBed = stream ? bedReq[q[1]] : (ab<A && (bedReq[q[1]] || rb>=R));
+          if(toBed) startBed(t,q[1]); else startChair(t,q[1]) } };
       const takeParty = t => {
         for(let i=0;i<qa.length;i++){
           const idx = party(gid[qa[i][1]]);
           let needBed=0; for(const j of idx) if(bedReq[qa[j][1]]) needBed++;
           const rest = idx.length-needBed, fa = A-ab, fr = R-rb;
-          if(needBed <= fa && rest <= (fa-needBed) + fr){ seatBedParty(t, idx); return true }
+          const fits = stream ? (needBed <= fa && rest <= fr)          // each side on its own
+                              : (needBed <= fa && rest <= (fa-needBed) + fr);
+          if(fits){ seatBedParty(t, idx); return true }
         }
         return false };
       /* Rooms first, every time. takeBed only fires while a room is free, so by the time
@@ -181,7 +197,7 @@ function sim(cfg){
                                            rec(q[1], CLOSE-q[0], true);
                                            if(T) T.push({t, id:q[1], ev:"divert"}) }
                        qa.length=0; if(T) T.push({t, ev:"close"}); continue }
-        if(bedFirst){
+        if(bedFirst || stream){
           if(kind===0){ if(T) T.push({t, id:tag, ev:"arrive", test: null});
                         /* A family needs a door: siblings go in one room together rather than
                            into separate chairs across the lane, so arriving with a sibling is a
@@ -261,7 +277,7 @@ const PLAY = {on:false, t:0, speed:60, raf:0, trace:null, A:0, R:0, last:0,
    rest, because the spread is real and worth seeing — it just should not be what you meet first. */
 function buildTrace(){
   const m = modeOf(), lvl = LEVELS[S.level], mx = mix();
-  const f = (m.id==="pooled" || m.id==="bedfirst") ? S.cyc/D.T_A : 1;
+  const f = NOMOVE.has(m.id) ? S.cyc/D.T_A : 1;
   const hours = winHours(), fac = lvl.pts/D.day_mean;
   const lam = hours.map(h => D.lam24[h]*fac*mx.share);
   const expect = lam.reduce((a,b)=>a+b, 0);
@@ -269,7 +285,7 @@ function buildTrace(){
      to be listed here — a mode added to sim() and not to this line plays a DIFFERENT lane on
      screen from the one the cards describe, which is worse than showing no lane at all. */
   const base = {A:S.A, R:m.hasR?S.R:0, pooled:m.id==="pooled", bedGrp:S.bedGrp, ...turnFor(S),
-                bedFirst:m.id==="bedfirst", bedShare:liveBedShare(), assessMin:S.assess,
+                bedFirst:m.id==="bedfirst", stream:m.id==="stream", bedShare:liveBedShare(), assessMin:S.assess,
                 assessNo:S.assessNo * mx.fm,
                 fastDischarge:S.fastDischarge, shr:mx.shr, lam,
                 asw:scale(D.asw, f*mx.fa), now:scale(D.now, f*mx.fo), res:scale(D.res, f*mx.fr),
@@ -346,8 +362,10 @@ function paintSlots(host, ids, st){
    overflow chairs reads as the results area it is not. */
 function labelStage(m){
   const ah = $("stageAH"), bh = $("stageBH");
-  if(ah) ah.textContent = m.id==="bedfirst" ? "In a room" : m.id==="pooled" ? "In a space" : "Being assessed";
-  if(bh) bh.textContent = m.id==="bedfirst" ? "In an overflow chair" : "Second area — results & discharge";
+  if(ah) ah.textContent = m.id==="bedfirst" ? "In a room" : m.id==="stream" ? "In a bed"
+                        : m.id==="pooled" ? "In a space" : "Being assessed";
+  if(bh) bh.textContent = m.id==="bedfirst" ? "In an overflow chair"
+                        : m.id==="stream" ? "In a chair" : "Second area — results & discharge";
   /* ⚠ "outlined in red" only exists where a patient can be BLOCKED mid-visit, which needs a
      second area to be blocked out of. In the two layouts where nobody is ever moved it can
      never fire, and promising it sent people hunting for a state the run cannot reach. */
@@ -520,7 +538,8 @@ const scale  = (pool,f) => pool.map(x => x*f);
    is rooms, set by that preset and by the control under Spaces. The second area is chairs either
    way; nobody has proposed a layout whose results-pending side is rooms. */
 const turnFor = cfg => ({
-  turnA: (cfg.mode === "bedfirst" || cfg.roomsA) ? (cfg.turnRoom ?? 0) : (cfg.turnChair ?? 0),
+  turnA: (cfg.mode === "bedfirst" || cfg.mode === "stream" || cfg.roomsA)
+           ? (cfg.turnRoom ?? 0) : (cfg.turnChair ?? 0),
   turnB: cfg.turnChair ?? 0});
 
 /* One lane, evaluated. `cfg` is everything a saved board entry carries, so the live page and
@@ -529,7 +548,7 @@ function evaluate(cfg, dayTotal){
   /* a board row saved in the four-mode era ('zone', 'rooms') must not crash the page for
      everyone sharing the board — fall back to split, the nearest surviving semantics */
   const m = MODES.find(x=>x.id===cfg.mode) || MODES[0];
-  const f = (cfg.mode==="pooled" || cfg.mode==="bedfirst") ? cfg.cyc/D.T_A : 1;
+  const f = NOMOVE.has(cfg.mode) ? cfg.cyc/D.T_A : 1;
   const hours = Array.from({length:cfg.len}, (_,i)=>(cfg.start+i)%24);
   const fac   = dayTotal / D.day_mean;
 
@@ -583,6 +602,9 @@ function evaluate(cfg, dayTotal){
 }
 
 /* ── state ───────────────────────────────────────────────────────────────── */
+/* layouts in which a patient keeps one space for the whole visit — no second stage, so they share
+   the pace dial and the whole-visit service shape rather than the assess/results split */
+const NOMOVE = new Set(["pooled", "bedfirst", "stream"]);
 const MODES = [
   {id:"split",  t:"Assessment spaces + a second area",
                 s:"Assessed in one space, then moved to a second area to wait for results or to be discharged.",
@@ -594,6 +616,9 @@ const MODES = [
      patient who cannot be put in a chair at all. See the bed-first block in sim(). */
   {id:"bedfirst", t:"Rooms first, chairs only when rooms are full",
                 s:"A room if one is free, a chair only when they are all taken — and some patients need a room either way. Nobody moves.",
+                hasR:true},
+  {id:"stream",   t:"Two streams, kept apart",
+                s:"Sorted at the door: some patients go to beds, everyone else to chairs, and neither side lends to the other. Nobody moves.",
                 hasR:true}
 ];
 /* ⚠ WHAT THE CHIEF-COMPLAINT FIELD CAN AND CANNOT SEE. Blake's bed-required list is a clinical
@@ -764,9 +789,11 @@ function syncSpaces(){
 function drawSpaces(){
   const m=modeOf(), rows=[];
   rows.push(ctl("A", m.id==="pooled" ? "Spaces in the group"
-                  : m.id==="bedfirst" ? "ED rooms the lane can use" : "Assessment spaces",
+                  : m.id==="bedfirst" ? "ED rooms the lane can use"
+                  : m.id==="stream"   ? "Beds — for the patients sorted to them" : "Assessment spaces",
                 S.A, 1, 14, false));
   if(m.hasR) rows.push(ctl("R", m.id==="bedfirst" ? "Chairs — overflow only"
+                             : m.id==="stream"   ? "Chairs — for everyone else"
                              : "Second area — results &amp; discharge pending",
                             S.R, 1, 16, false));
   const tot = S.A + (m.hasR?S.R:0);
@@ -874,14 +901,14 @@ function drawSpeed(m){
      pace dial. There is no assessment-move control, because nobody moves — and the one control
      the proposal really turns on, who cannot use a chair, is a LIST rather than a number, so it
      has its own panel further down beside the complaints it is built from. */
-  if(m.id==="bedfirst"){
+  if(m.id==="bedfirst" || m.id==="stream"){
     host.innerHTML = `<div class="ctl"><div class="ctl-top">
         <label for="cyc">How fast a space turns over</label>
         <output class="num" id="cycOut"></output></div>
       <input type="range" id="cyc" min="55" max="115" step="1" value="${S.cyc}">
       <div class="hint">Nobody is moved in this layout, so one space &mdash; room or chair &mdash;
         carries the whole visit, ${Math.round(D.hold_all)} min on average today. A pace, not a
-        duration. Who must have a room is set in <b>the exclusion list</b> below.</div></div>`;
+        duration. Who goes to a bed is set in <b>the exclusion list</b> below.</div></div>`;
     $("cyc").oninput = e => { S.cyc = +e.target.value; syncSpeed(m); requestRun() };
     return syncSpeed(m);
   }
@@ -941,7 +968,7 @@ function drawSpeed(m){
 function syncSpeed(m){
   const an=$("asnOut"); if(an) an.textContent = S.assessNo + " min";
   const ai=$("asn"); if(ai && +ai.value !== S.assessNo) ai.value = S.assessNo;
-  if(m.id==="bedfirst"){
+  if(m.id==="bedfirst" || m.id==="stream"){
     const pct = Math.round(100 - 100*S.cyc/D.T_A);
     const o = $("cycOut");
     if(o) o.textContent = pct===0 ? "today's pace" : (pct>0 ? pct+"% faster" : (-pct)+"% slower");
@@ -972,7 +999,7 @@ function drawPresets(){
     S.budget=0; Object.assign(S,p.set);
     // BEDPICK lives outside S, so Object.assign cannot carry it — the same class of bug the
     // board-row loader has hit twice. A preset is a full setting, so it resets the list too.
-    if(p.set.mode === "bedfirst") BEDPICK = new Set(BED_IDS);
+    if(p.set.mode === "bedfirst" || p.set.mode === "stream") BEDPICK = new Set(BED_IDS);
     if(p.set.roomsA === undefined) S.roomsA = false;   // a preset is a FULL setting
     drawModes(); drawSpaces(); run();
   });
@@ -1152,6 +1179,7 @@ function drawBoard(){
     // own score was never computed from
     const shape = r.cfg.mode==="pooled" ? `${r.cfg.A} pooled`
                 : r.cfg.mode==="bedfirst" ? `${r.cfg.A} rm + ${r.cfg.R} ch`
+                : r.cfg.mode==="stream" ? `${r.cfg.A} bed + ${r.cfg.R} ch`
                 : `${r.cfg.A}+${r.cfg.R}`;
     const big = r.spaces > most;
     return `<tr><td class="num">${i+1}</td><td>${r.who}</td>
@@ -1216,7 +1244,7 @@ function hashState(){
      so a link from any other layout keeps the shape it has always had. */
   // fields 10-12: criteria, the bed-required list, the residual share. Only the layout that has
   // an exclusion list carries one, and an empty field holds its place so older links still parse.
-  const bed = S.mode==="bedfirst";
+  const bed = S.mode==="bedfirst" || S.mode==="stream";
   if(PICK.size < CC.length || bed) c.push(PICK.size < CC.length ? [...PICK].sort((x,y)=>x-y).join(".") : "");
   if(bed){ c.push([...BEDPICK].sort((x,y)=>x-y).join(".")); c.push(String(S.bedExtra));
            c.push(S.bedIntp ? "1" : "0"); c.push(S.bedGrp ? "1" : "0") }
@@ -1255,7 +1283,7 @@ function fromHash(){
   /* ⚠ the turnover pair sits at a different offset depending on whether the bed-first block is
      present, which is why it is read from the END rather than by index. A link written before
      turnover existed described a lane with none. */
-  const min2 = p[0]==="bedfirst" ? 16 : 12;          // links with the turnover pair
+  const min2 = (p[0]==="bedfirst" || p[0]==="stream") ? 16 : 12;   // links with the turnover pair
   const tail = p.length >= min2+2 ? p.slice(-4)     // …rooms flag, then the no-test assessment
              : p.length >= min2+1 ? [...p.slice(-3), ""]
              : p.length >= min2   ? [...p.slice(-2), "0", ""]
@@ -1324,7 +1352,7 @@ function drawArrivals(E){
 function drawBedList(){
   const panel = $("bedPanel");
   if(!panel) return;
-  const on = S.mode === "bedfirst";
+  const on = S.mode === "bedfirst" || S.mode === "stream";   // the list routes both layouts
   panel.hidden = !on;
   if(!on) return;
 
@@ -1412,16 +1440,9 @@ function drawCriteria(){
     <b class="num">${String((S.start+S.len)%24).padStart(2,"0")}:00</b>
     on ${LEVELS[S.level].n.toLowerCase()} — <b class="num">${pts.toFixed(1)}</b> in total.
     Tap a complaint to take it or leave it.
-    <span class="dim">&ldquo;Doctor to decision&rdquo; is measured on patients who need no test:
-    how long from the doctor arriving to the call being made &mdash; ${Math.round(D.g.dd)} min on
-    average, ${Math.round(Math.min(...CC.filter(x=>!x.me).map(x=>x.dd)))} to
-    ${Math.round(Math.max(...CC.filter(x=>!x.me).map(x=>x.dd)))} across these complaints. It is the
-    clearest signal of who belongs in a chair lane: the long ones are the complaints where
-    something is DONE &mdash; a repair, a wound, a treatment and a re-check. <b>It is not the
-    moment they can move</b> &mdash; a patient can go to another area as soon as the assessment
-    itself is finished, which happens somewhere inside this interval and is recorded nowhere. A
-    dash means nearly everyone with that complaint gets a test, so there is no no-test group left
-    to measure.</span>`;
+    <span class="dim">&ldquo;Doctor to decision&rdquo; is measured, and is the clearest signal of
+    who belongs in a chair lane &mdash; but it is <b>not</b> the moment they can move.
+    <b>Notes &amp; method</b> says why.</span>`;
   $("ccList").innerHTML = CC.map(x=>{
     const on = PICK.has(x.i);
     return `<button type="button" class="cc${on?" on":""}" data-cc="${x.i}" aria-pressed="${on}">
@@ -1485,7 +1506,7 @@ function run(){
   const mins = S.len*60;
   const mx = mix();
   // what one patient demands of each side, given the assessment time the physician set
-  const fPace = (m.id==="pooled" || m.id==="bedfirst") ? S.cyc/D.T_A : 1;
+  const fPace = NOMOVE.has(m.id) ? S.cyc/D.T_A : 1;
   const perAssess = m.id==="pooled" ? D.hold_all*fPace
     : S.fastDischarge ? S.assess
     : mx.shr*S.assess + (1-mx.shr)*D.g.now*mx.fo;
@@ -1605,6 +1626,22 @@ function drawLevels(E){
 
 fromHash();
 drawPresets(); drawModes(); drawSpaces(); run();
+/* Two tabs. The lab is the thing; the reasoning behind it is 650 words and was sitting in the
+   middle of the controls. Plain hidden/unhidden — no routing, no history, so a shared link still
+   lands on the lab with its setup intact. */
+(function tabs(){
+  const lab=$("tabLab"), notes=$("tabNotes"), lb=$("tabLabBtn"), nb=$("tabNotesBtn");
+  if(!lab || !notes) return;
+  const show = which => {
+    lab.hidden = which !== "lab"; notes.hidden = which === "lab";
+    lb.setAttribute("aria-selected", which === "lab");
+    nb.setAttribute("aria-selected", which !== "lab");
+    if(which !== "lab") window.scrollTo(0,0);
+  };
+  lb.onclick = () => show("lab");
+  nb.onclick = () => show("notes");
+})();
+
 $("bedBlake").onclick = () => { BEDPICK = new Set(BED_IDS); S.bedIntp = true;  S.bedGrp = true;  run() };
 $("bedNone").onclick  = () => { BEDPICK = new Set();          S.bedIntp = false; S.bedGrp = false; run() };
 $("ccAll").onclick  = () => { PICK = new Set(CC.map(x=>x.i)); run() };

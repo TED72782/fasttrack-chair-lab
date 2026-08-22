@@ -100,7 +100,7 @@ function doPost(e) {
     var b = JSON.parse(e.postData.contents);
     var who = String(b.who || '').slice(0, 28);
     var c = b.cfg || {};
-    var modes = ['split', 'pooled', 'bedfirst'];   // 'rooms'/'zone' retired with the four-mode UI
+    var modes = ['split', 'pooled', 'bedfirst', 'stream'];   // 'rooms'/'zone' retired with the four-mode UI
     if (!who || modes.indexOf(String(c.mode)) < 0) return json_({ error: 'bad entry' });
 
     var sh = sheet_();

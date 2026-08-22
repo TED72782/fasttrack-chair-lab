@@ -338,6 +338,43 @@ setTimeout(()=>{
       fastDischarge:true, cc:"0.1"}).assessNo === 60
     ? "yes (assessNo falls back to assess)" : "FAIL");
 
+  /* ── two streams, kept apart ──────────────────────────────────────────────
+     Added 2026-08-22. The routing rule is the same exclusion list bed-first uses; the difference
+     is only that neither side lends to the other. */
+  const st_ = (share, mode) => sim({A:5, R:5, pooled:false,
+      bedFirst: mode==="bedfirst", stream: mode==="stream",
+      bedShare:share, bedGrp:false, assessMin:44, fastDischarge:false, turnA:0, turnB:0,
+      lam:D.lam, asw:D.asw, now:D.now, res:D.res, days:1500, seeds:[11,12,13,14]});
+
+  /* Two EXACT identities, and they have to be stated within the mode. Comparing a 0%-bed stream
+     lane against a pooled chairs-only lane looked right and was not: 60.97 vs 60.59, because the
+     two branches draw random numbers in a different order, so the gap is noise and no tolerance
+     distinguishes it from a real leak. Within the mode it is exact — if nobody needs a bed, the
+     BED COUNT CANNOT MATTER, and if everybody does, the chair count cannot. A patient crossing
+     between streams breaks both. */
+  const noBeds = st_(0, "stream"), noBedsWide = sim({A:40, R:5, pooled:false, stream:true,
+      bedShare:0, bedGrp:false, assessMin:44, fastDischarge:false, turnA:0, turnB:0,
+      lam:D.lam, asw:D.asw, now:D.now, res:D.res, days:1500, seeds:[11,12,13,14]});
+  console.log("at 0% the beds are dead wood:", noBeds.perArrival === noBedsWide.perArrival
+    ? "yes (5 beds or 40, identical: " + noBeds.perArrival.toFixed(2) + ")"
+    : "FAIL — beds changed a lane nobody sends to them: "
+      + noBeds.perArrival.toFixed(2) + " vs " + noBedsWide.perArrival.toFixed(2));
+  const allBeds = st_(1, "stream"), allBedsWide = sim({A:5, R:40, pooled:false, stream:true,
+      bedShare:1, bedGrp:false, assessMin:44, fastDischarge:false, turnA:0, turnB:0,
+      lam:D.lam, asw:D.asw, now:D.now, res:D.res, days:1500, seeds:[11,12,13,14]});
+  console.log("at 100% the chairs are too :", allBeds.perArrival === allBedsWide.perArrival
+    ? "yes (5 chairs or 40, identical: " + allBeds.perArrival.toFixed(2) + ")"
+    : "FAIL — chairs changed a lane nobody sends to them: "
+      + allBeds.perArrival.toFixed(2) + " vs " + allBedsWide.perArrival.toFixed(2));
+
+  /* And the point of building it: a partition cannot beat the pool it was cut from. */
+  const sSplit = st_(0.24, "stream"), sPref = st_(0.24, "bedfirst");
+  console.log("keeping them apart costs   :", sSplit.perArrival > sPref.perArrival
+    ? "yes (stream " + sSplit.perArrival.toFixed(2) + " vs beds-first "
+      + sPref.perArrival.toFixed(2) + " min/patient, same 5+5 estate)"
+    : "FAIL — the partition is free or better: " + sSplit.perArrival.toFixed(2)
+      + " vs " + sPref.perArrival.toFixed(2));
+
   location.hash = ""; S.mode="split"; S.A=6; S.R=4; S.start=15; S.len=8; saveLocal([]);
 
   console.log("\nsample markup:", A.slice(A.indexOf("<span class=\"slot full"), A.indexOf("<span class=\"slot full")+230).replace(/\s+/g," "));
