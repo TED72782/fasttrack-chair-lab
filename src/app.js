@@ -569,7 +569,10 @@ const PRESETS = [
   /* Blake's proposal, on the SAME ten spaces as the 6+4 split and the 10 pooled, so the only
      thing that differs between the three is the rule for who goes where. */
   {id:"blake", n:"The Blake",
-   set:{mode:"bedfirst", A:6, R:4},
+   // ⚠ carries bedIntp explicitly: a preset is a FULL setting, and arriving on a pre-2026-08-22
+   // link leaves the criterion off, so without this "The Blake" would silently be his layout
+   // without his rule. The exclusion list itself is restored by the preset handler below.
+   set:{mode:"bedfirst", A:6, R:4, bedIntp:true},
    d:"6 rooms, 4 overflow chairs. A room is the default; chairs are used only once the rooms are full, and the bed-required list never goes vertical."},
   {id:"six", n:"Group consensus — 6, split",
    set:{mode:"split", A:4, R:2, budget:6},
@@ -790,7 +793,11 @@ function drawPresets(){
        <span class="s">${p.d}</span></button>`).join("");
   $("presets").querySelectorAll("button").forEach(btn=>btn.onclick=()=>{
     const p=PRESETS.find(x=>x.id===btn.dataset.p);
-    S.budget=0; Object.assign(S,p.set); drawModes(); drawSpaces(); run();
+    S.budget=0; Object.assign(S,p.set);
+    // BEDPICK lives outside S, so Object.assign cannot carry it — the same class of bug the
+    // board-row loader has hit twice. A preset is a full setting, so it resets the list too.
+    if(p.set.mode === "bedfirst") BEDPICK = new Set(BED_IDS);
+    drawModes(); drawSpaces(); run();
   });
 }
 
