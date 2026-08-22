@@ -405,8 +405,20 @@ footer{margin-top:26px;font-size:12.5px;color:var(--ink-3);border-top:1px solid 
         judgement rather than anything the data can settle.</div>
       <div class="crit-list" id="bedList"></div>
       <div class="bed-extra">
+        <div class="eyebrow">⚠ The GU complaints are recorded, but this build hides them</div>
+        <p><b>Genitourinary concerns are apparent in the chief complaint</b> &mdash; they are
+          exactly the "exams of sensitive areas" on Blake's list, and triage records them. But
+          only <b>Dysuria</b> is broken out above. Genital, scrotal, testicular and vaginal
+          complaints, hematuria, urinary frequency and the rest are all inside
+          <i>Everything else (227 complaints)</i>, which is a single button covering
+          <b>25%</b> of the lane's volume. <b>Do not tick that bucket as a GU proxy</b> &mdash; it
+          would put a quarter of the department in rooms.</p>
+        <p>So the list above cannot yet express the sensitive-area half of Blake's rule. Fixing it
+          properly means breaking those complaints out into their own rows at the next data cut;
+          this page ships aggregates only, so it cannot do that on its own. <b>Until then they
+          belong in the share below</b>, along with the reasons that will never be codable.</p>
         <div class="eyebrow">And the part no chief complaint can capture</div>
-        <p>Blake's list names four more reasons a patient needs a door, and <b>none of them are a
+        <p>Blake's list names three more reasons a patient needs a door, and <b>none of them are a
           chief complaint</b>, so no amount of ticking above will find them:</p>
         <ul>
           <li><b>A sensitive history</b> &mdash; taken in the open, it is not taken.</li>
@@ -415,8 +427,9 @@ footer{margin-top:26px;font-size:12.5px;color:var(--ink-3);border-top:1px solid 
           <li><b>A family who needs a door</b> &mdash; frightened, angry or simply at the end of
               their patience. A triage judgement made in the moment and written down nowhere.</li>
         </ul>
-        <p>They are real and they are not in the data, so the only honest thing the page can do is
-          ask you for the number. <b>It starts at zero, which is certainly too low.</b></p>
+        <p>These are real and they are not in the data, so the only honest thing the page can do
+          is ask you for the number. <b>It starts at zero, which is certainly too low</b> &mdash;
+          the GU complaints above alone put it above zero.</p>
         <p><b>Child-abuse evaluations are deliberately not on that list</b>, though Blake names
           them. They do get coded &mdash; typically as <i>Well Child</i> &mdash; but a concern
           recognised at triage is not triaged ESI 4/5, and every encounter behind this page is
@@ -1083,6 +1096,13 @@ const MODES = [
    sensitive areas" have complaints behind them; "sensitive histories" and "families that are
    highly anxious/demanding/angry" are a triage judgement nothing in the record marks, and a
    mental-health presentation is spread across complaints rather than carried by one.
+
+   ⚠ TWO DIFFERENT KINDS OF MISSING, AND ONLY ONE IS PERMANENT. GU concerns ARE recorded at
+   triage — but this build breaks out only Dysuria, and the rest (genital, scrotal, testicular,
+   vaginal, hematuria, frequency) are swallowed by the 227-complaint bucket, which is a quarter
+   of the volume and so useless as a proxy. That is a PIPELINE limit, fixable by giving those
+   complaints their own rows in the next cut; a sensitive history is not fixable at all. The page
+   says which is which, because one of them is somebody's next job.
 
    ⚠ CHILD ABUSE IS NOT MISSING, IT IS OUT OF SCOPE. It is coded — usually as Well Child — but a
    concern recognised at triage is not triaged ESI 4/5, and every encounter behind this page is

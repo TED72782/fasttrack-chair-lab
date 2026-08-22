@@ -122,6 +122,13 @@ tick rather than a number: every complaint is there, three come pre-ticked (abdo
 dysuria — the ones he named that a chief complaint can carry), and the share the simulation uses
 is computed from their measured volumes.
 
+**One gap in that list is a build limitation, not a clinical one.** GU concerns — Blake's "exams
+of sensitive areas" — are apparent in the chief complaint, but this build breaks out only
+*Dysuria*. Genital, scrotal, testicular and vaginal complaints, hematuria and urinary frequency
+are all inside *Everything else (227 complaints)*, a single bucket worth 25% of volume that must
+not be ticked as a proxy. Giving those complaints their own rows in the next data cut is what
+fixes it; the page ships aggregates only and cannot do it alone.
+
 The other reasons he gives — a sensitive history, a mental-health presentation, a family who
 needs a door — **are not chief complaints and never will be**, so no amount of ticking finds
 them. They get a second control: *plus this share of everyone else*. It starts at zero, which is
