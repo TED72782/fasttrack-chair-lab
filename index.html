@@ -412,12 +412,18 @@ footer{margin-top:26px;font-size:12.5px;color:var(--ink-3);border-top:1px solid 
           <li><b>A sensitive history</b> &mdash; taken in the open, it is not taken.</li>
           <li><b>A mental-health presentation</b> &mdash; recorded under many complaints, and
               often under none of the 24 above.</li>
-          <li><b>A child-abuse evaluation</b> &mdash; never the recorded reason for the visit.</li>
           <li><b>A family who needs a door</b> &mdash; frightened, angry or simply at the end of
               their patience. A triage judgement made in the moment and written down nowhere.</li>
         </ul>
         <p>They are real and they are not in the data, so the only honest thing the page can do is
           ask you for the number. <b>It starts at zero, which is certainly too low.</b></p>
+        <p><b>Child-abuse evaluations are deliberately not on that list</b>, though Blake names
+          them. They do get coded &mdash; typically as <i>Well Child</i> &mdash; but a concern
+          recognised at triage is not triaged ESI 4/5, and every encounter behind this page is
+          ESI 4/5. Those patients never reach this lane, so counting them here would pad the
+          share with people the lane never sees. The <i>Well Child</i> arrivals in the list above
+          are ordinary low-acuity visits, not this. A concern that surfaces only after rooming is
+          a separate problem, and no triage-time routing rule can act on it either way.</p>
         <div id="bedExtraCtl"></div>
       </div>
       <div class="crit-f">The two parts add up: the complaints you tick, plus this share of
@@ -557,9 +563,8 @@ footer{margin-top:26px;font-size:12.5px;color:var(--ink-3);border-top:1px solid 
             whether to do it.</li>
         <li><b>"Must have a room" is a floor, not a measurement.</b> The share is set from the
             chief complaints the record can actually see. The rest of the reasons a patient needs
-            a door &mdash; a sensitive history, a mental-health presentation, a child-abuse
-            evaluation, a family that is frightened or angry &mdash; are triage judgements that
-            appear nowhere in the data. So the true share is higher than the default by an amount
+            a door &mdash; a sensitive history, a mental-health presentation, a family that is
+            frightened or angry &mdash; are triage judgements that appear nowhere in the data. So the true share is higher than the default by an amount
             only the people doing triage can put a number on. Move the slider to yours.</li>
         <li><b>A room and a chair are treated as taking the same time.</b> If an evaluation behind
             a door is genuinely faster or more thorough than one in a chair, that is not modelled
@@ -1075,12 +1080,18 @@ const MODES = [
 ];
 /* ⚠ WHAT THE CHIEF-COMPLAINT FIELD CAN AND CANNOT SEE. Blake's bed-required list is a clinical
    rule, not a data field: "abdominal/pelvic pain", "full body exams (rashes)" and "exams of
-   sensitive areas" have complaints behind them, but "sensitive histories", "mental health",
-   "child abuse evaluations" and "families that are highly anxious/demanding/angry" do not — the
-   first two land in the 227-complaint bucket and the last two are a triage judgement nothing in
-   the record marks. So this is the FLOOR of the share, derived from the codable part, and it is
-   a slider for exactly that reason. Derived from the data rather than written down, so it moves
-   with each cut instead of rotting. */
+   sensitive areas" have complaints behind them; "sensitive histories" and "families that are
+   highly anxious/demanding/angry" are a triage judgement nothing in the record marks, and a
+   mental-health presentation is spread across complaints rather than carried by one.
+
+   ⚠ CHILD ABUSE IS NOT MISSING, IT IS OUT OF SCOPE. It is coded — usually as Well Child — but a
+   concern recognised at triage is not triaged ESI 4/5, and every encounter behind this page is
+   ESI 4/5. Those patients are not in this population at all, so they must not be added to the
+   share: doing so would charge the lane for people it never sees. The Well Child rows that ARE
+   here are ordinary low-acuity visits.
+
+   So the ticked default is the FLOOR of the share, and the rest is a control. Derived from the
+   data rather than written down, so it moves with each cut instead of rotting. */
 const BED_CC = ["Abdominal Pain", "Rash", "Dysuria"];
 const BED_IDS = D.cc.map((x,i)=>i).filter(i => BED_CC.indexOf(D.cc[i].n) >= 0);
 let BEDPICK = new Set(BED_IDS);            // which complaints must have a room

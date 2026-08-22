@@ -497,12 +497,18 @@ const MODES = [
 ];
 /* ⚠ WHAT THE CHIEF-COMPLAINT FIELD CAN AND CANNOT SEE. Blake's bed-required list is a clinical
    rule, not a data field: "abdominal/pelvic pain", "full body exams (rashes)" and "exams of
-   sensitive areas" have complaints behind them, but "sensitive histories", "mental health",
-   "child abuse evaluations" and "families that are highly anxious/demanding/angry" do not — the
-   first two land in the 227-complaint bucket and the last two are a triage judgement nothing in
-   the record marks. So this is the FLOOR of the share, derived from the codable part, and it is
-   a slider for exactly that reason. Derived from the data rather than written down, so it moves
-   with each cut instead of rotting. */
+   sensitive areas" have complaints behind them; "sensitive histories" and "families that are
+   highly anxious/demanding/angry" are a triage judgement nothing in the record marks, and a
+   mental-health presentation is spread across complaints rather than carried by one.
+
+   ⚠ CHILD ABUSE IS NOT MISSING, IT IS OUT OF SCOPE. It is coded — usually as Well Child — but a
+   concern recognised at triage is not triaged ESI 4/5, and every encounter behind this page is
+   ESI 4/5. Those patients are not in this population at all, so they must not be added to the
+   share: doing so would charge the lane for people it never sees. The Well Child rows that ARE
+   here are ordinary low-acuity visits.
+
+   So the ticked default is the FLOOR of the share, and the rest is a control. Derived from the
+   data rather than written down, so it moves with each cut instead of rotting. */
 const BED_CC = ["Abdominal Pain", "Rash", "Dysuria"];
 const BED_IDS = D.cc.map((x,i)=>i).filter(i => BED_CC.indexOf(D.cc[i].n) >= 0);
 let BEDPICK = new Set(BED_IDS);            // which complaints must have a room

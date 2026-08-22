@@ -122,11 +122,18 @@ tick rather than a number: every complaint is there, three come pre-ticked (abdo
 dysuria — the ones he named that a chief complaint can carry), and the share the simulation uses
 is computed from their measured volumes.
 
-The other four reasons he gives — a sensitive history, a mental-health presentation, a
-child-abuse evaluation, a family who needs a door — **are not chief complaints and never will
-be**, so no amount of ticking finds them. They get a second control: *plus this share of everyone
-else*. It starts at zero, which is certainly too low, and the page says so. Only the people doing
-triage can put the real number on it.
+The other reasons he gives — a sensitive history, a mental-health presentation, a family who
+needs a door — **are not chief complaints and never will be**, so no amount of ticking finds
+them. They get a second control: *plus this share of everyone else*. It starts at zero, which is
+certainly too low, and the page says so. Only the people doing triage can put the real number
+on it.
+
+**Child-abuse evaluations are on his list and deliberately not on this one.** They are coded —
+usually as *Well Child* — but a concern recognised at triage is not triaged ESI 4/5, and every
+encounter behind this page is ESI 4/5. Those patients never reach this lane, so counting them
+would pad the share with people it never sees. The *Well Child* arrivals in the data are ordinary
+low-acuity visits. A concern that surfaces only after rooming is a separate problem, and no
+triage-time routing rule can act on it either way.
 
 Set the share to zero and this layout collapses exactly onto the pooled one over the same
 estate — which is the sanity check, and also the honest statement of what the rule costs. On the
