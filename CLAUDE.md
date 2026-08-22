@@ -1,7 +1,70 @@
 # Fast Track Chair Lab — working notes
 
-An interactive ED fast-track simulator for the Mary Bridge physician group. `index.html` is what
-they open; it is a **build product** and must never be hand-edited.
+## Start here — what this is
+
+Ted (`ted.kouo@gmail.com`) owns this. It is a **single-page simulator that a group of Mary Bridge
+Children's ED physicians open in a browser** to argue about how to lay out a fast-track lane:
+how many chairs, how many rooms, which patients it takes, what hours it runs. Live at
+<https://ted72782.github.io/ft-lab/>. Ted sends that link to physicians; they are the users.
+
+You build a **lane**, the page simulates thousands of evenings against service times measured
+from the department's own ESI 4/5 encounters, and you put it on a **shared leaderboard** so the
+group can compare. The score is **minutes of delay per ESI 4/5 patient arriving that day**, lower
+is better, and today's arrangement scores **50.0** — that is the number to beat. Crucially the
+score charges the lane for patients it *turns away* (wrong complaint, wrong hour) at the main
+department's rate, so narrowing the criteria cannot win by shrinking.
+
+**Nobody here is a software engineer.** Ted relays suggestions and corrections from physicians in
+their words. When he says something is wrong, it is usually a *clinical* fact about how triage
+actually works, not a bug report — and it usually changes what the model should do, not just the
+wording. Take those at face value and follow them through the model.
+
+### Who gets named
+
+- **Blake** — physician who proposed the bed-first model. "The Blake" is his, and the
+  bed-required exclusion list is his idea. He is the source for anything about that layout.
+- **Mike Long**, **Park** — other physicians with named presets ("The Mike Long Play", "The Park
+  Attack"). Just layout proposals; no ongoing thread.
+
+### Vocabulary Ted uses
+
+| he says | it means |
+|---|---|
+| the lab / the page / the link | `index.html`, live on GitHub Pages |
+| a lane | one configuration: mode + spaces + hours + criteria |
+| the board | the shared leaderboard, a Google Sheet behind an Apps Script web app |
+| the criteria / who it accepts | the chief-complaint on/off panel |
+| the exclusion list | the *separate* "must have a room" list, bed-first only |
+| the residual | the "plus this share of everyone else" slider under that list |
+| the extract | whoever pulls the ESI 4/5 data out of the source system |
+| the bar / changing nothing | today's arrangement, 50.0 min |
+
+## Where things stand (2026-08-22)
+
+Two days of work, all merged to `main` and live. In order:
+
+1. **A pre-release bug sweep** (`b85a4ab`). The page had no doctype (quirks mode) and no viewport
+   meta, so every mobile breakpoint in the CSS was dead and phones got the desktop grid scaled
+   down. A malformed `#` link threw before any handler was wired and killed the page. Board rows
+   could load as a different lane than was ranked. Both backends lost fields.
+2. **"The Blake"** (`8453778`) — a third layout mode, `bedfirst`. Not a preset: it is a routing
+   *rule* neither existing mode could express. A room is the default; chairs are overflow used
+   only once rooms are full; some patients cannot use a chair at all; nobody is moved once placed
+   (his anti-churn point). Finding: on the same ten spaces it scores ≈ pooled and well ahead of
+   the 6+4 split, so the rule is close to free — *while there are enough rooms*. It gets expensive
+   fast on a chair-heavy footprint.
+3. **The exclusion list** (`dc029d9`) — Blake's point is that the MD group signs off an *explicit*
+   list, so it is a tickable panel of complaints plus a residual slider, not a hidden number.
+4. **Four scope corrections from Ted**, each of which changed the model (`dda7ffd`, `a03ba12`,
+   `dc75524`, `0899983`): child abuse and mental health are outside the ESI 4/5 population; GU
+   concerns are recorded but hidden in an aggregate bucket; not speaking English belongs on the
+   list and is measurable.
+
+**What the score cannot say, and the page says so loudly:** Blake proposed bed-first for privacy,
+thoroughness behind a door, and fewer handoffs. None of that is in the model. It prices what the
+rule *costs* in minutes. Do not let the lab read as a verdict on his argument.
+
+---
 
 ## Build and check
 
@@ -11,9 +74,9 @@ node src/shim.js            # headless harness — replays the animation against
 node shared-board.test.js   # the Apps Script backend against a fake Google Sheet
 ```
 
-`src/build.py` writes both `index.html` and the test harness from the same source, so the harness
-always tests what ships. **Always rebuild before committing** — a stale `index.html` is the live
-page being out of date.
+`index.html` is a **build product — never hand-edit it.** `src/build.py` writes both it and the
+test harness from the same source, so the harness always tests what ships. **Always rebuild
+before committing** — a stale `index.html` is the live page being out of date.
 
 The harness prints `yes` / `ok` per check and `FAIL — …` otherwise; nothing exits non-zero, so
 read the output. There is no linter, no CI, no package.json.
@@ -55,7 +118,8 @@ These exist because each one was a real bug. Do not weaken them to make a change
   `serve_board.py`). Adding a control means adding a column *and* an allowed mode to both.
   Dot-joined id lists (`cc`, `bedcc`) are written to Sheets with a leading apostrophe — a Sheet
   parses `'0.10'` into the number `0.1` and eats a complaint id.
-- Comments here carry the *reason* and the failure that prompted it, marked `⚠`. Match that.
+- Comments carry the *reason* and the failure that prompted it, marked `⚠`. Match that. Commit
+  messages do the same: `git log` is the narrative record of why things are the way they are.
 
 ## Layouts
 
@@ -79,8 +143,10 @@ Retired modes `zone`/`rooms` survive only as legacy board rows and fall back to 
 
 **Questions out to the physicians**
 
-1. **The residual share** ("plus this share of everyone else") ships at **0%**, which the page
-   says outright is too low. Only triage can put the real number on it. Blake is the source.
+1. **The residual share** — the "plus this share of everyone else" slider under the exclusion
+   list, which stands for the reasons a patient needs a room that no chief complaint records.
+   Ships at **0%**, which the page says outright is too low. Only triage can put the real number
+   on it. Blake is the source.
 
 **Work needing data nobody here has**
 
@@ -95,16 +161,16 @@ Retired modes `zone`/`rooms` survive only as legacy board rows and fall back to 
    Note the model routes these patients to a room but still gives them an average visit, so it
    captures the space an interpreted encounter needs and not the extra time it plausibly takes.
 
-**Never verified from a sandbox**
+**Never verified from a sandbox** (the agent proxy denies both hosts, so these need Ted's laptop)
 
-4. **The baked-in shared board** (`DEFAULT_BOARD` in `src/app.js`) has never been reached — the
-   agent proxy denies `script.google.com`. If it is dead, every physician silently gets a private
-   board. Check the italic line in the leaderboard footer says *"shared board — everyone using
-   this link sees the same list"*.
+4. **The baked-in shared board** (`DEFAULT_BOARD` in `src/app.js`) has never been reached —
+   `script.google.com` is denied. If it is dead, every physician silently gets a private board.
+   Check the italic line in the leaderboard footer says *"shared board — everyone using this link
+   sees the same list"*.
 5. **The Apps Script deployment needs a new version pushed** (Deploy → Manage deployments → New
    version). The board schema changed twice on 2026-08-22 (`bedcc`, `bedExtra` replacing a
    short-lived `bedShare`). Until redeployed, Blake lanes save without their exclusion list.
-6. **The live page** at `https://ted72782.github.io/ft-lab/` — the proxy denies `*.github.io`
-   too, so it has only ever been verified from the built file and the repo contents.
+6. **The live page** — `*.github.io` is denied too, so it has only ever been verified from the
+   built file and the repo contents.
 7. **The engine-validation table** in `README.md` compares against a model that is not in this
    repo. It is labelled as a port-time record for that reason; do not "refresh" those numbers.
