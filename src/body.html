@@ -127,6 +127,44 @@
         evening window, but an overnight lane would see a different mix than this assumes.</div>
     </section>
 
+    <!-- Blake's exclusion list. Hidden in the layouts that have no chairs to be excluded from. -->
+    <section class="panel crit" id="bedPanel" hidden>
+      <div class="crit-h">
+        <div><div class="eyebrow">Must have a room &mdash; the exclusion list</div>
+          <div class="crit-sum" id="bedSum"></div></div>
+        <div class="crit-btns">
+          <button type="button" id="bedBlake" class="mini">Blake's list</button>
+          <button type="button" id="bedNone" class="mini">Clear</button>
+        </div>
+      </div>
+      <div class="crit-hint">Presentations that need a door for the initial evaluation, and so
+        wait for a room rather than take a chair. Tap a complaint to add or remove it. The three
+        ticked to start are the ones Blake named that a chief complaint can actually carry
+        &mdash; abdominal pain, rash, dysuria. <b>That is a starting point, not an answer:</b>
+        this is the list the MD group has to establish and sign off, and it is a clinical
+        judgement rather than anything the data can settle.</div>
+      <div class="crit-list" id="bedList"></div>
+      <div class="bed-extra">
+        <div class="eyebrow">And the part no chief complaint can capture</div>
+        <p>Blake's list names four more reasons a patient needs a door, and <b>none of them are a
+          chief complaint</b>, so no amount of ticking above will find them:</p>
+        <ul>
+          <li><b>A sensitive history</b> &mdash; taken in the open, it is not taken.</li>
+          <li><b>A mental-health presentation</b> &mdash; recorded under many complaints, and
+              often under none of the 24 above.</li>
+          <li><b>A child-abuse evaluation</b> &mdash; never the recorded reason for the visit.</li>
+          <li><b>A family who needs a door</b> &mdash; frightened, angry or simply at the end of
+              their patience. A triage judgement made in the moment and written down nowhere.</li>
+        </ul>
+        <p>They are real and they are not in the data, so the only honest thing the page can do is
+          ask you for the number. <b>It starts at zero, which is certainly too low.</b></p>
+        <div id="bedExtraCtl"></div>
+      </div>
+      <div class="crit-f">The two parts add up: the complaints you tick, plus this share of
+        everyone else the lane accepts. That total is what the simulation uses &mdash; it is shown
+        above the list, and it is the number worth arguing about.</div>
+    </section>
+
     <section class="panel board">
       <div class="board-h">
         <div><div class="eyebrow">Leaderboard</div>

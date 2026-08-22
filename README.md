@@ -116,10 +116,17 @@ Two things to know before reading its score.
 and fewer handoffs and forgotten tasks are the reasons to do this, and the page prices none of
 them. It measures what the rule *costs* in minutes, which is the question it can answer.
 
-**The bed-required share is a floor, not a measurement.** The default comes from the complaints
-the record can actually see. Mental health, child-abuse evaluations and "this family needs a door"
-are triage judgements that appear nowhere in the data, so the true share is higher by an amount
-only the people doing triage can name. It is a slider for that reason.
+**The exclusion list is a list, and it is yours to sign off.** Blake's second point is that the
+MD group establishes explicit chief-complaint exclusions, so the page carries them as a panel you
+tick rather than a number: every complaint is there, three come pre-ticked (abdominal pain, rash,
+dysuria — the ones he named that a chief complaint can carry), and the share the simulation uses
+is computed from their measured volumes.
+
+The other four reasons he gives — a sensitive history, a mental-health presentation, a
+child-abuse evaluation, a family who needs a door — **are not chief complaints and never will
+be**, so no amount of ticking finds them. They get a second control: *plus this share of everyone
+else*. It starts at zero, which is certainly too low, and the page says so. Only the people doing
+triage can put the real number on it.
 
 Set the share to zero and this layout collapses exactly onto the pooled one over the same
 estate — which is the sanity check, and also the honest statement of what the rule costs. On the

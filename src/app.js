@@ -195,7 +195,7 @@ function buildTrace(){
      to be listed here — a mode added to sim() and not to this line plays a DIFFERENT lane on
      screen from the one the cards describe, which is worse than showing no lane at all. */
   const base = {A:S.A, R:m.hasR?S.R:0, pooled:m.id==="pooled",
-                bedFirst:m.id==="bedfirst", bedShare:(S.bedShare||0)/100, assessMin:S.assess,
+                bedFirst:m.id==="bedfirst", bedShare:liveBedShare(), assessMin:S.assess,
                 fastDischarge:S.fastDischarge, shr:mx.shr, lam,
                 asw:scale(D.asw, f*mx.fa), now:scale(D.now, f*mx.fo), res:scale(D.res, f*mx.fr),
                 days:1, trace:true};
@@ -453,7 +453,12 @@ function evaluate(cfg, dayTotal){
                                byHour:hours.map(()=>0), diverted:0, divByHour:hours.map(()=>0),
                                arrived:0, seen:0, divPct:0}
     : sim({A:cfg.A, R:m.hasR?cfg.R:0, pooled:cfg.mode==="pooled",
-           bedFirst:cfg.mode==="bedfirst", bedShare:(cfg.bedShare ?? 0)/100,
+           bedFirst:cfg.mode==="bedfirst",
+           // a row saved during the brief flat-share build carries one number and no list
+           bedShare: cfg.bedcc === undefined && cfg.bedShare !== undefined
+             ? Math.min(1, Math.max(0, (+cfg.bedShare || 0) / 100))
+             : bedShareOf(keep, cfg.bedcc === undefined ? new Set(BED_IDS) : idSet(cfg.bedcc),
+                          cfg.bedExtra),
            assessMin:cfg.assess, fastDischarge:cfg.fastDischarge, shr:w("w"), lam,
            asw:scale(D.asw, f*w("a")/D.g.asw), now:scale(D.now, f*w("o")/D.g.now),
            res:scale(D.res, f*w("r")/D.g.res), days:cfg.days||600, seeds:cfg.seeds||[11,12,13,14]});
@@ -499,8 +504,24 @@ const MODES = [
    a slider for exactly that reason. Derived from the data rather than written down, so it moves
    with each cut instead of rotting. */
 const BED_CC = ["Abdominal Pain", "Rash", "Dysuria"];
-const BED_DEFAULT = Math.round(100 * D.cc.filter(x=>BED_CC.indexOf(x.n)>=0)
-                                         .reduce((a,x)=>a+x.s, 0));
+const BED_IDS = D.cc.map((x,i)=>i).filter(i => BED_CC.indexOf(D.cc[i].n) >= 0);
+let BEDPICK = new Set(BED_IDS);            // which complaints must have a room
+
+/* The share of the patients THIS LANE ACCEPTS who cannot be put in a chair. Two parts, because
+   the exclusion list has two kinds of entry: the ones a chief complaint can carry, whose volume
+   is measured, and the ones it cannot, which only a human can put a number on. They compose —
+   the extra applies to whoever is left after the ticked complaints are taken out.
+
+   Computed from a cfg rather than from live state, so a board row scores on ITS OWN list. */
+function bedShareOf(keep, bedKeep, extra){
+  const sel = CC.filter(x=>keep.has(x.i)), tot = sel.reduce((a,x)=>a+x.s, 0);
+  if(!tot) return 0;
+  const ccPart = sel.filter(x=>bedKeep.has(x.i)).reduce((a,x)=>a+x.s, 0) / tot;
+  return Math.min(1, ccPart + (1-ccPart) * (extra||0)/100);
+}
+const idSet = v => new Set(String(v).split(".").filter(x=>x!=="").map(Number));
+// the same figure for the lane on screen
+const liveBedShare = () => bedShareOf(PICK, BEDPICK, S.bedExtra);
 
 // Named layouts the group has put forward. Each is a full setting, not a hint.
 const PRESETS = [
@@ -516,7 +537,7 @@ const PRESETS = [
   /* Blake's proposal, on the SAME ten spaces as the 6+4 split and the 10 pooled, so the only
      thing that differs between the three is the rule for who goes where. */
   {id:"blake", n:"The Blake",
-   set:{mode:"bedfirst", A:6, R:4, bedShare:BED_DEFAULT},
+   set:{mode:"bedfirst", A:6, R:4},
    d:"6 rooms, 4 overflow chairs. A room is the default; chairs are used only once the rooms are full, and the bed-required list never goes vertical."},
   {id:"six", n:"Group consensus — 6, split",
    set:{mode:"split", A:4, R:2, budget:6},
@@ -536,7 +557,7 @@ const LEVELS = [
 // against it. The page reports how long people wait and how many are turned away; what counts
 // as acceptable is a judgement for the room, not a line in a chart.
 const S = {mode:"split", A:6, R:4, budget:0, cyc:Math.round(D.T_A), assess:44,
-           fastDischarge:false, level:1, bar:"today", start:15, len:8, bedShare:BED_DEFAULT};
+           fastDischarge:false, level:1, bar:"today", start:15, len:8, bedExtra:0};
 
 /* ⚠ EVERY NUMBER THAT REACHES THE ENGINE IS CLAMPED ON THE WAY IN. Two of them arrive from
    outside this page and neither can be trusted: the '#' link (people edit them, and chat
@@ -546,7 +567,7 @@ const S = {mode:"split", A:6, R:4, budget:0, cyc:Math.round(D.T_A), assess:44,
    RangeError, which happened before a single button was wired, so Add / Play / Copy link were
    all inert. Limits mirror the sliders, so a clamped link lands somewhere the UI can show. */
 const LIM = {A:[1,14], R:[1,16], cyc:[55,115], assess:[10,90], start:[0,23], len:[2,24],
-             bedShare:[0,60]};
+             bedExtra:[0,40]};
 function lim(k, v, dflt){
   const n = Math.round(+v);
   if(!Number.isFinite(n)) return dflt;
@@ -661,8 +682,9 @@ function drawSpeed(m){
   if(key === speedKey) return syncSpeed(m);
   speedKey = key;
   /* Bed-first holds one space for the whole visit, exactly as pooled does, so it gets the same
-     pace dial — plus the one control the proposal turns on: how many patients cannot be put in
-     a chair at all. There is no assessment-move control here, because nobody moves. */
+     pace dial. There is no assessment-move control, because nobody moves — and the one control
+     the proposal really turns on, who cannot use a chair, is a LIST rather than a number, so it
+     has its own panel further down beside the complaints it is built from. */
   if(m.id==="bedfirst"){
     host.innerHTML = `<div class="ctl"><div class="ctl-top">
         <label for="cyc">How fast a space turns over</label>
@@ -670,21 +692,8 @@ function drawSpeed(m){
       <input type="range" id="cyc" min="55" max="115" step="1" value="${S.cyc}">
       <div class="hint">Nobody is moved in this layout, so one space &mdash; room or chair &mdash;
         carries the whole visit, ${Math.round(D.hold_all)} min on average today. A pace, not a
-        duration.</div></div>
-      <div class="ctl"><div class="ctl-top">
-        <label for="bedsh">Must have a room</label>
-        <output class="num" id="bedshOut"></output></div>
-      <input type="range" id="bedsh" min="0" max="60" step="1" value="${S.bedShare}">
-      <div class="hint">The share of patients whose initial evaluation needs a door: a full-body
-        or sensitive-area exam, a sensitive history, a family that needs privacy. They queue for a
-        room and never take a chair. <b>${BED_DEFAULT}%</b> is what the chief-complaint field can
-        actually see (abdominal pain, rash, dysuria) &mdash; a floor, not an estimate. Mental
-        health, child-abuse evaluations and "this family needs a door" are triage judgements
-        nothing in the record marks, so the real number is higher by an amount only the group can
-        put a figure on. At <b>0%</b> this layout is exactly the pooled one over the same total
-        estate &mdash; the gap between them IS the cost of the rule.</div></div>`;
-    $("cyc").oninput   = e => { S.cyc = +e.target.value; syncSpeed(m); requestRun() };
-    $("bedsh").oninput = e => { S.bedShare = +e.target.value; syncSpeed(m); requestRun() };
+        duration. Who must have a room is set in <b>the exclusion list</b> below.</div></div>`;
+    $("cyc").oninput = e => { S.cyc = +e.target.value; syncSpeed(m); requestRun() };
     return syncSpeed(m);
   }
   if(m.id==="pooled"){
@@ -726,8 +735,6 @@ function syncSpeed(m){
     const o = $("cycOut");
     if(o) o.textContent = pct===0 ? "today's pace" : (pct>0 ? pct+"% faster" : (-pct)+"% slower");
     const c = $("cyc"); if(c && +c.value !== S.cyc) c.value = S.cyc;
-    const b = $("bedshOut"); if(b) b.textContent = S.bedShare + "% of patients";
-    const bs = $("bedsh"); if(bs && +bs.value !== S.bedShare) bs.value = S.bedShare;
     return;
   }
   if(m.id==="pooled"){
@@ -855,8 +862,11 @@ function sane(cfg){
   return {mode:m, A:lim("A",cfg.A,6), R:lim("R",cfg.R,4),
           cyc:lim("cyc",cfg.cyc,Math.round(D.T_A)), assess:lim("assess",cfg.assess,44),
           fastDischarge: cfg.fastDischarge===true,
-          // a row saved before bed-first existed has no share; it was not that layout anyway
-          bedShare: lim("bedShare", cfg.bedShare, BED_DEFAULT),
+          /* A row saved before bed-first existed has neither, and was not that layout anyway.
+             `bedcc` undefined means "Blake's list as the data can see it", which is what
+             evaluate() assumes for it too — the same contract cc has. */
+          bedcc: cfg.bedcc, bedExtra: lim("bedExtra", cfg.bedExtra, 0),
+          bedShare: cfg.bedcc === undefined ? cfg.bedShare : undefined,
           // entries saved before the window was adjustable ran the original 15:00-23:00 lane
           start:lim("start",cfg.start,15), len:lim("len",cfg.len,8), cc:cfg.cc};
 }
@@ -883,7 +893,7 @@ async function addEntry(){
   const who = ($("who").value||"").trim().slice(0,28);
   if(!who){ $("who").focus(); return }
   const cfg = {mode:S.mode, A:S.A, R:S.R, cyc:S.cyc, assess:S.assess, fastDischarge:S.fastDischarge,
-               bedShare:S.bedShare,
+               bedcc:[...BEDPICK].sort((a,b)=>a-b).join("."), bedExtra:S.bedExtra,
                cc:[...PICK].sort((a,b)=>a-b).join("."), start:S.start, len:S.len};
   const entry = {who, cfg, at: Date.now()};
   if(SHARED){
@@ -946,6 +956,12 @@ function drawBoard(){
     PICK = c.cc === undefined
          ? new Set(CC.map(x=>x.i))
          : new Set(String(c.cc).split(".").filter(v=>v!=="").map(Number));
+    /* ⚠ AND THE EXCLUSION LIST, for exactly the same reason — it lives in BEDPICK, not in S, so
+       Object.assign cannot carry it either. Without this the row came back scored on its own
+       list but DISPLAYING whichever list you happened to have, which is the same class of bug
+       the criteria had. Undefined means a row from before the list existed: Blake's default,
+       which is what evaluate() assumes for it too. */
+    BEDPICK = c.bedcc === undefined ? new Set(BED_IDS) : idSet(c.bedcc);
     drawModes(); drawSpaces(); drawWindow(); run();
   });
   $("boardNote").innerHTML = `Scored on ${LEVELS[S.level].n.toLowerCase()} — ${pts} patients. `
@@ -967,9 +983,11 @@ function hashState(){
   /* Field 10 is the criteria and field 11 the bed-required share. The share only rides along in
      the layout that has one, and an empty field 10 holds its place when nothing was narrowed —
      so a link from any other layout keeps the shape it has always had. */
-  const bs = S.mode==="bedfirst" ? String(S.bedShare) : "";
-  if(PICK.size < CC.length || bs) c.push(PICK.size < CC.length ? [...PICK].sort((x,y)=>x-y).join(".") : "");
-  if(bs) c.push(bs);
+  // fields 10-12: criteria, the bed-required list, the residual share. Only the layout that has
+  // an exclusion list carries one, and an empty field holds its place so older links still parse.
+  const bed = S.mode==="bedfirst";
+  if(PICK.size < CC.length || bed) c.push(PICK.size < CC.length ? [...PICK].sort((x,y)=>x-y).join(".") : "");
+  if(bed){ c.push([...BEDPICK].sort((x,y)=>x-y).join(".")); c.push(String(S.bedExtra)) }
   return c.join(",");
 }
 function toHash(){
@@ -994,7 +1012,8 @@ function fromHash(){
                     start: p.length>=9 ? lim("start",p[7],15) : 15,
                     len:   p.length>=9 ? lim("len",p[8],8)    : 8});
   if(p.length>=10 && p[9] !== "") PICK = new Set(p[9].split(".").filter(v=>v!=="").map(Number));
-  S.bedShare = p.length>=11 ? lim("bedShare", p[10], BED_DEFAULT) : BED_DEFAULT;
+  BEDPICK = p.length>=11 && p[10] !== "" ? idSet(p[10]) : new Set(BED_IDS);
+  S.bedExtra = p.length>=12 ? lim("bedExtra", p[11], 0) : 0;
 }
 
 /* ⚠ BUILT ONCE, THEN ONLY THE READOUTS CHANGE. These sliders sit next to the chart they drive,
@@ -1047,6 +1066,59 @@ function drawArrivals(E){
     <b class="num">${LEVELS[S.level].pts}</b> ESI 4/5 arrivals before criteria.`;
 }
 
+/* ⚠ BLAKE'S EXCLUSION LIST, AS A LIST. It was a hard-coded array of three complaints behind a
+   single "8%", which is precisely the thing his proposal says must NOT be implicit: the MD group
+   has to establish and sign off on explicit chief-complaint exclusions, and you cannot sign off
+   on a number. So the complaints are tickable, the four reasons no complaint can carry are
+   written out beside them, and the total the simulation actually uses is shown above both. */
+function drawBedList(){
+  const panel = $("bedPanel");
+  if(!panel) return;
+  const on = S.mode === "bedfirst";
+  panel.hidden = !on;
+  if(!on) return;
+
+  const fac = LEVELS[S.level].pts / D.day_mean;
+  const pts = winHours().reduce((a,h)=>a + D.lam24[h]*fac, 0);
+  const sel = CC.filter(x=>PICK.has(x.i)), tot = sel.reduce((a,x)=>a+x.s,0);
+
+  $("bedList").innerHTML = CC.map(x=>{
+    const isOn = BEDPICK.has(x.i), inLane = PICK.has(x.i);
+    return `<button type="button" class="cc${isOn?" on":""}" data-bed="${x.i}" aria-pressed="${isOn}">
+      <span class="cc-n">${x.n}</span>
+      <span class="cc-m">${inLane
+        ? `<b class="num">${(pts*x.s).toFixed(1)}</b> arrive while you are open`
+        : `<span class="dim">not accepted by this lane</span>`}</span></button>`;
+  }).join("");
+  $("bedList").querySelectorAll("[data-bed]").forEach(btn=>btn.onclick=()=>{
+    const i=+btn.dataset.bed; BEDPICK.has(i)?BEDPICK.delete(i):BEDPICK.add(i); run();
+  });
+
+  const ccPart = tot ? sel.filter(x=>BEDPICK.has(x.i)).reduce((a,x)=>a+x.s,0)/tot : 0;
+  const eff = liveBedShare();
+  $("bedSum").innerHTML = `<b class="num">${Math.round(100*eff)}%</b> of the patients this lane
+    accepts must have a room &mdash; <b class="num">${Math.round(100*ccPart)}%</b> from the
+    ${BEDPICK.size} complaint${BEDPICK.size===1?"":"s"} ticked below, plus
+    <b class="num">${S.bedExtra}%</b> of everyone else.
+    ${S.bedExtra===0 ? `<span class="dim">Nothing is allowed yet for the reasons no complaint can
+      carry, so this is a floor.</span>` : ``}`;
+
+  /* ⚠ built once, like every other slider on this page — rebuilding it inside its own oninput
+     replaces the element under the pointer and kills the drag after one step */
+  if(!$("bedx")){
+    $("bedExtraCtl").innerHTML = `<div class="ctl"><div class="ctl-top">
+        <label for="bedx">Plus this share of everyone else</label>
+        <output class="num" id="bedxOut"></output></div>
+      <input type="range" id="bedx" min="0" max="40" step="1" value="${S.bedExtra}"></div>`;
+    $("bedx").oninput = e => { S.bedExtra = +e.target.value; syncBed(); requestRun() };
+  }
+  syncBed();
+}
+function syncBed(){
+  const o=$("bedxOut"); if(o) o.textContent = S.bedExtra + "% of the rest";
+  const b=$("bedx"); if(b && +b.value !== S.bedExtra) b.value = S.bedExtra;
+}
+
 function drawCriteria(){
   const mx = mix();
   const fac = LEVELS[S.level].pts / D.day_mean;
@@ -1083,7 +1155,7 @@ function drawCriteria(){
    criteria list and the chart. A dragged slider fires far faster than that, so the events pile
    up and the handle stutters. Coalesce to at most one per animation frame: the readouts have
    already updated synchronously, so the slider stays glued to the pointer either way. */
-let lastCritKey = null, lastBoardKey = null;
+let lastCritKey = null, lastBoardKey = null, lastBedKey = null;
 let runQueued = false, runRaf = 0, runTimer = 0;
 function requestRun(){
   if(runQueued) return;
@@ -1107,7 +1179,7 @@ function requestRun(){
 function run(){
   const m=modeOf(), lvl=LEVELS[S.level];
   const cfg = {mode:S.mode, A:S.A, R:S.R, cyc:S.cyc, assess:S.assess, fastDischarge:S.fastDischarge,
-               bedShare:S.bedShare,
+               bedcc:[...BEDPICK].sort((a,b)=>a-b).join("."), bedExtra:S.bedExtra,
                cc:[...PICK].sort((a,b)=>a-b).join("."), start:S.start, len:S.len, bar:S.bar};
   const E = evaluate(cfg, lvl.pts), o = E.o;
   drawSpeed(m); drawWindow(); syncWindow();
@@ -1133,7 +1205,7 @@ function run(){
      rooms. Either can bind, so both are offered and the worse one is named. */
   const sides = [];
   if(m.id==="bedfirst"){
-    const hold = D.hold_all*fPace, br = (S.bedShare||0)/100;
+    const hold = D.hold_all*fPace, br = liveBedShare();
     sides.push({n:"estate", spaces:S.A+S.R, thing:"rooms and chairs together", coming: E.accepted,
                 load: E.accepted*hold/((S.A+S.R)*mins), cap: (S.A+S.R)*mins/hold});
     if(br > 0) sides.push({n:"rooms", spaces:S.A, coming: E.accepted*br,
@@ -1207,6 +1279,8 @@ function run(){
      move was most of the stutter. Keyed, so they run when they can actually differ. */
   const critKey = `${S.start}|${S.len}|${S.level}|${[...PICK].sort((x,y)=>x-y).join(".")}`;
   if(critKey !== lastCritKey){ lastCritKey = critKey; drawCriteria() }
+  const bedKey = `${S.mode}|${critKey}|${[...BEDPICK].sort((x,y)=>x-y).join(".")}|${S.bedExtra}`;
+  if(bedKey !== lastBedKey){ lastBedKey = bedKey; drawBedList() }
   const boardKey = `${S.level}|${S.bar}`;
   if(boardKey !== lastBoardKey){ lastBoardKey = boardKey; drawBoard() }
   // any change to the lane invalidates the recorded evening — a stage showing one layout while
@@ -1236,6 +1310,8 @@ function drawLevels(E){
 
 fromHash();
 drawPresets(); drawModes(); drawSpaces(); run();
+$("bedBlake").onclick = () => { BEDPICK = new Set(BED_IDS); run() };
+$("bedNone").onclick  = () => { BEDPICK = new Set(); run() };
 $("ccAll").onclick  = () => { PICK = new Set(CC.map(x=>x.i)); run() };
 $("ccNone").onclick = () => { PICK = new Set(); run() };
 $("ccLow").onclick  = () => { PICK = new Set(CC.filter(x=>x.w<=0.25).map(x=>x.i)); run() };

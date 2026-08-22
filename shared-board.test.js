@@ -39,10 +39,10 @@ doPost({postData:{contents:JSON.stringify({who:'Park',cfg:{mode:'split',A:3,R:2,
   fastDischarge:false,cc:'0.1.4',start:12,len:6},at:2500})}});
 // 3d. a bed-first lane: new mode, and bedShare must survive alongside everything else
 doPost({postData:{contents:JSON.stringify({who:'Blake',cfg:{mode:'bedfirst',A:6,R:4,cyc:76,assess:44,
-  fastDischarge:false,cc:'',start:15,len:8,bedShare:8},at:4000})}});
+  fastDischarge:false,cc:'',start:15,len:8,bedcc:'2.9.20',bedExtra:0},at:4000})}});
 // 3e. same bed-first lane at a DIFFERENT share — a different lane, must not replace it
 doPost({postData:{contents:JSON.stringify({who:'Blake',cfg:{mode:'bedfirst',A:6,R:4,cyc:76,assess:44,
-  fastDischarge:false,cc:'',start:15,len:8,bedShare:20},at:4001})}});
+  fastDischarge:false,cc:'',start:15,len:8,bedcc:'2.9.20',bedExtra:15},at:4001})}});
 // 4. exact repeat of #2 — must replace it
 doPost({postData:{contents:JSON.stringify({who:'Park',cfg:{mode:'split',A:3,R:2,cyc:76,assess:30,
   fastDischarge:true,cc:'0.1.4',start:12,len:6},at:2002})}});
@@ -65,9 +65,12 @@ const ten = out.find(e=>e.who==='Ten');
 console.log('numeric-looking cc kept whole :', ten && ten.cfg.cc==='0.10' ? 'yes' : 'FAIL got '+(ten&&ten.cfg.cc));
 const bf = out.filter(e=>e.who==='Blake');
 console.log('bed-first mode accepted       :', bf.length===2 ? 'yes' : 'FAIL got '+bf.length+' rows');
-console.log('bedShare survives round trip  :',
-  bf.some(e=>e.cfg.bedShare===8) && bf.some(e=>e.cfg.bedShare===20) ? 'yes'
-  : 'FAIL got '+bf.map(e=>e.cfg.bedShare).join(','));
-console.log('legacy row has no bedShare    :', legacy.cfg.bedShare===undefined ? 'yes' : 'FAIL');
+console.log('exclusion list round trips    :',
+  bf.every(e=>e.cfg.bedcc==='2.9.20') ? 'yes' : 'FAIL got '+bf.map(e=>e.cfg.bedcc).join('|'));
+console.log('residual share round trips    :',
+  bf.some(e=>e.cfg.bedExtra===0) && bf.some(e=>e.cfg.bedExtra===15) ? 'yes'
+  : 'FAIL got '+bf.map(e=>e.cfg.bedExtra).join(','));
+console.log('legacy row has no bed fields  :',
+  legacy.cfg.bedcc===undefined && legacy.cfg.bedExtra===undefined ? 'yes' : 'FAIL');
 const rej = doPost({postData:{contents:JSON.stringify({who:'X',cfg:{mode:'zone',A:2,R:8},at:1})}});
 console.log('retired mode rejected         :', String(rej).indexOf('error')>=0 ? 'yes' : 'FAIL got '+rej);

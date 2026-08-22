@@ -6,8 +6,8 @@
  * into the lab page. Nothing else to configure.
  *
  * The sheet becomes the board: one row per lane, columns who / mode / A / R / cyc / assess /
- * fastDischarge / at / cc / start / len / bedShare. Sort or annotate it freely — the page only
- * ever reads these columns.
+ * fastDischarge / at / cc / start / len / bedcc / bedExtra. Sort or annotate it freely — the
+ * page only ever reads these columns.
  *
  * ⚠ cc IS WRITTEN AS TEXT ON PURPOSE. A Sheet parses what it is handed: appendRow('0.10')
  * stores the NUMBER 0.1, and reading it back gives "0.1" — complaints {0,10} silently become
@@ -23,7 +23,7 @@
 
 var SHEET = 'board';
 var HEAD = ['who', 'mode', 'A', 'R', 'cyc', 'assess', 'fastDischarge', 'at',
-            'cc', 'start', 'len', 'bedShare'];
+            'cc', 'start', 'len', 'bedcc', 'bedExtra'];
 
 function sheet_() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -58,8 +58,10 @@ function read_() {
              cc: r[8] === '' || r[8] === undefined ? undefined : String(r[8]).replace(/^'/, ''),
              start: r[9] === '' || r[9] === undefined ? undefined : Number(r[9]),
              len: r[10] === '' || r[10] === undefined ? undefined : Number(r[10]),
-             // pre-bed-first rows have no share, and were not that layout: undefined, not 0
-             bedShare: r[11] === '' || r[11] === undefined ? undefined : Number(r[11]) },
+             // pre-bed-first rows have neither, and were not that layout: undefined, not 0.
+             // bedcc is a dot-joined id list and is written as text for the same reason cc is.
+             bedcc: r[11] === '' || r[11] === undefined ? undefined : String(r[11]).replace(/^'/, ''),
+             bedExtra: r[12] === '' || r[12] === undefined ? undefined : Number(r[12]) },
       at: Number(r[7]) || 0
     });
   }
@@ -96,8 +98,10 @@ function doPost(e) {
           String(rows[i][8] || '').replace(/^'/, '') === String(c.cc || '') &&
           Number(rows[i][9] === '' ? 15 : rows[i][9]) === Number(c.start === undefined ? 15 : c.start) &&
           Number(rows[i][10] === '' ? 8 : rows[i][10]) === Number(c.len === undefined ? 8 : c.len) &&
-          String(rows[i][11] === undefined ? '' : rows[i][11]) ===
-            String(c.bedShare === undefined || c.bedShare === null ? '' : c.bedShare)) {
+          String(rows[i][11] === undefined ? '' : rows[i][11]).replace(/^'/, '') ===
+            String(c.bedcc === undefined ? '' : c.bedcc) &&
+          String(rows[i][12] === undefined ? '' : rows[i][12]) ===
+            String(c.bedExtra === undefined || c.bedExtra === null ? '' : c.bedExtra)) {
         sh.deleteRow(i + 1);
       }
     }
@@ -107,8 +111,9 @@ function doPost(e) {
                   c.cc === undefined || c.cc === '' ? '' : "'" + String(c.cc),
                   c.start === undefined || c.start === null || c.start === '' ? 15 : Number(c.start),
                   c.len === undefined || c.len === null || c.len === '' ? 8 : Number(c.len),
-                  c.bedShare === undefined || c.bedShare === null || c.bedShare === '' ? ''
-                    : Number(c.bedShare)]);
+                  c.bedcc === undefined || c.bedcc === '' ? '' : "'" + String(c.bedcc),
+                  c.bedExtra === undefined || c.bedExtra === null || c.bedExtra === '' ? ''
+                    : Number(c.bedExtra)]);
     return json_(read_());
   } catch (err) {
     return json_({ error: String(err) });

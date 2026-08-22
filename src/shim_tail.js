@@ -83,24 +83,65 @@ setTimeout(()=>{
      supposed to be modelling, and the whole "what does the exclusion list cost" reading of the
      layout is void. Seed noise between two different RNG streams is the only gap allowed. */
   const cfgB = {cyc:76, assess:44, fastDischarge:false, start:15, len:8, bar:"today"};
-  const bf0 = evaluate({...cfgB, mode:"bedfirst", A:6, R:4, bedShare:0}, LEVELS[2].pts).score;
+  const bf0 = evaluate({...cfgB, mode:"bedfirst", A:6, R:4, bedcc:"", bedExtra:0}, LEVELS[2].pts).score;
   const pl  = evaluate({...cfgB, mode:"pooled",   A:10, R:0},             LEVELS[2].pts).score;
   console.log("bed-first at 0% == pooled   :", Math.abs(bf0-pl) < 0.5
               ? "yes ("+bf0.toFixed(1)+" vs "+pl.toFixed(1)+")"
               : "FAIL — "+bf0.toFixed(2)+" vs "+pl.toFixed(2));
-  const bfHi = evaluate({...cfgB, mode:"bedfirst", A:2, R:8, bedShare:25}, LEVELS[2].pts).score;
-  const bfLo = evaluate({...cfgB, mode:"bedfirst", A:8, R:2, bedShare:25}, LEVELS[2].pts).score;
+  const bfHi = evaluate({...cfgB, mode:"bedfirst", A:2, R:8, bedcc:"", bedExtra:25}, LEVELS[2].pts).score;
+  const bfLo = evaluate({...cfgB, mode:"bedfirst", A:8, R:2, bedcc:"", bedExtra:25}, LEVELS[2].pts).score;
   console.log("scarce rooms cost more      :", bfHi > bfLo + 1
               ? "yes (2rm "+bfHi.toFixed(1)+" vs 8rm "+bfLo.toFixed(1)+")"
               : "FAIL — 2rm "+bfHi.toFixed(1)+" vs 8rm "+bfLo.toFixed(1));
   /* The stage must replay the mode the numbers came from — a mode added to sim() but not to
      buildTrace() plays a different lane on screen from the one the cards describe. */
-  S.mode="bedfirst"; S.A=6; S.R=4; S.bedShare=25; run(); buildTrace();
+  S.mode="bedfirst"; S.A=6; S.R=4; S.bedExtra=25; run(); buildTrace();
   const bedStuck = PLAY.trace.filter(e=>e.ev==="stuck").length;
   const bedChair = PLAY.trace.filter(e=>e.ev==="second").length;
   console.log("stage runs the bed-first run:", bedStuck===0 && bedChair>0
               ? "yes (chairs used, nobody stuck)"
               : "FAIL — stuck="+bedStuck+" chair="+bedChair);
+  /* ⚠ THE LIST IS THE CONTROL NOW. Ticking a complaint must move the share, and the share the
+     panel reports must be the one the engine is handed — a list that renders but does not reach
+     sim() is worse than no list, because it looks vetted. */
+  /* ⚠ AND IT MUST SURVIVE ITS OWN LOAD BUTTON. BEDPICK lives outside S, so Object.assign cannot
+     carry it — the row came back SCORED on its own list and SHOWING whoever else's was loaded. */
+  S.bedExtra = 12; BEDPICK = new Set([0,4]);
+  const bedRow = {who:"bed", at: 77, cfg:{mode:"bedfirst", A:6, R:4, cyc:76, assess:44,
+    fastDischarge:false, cc:CC.map(x=>x.i).join("."), start:15, len:8,
+    bedcc:[...BEDPICK].sort((a,b)=>a-b).join("."), bedExtra:S.bedExtra}};
+  saveLocal([bedRow]); drawBoard();
+  const bedRowScore = scoreOf(bedRow.cfg, LEVELS[S.level].pts).score;
+  BEDPICK = new Set(); S.bedExtra = 0; S.mode = "split";       // wipe it, as a load would find it
+  const c2 = sane(bedRow.cfg);
+  Object.assign(S, c2);
+  PICK = c2.cc === undefined ? new Set(CC.map(x=>x.i)) : idSet(c2.cc);
+  BEDPICK = c2.bedcc === undefined ? new Set(BED_IDS) : idSet(c2.bedcc);   // mirrors the handler
+  run();
+  const bedBack = [...BEDPICK].sort((a,b)=>a-b).join(".");
+  console.log("load restores exclusion list:", bedBack==="0.4" && S.bedExtra===12
+      ? "yes" : "FAIL — list="+bedBack+" extra="+S.bedExtra);
+  const liveBed = evaluate({mode:S.mode, A:S.A, R:S.R, cyc:S.cyc, assess:S.assess,
+      fastDischarge:S.fastDischarge, cc:[...PICK].sort((a,b)=>a-b).join("."),
+      bedcc:[...BEDPICK].sort((a,b)=>a-b).join("."), bedExtra:S.bedExtra,
+      start:S.start, len:S.len, bar:S.bar}, LEVELS[S.level].pts).score;
+  console.log("loaded bed lane scores same :", Math.abs(liveBed-bedRowScore) < 1.5
+      ? "yes ("+liveBed.toFixed(1)+" vs "+bedRowScore.toFixed(1)+")"
+      : "FAIL — "+liveBed.toFixed(1)+" vs "+bedRowScore.toFixed(1));
+  saveLocal([]); BEDPICK = new Set(BED_IDS); S.bedExtra = 0; PICK = new Set(CC.map(x=>x.i)); BEDPICK = new Set(BED_IDS); run();
+  const withList = liveBedShare();
+  BEDPICK = new Set(); run();
+  const noList = liveBedShare();
+  BEDPICK = new Set(CC.map(x=>x.i)); run();
+  const allList = liveBedShare();
+  console.log("exclusion list drives share :",
+    noList===0 && withList>0 && withList<1 && Math.abs(allList-1)<1e-9
+      ? "yes (none 0% / Blake's "+(100*withList).toFixed(0)+"% / all 100%)"
+      : "FAIL — none="+noList+" blake="+withList+" all="+allList);
+  BEDPICK = new Set(BED_IDS); S.bedExtra = 50; run();
+  console.log("residual composes with list :", Math.abs(liveBedShare() - (withList + (1-withList)*0.5)) < 1e-9
+      ? "yes" : "FAIL — got "+liveBedShare());
+  S.bedExtra = 0;
 
   location.hash = ""; S.mode="split"; S.A=6; S.R=4; S.start=15; S.len=8; saveLocal([]);
 
